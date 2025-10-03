@@ -431,13 +431,44 @@ require_once __DIR__ . '/../includes/header.php';
                             </span>
                         </td>
                         <td><?= number_format($tile['total_stock_sqft'] ?? 0, 1) ?></td>
-                        <td class="col-cost">$<?= number_format($tile['avg_cost_per_box'] ?? 0, 2) ?></td>
+                        <td class="col-cost">₹<?= number_format($tile['avg_cost_per_box'] ?? 0, 2) ?></td>
                         <td class="col-cost">
-                            <?php if ($tile['min_cost_per_box'] && $tile['max_cost_per_box']): ?>
-                                $<?= number_format($tile['min_cost_per_box'], 2) ?> - 
-                                $<?= number_format($tile['max_cost_per_box'], 2) ?>
+                            <span class="fw-bold text-primary">₹<?= number_format($tile['avg_cost_per_box_with_transport'] ?? 0, 2) ?></span>
+                        </td>
+                        <td class="col-cost">₹<?= number_format($tile['total_boxes_cost'] ?? 0, 2) ?></td>
+                        <td class="col-sales">
+                            <?php if ($tile['total_sold_boxes_quotes'] > 0): ?>
+                                <span class="badge bg-warning"><?= number_format($tile['total_sold_boxes_quotes'], 1) ?></span>
                             <?php else: ?>
-                                <span class="text-muted">N/A</span>
+                                <span class="text-muted">0</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="col-sales">₹<?= number_format($tile['total_sold_cost_quotes'] ?? 0, 2) ?></td>
+                        <td class="col-sales">
+                            <?php 
+                            // Get invoices for this tile
+                            $invoice_stmt = $pdo->prepare("
+                                SELECT DISTINCT q.quote_no, q.id 
+                                FROM quotations q 
+                                JOIN quotation_items qi ON q.id = qi.quotation_id 
+                                WHERE qi.tile_id = ? 
+                                ORDER BY q.quote_dt DESC 
+                                LIMIT 3
+                            ");
+                            $invoice_stmt->execute([$tile['id']]);
+                            $invoices = $invoice_stmt->fetchAll(PDO::FETCH_ASSOC);
+                            
+                            if ($invoices): 
+                                foreach ($invoices as $invoice): ?>
+                                    <a href="quotation_view.php?id=<?= $invoice['id'] ?>" class="badge bg-success text-decoration-none me-1" target="_blank">
+                                        <?= h($invoice['quote_no']) ?>
+                                    </a>
+                                <?php endforeach;
+                                if (count($invoices) == 3): ?>
+                                    <small class="text-muted">+more</small>
+                                <?php endif;
+                            else: ?>
+                                <span class="text-muted">No sales</span>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -453,20 +484,20 @@ require_once __DIR__ . '/../includes/header.php';
                                      onclick="viewQR('<?= h($tile['qr_code_path']) ?>', '<?= h($tile['name']) ?>')">
                             <?php else: ?>
                                 <button type="button" class="btn btn-sm btn-outline-primary" 
-                                        onclick="generateQR(<?= $tile['id'] ?>)">
+                                        onclick="generateQR(<?= $tile['id'] ?>, '<?= h($tile['name']) ?>')">
                                     <i class="bi bi-qr-code"></i>
                                 </button>
                             <?php endif; ?>
                         </td>
                         <td class="col-actions">
                             <div class="btn-group btn-group-sm">
-                                <a href="tiles_purchase.php?tile_id=<?= $tile['id'] ?>" class="btn btn-success">
+                                <a href="tiles_purchase.php?tile_id=<?= $tile['id'] ?>" class="btn btn-success" title="Add Purchase">
                                     <i class="bi bi-plus-circle"></i>
                                 </a>
-                                <button type="button" class="btn btn-info" onclick="viewHistory(<?= $tile['id'] ?>)">
+                                <button type="button" class="btn btn-info" onclick="viewHistory(<?= $tile['id'] ?>)" title="View History">
                                     <i class="bi bi-clock-history"></i>
                                 </button>
-                                <a href="tiles.php#tile<?= $tile['id'] ?>" class="btn btn-warning">
+                                <a href="tiles.php#tile<?= $tile['id'] ?>" class="btn btn-warning" title="Edit Tile">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                             </div>
