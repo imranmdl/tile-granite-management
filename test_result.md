@@ -166,59 +166,53 @@ backend:
         -comment: "COMPLETED: Stock availability system fully functional: stock warnings when insufficient stock available, stock availability display for tiles and misc items, stock status indicators (available/warning), current stock integration from inventory system. Stock information displayed for both tiles and misc items."
 
 frontend:
-  - task: "Enhanced Tiles Inventory UI with Cost & Sales Data"
+  - task: "Image Display Toggle System"
     implemented: true
     working: true
-    file: "public/tiles_inventory.php"
+    file: "public/quotation_enhanced.php"
     stuck_count: 0
     priority: "completed"
     needs_retesting: false
     status_history:
-        -working: true
-        -agent: "main"
-        -comment: "COMPLETED: Enhanced tiles inventory with all requested features: 1) Cost/Box + Transport percentage calculations displayed (₹255.00 for ₹250 + 2% transport), 2) Total box cost column, 3) Sold boxes count from quotations, 4) Sold revenue tracking, 5) Clickable invoice links to quotation_view.php, 6) QR code modal popup with print/download options. Wide table (1800px) with horizontal scroll. All 54 tiles displayed with enhanced data."
-
-  - task: "Enhanced Other Inventory UI"
-    implemented: true
-    working: true
-    file: "public/other_inventory.php"
-    stuck_count: 0
-    priority: "completed"
-    needs_retesting: false
-    status_history:
-        -working: true
-        -agent: "main"
-        -comment: "Implemented enhanced other inventory with same UI features as tiles inventory but with green theme. Separate navigation menu, photo upload, QR code generation, search functionality."
         -working: true
         -agent: "testing"
-        -comment: "BACKEND TESTED: Enhanced Other Inventory UI fully functional. Successfully tested: enhanced table with inventory-table class, cost columns (Cost/Unit, Cost + Transport, Total Cost), sales data columns (Sold Quantity, Sold Revenue, Quote Links), QR code functionality, rupee currency display (₹). All enhanced features present and working correctly."
+        -comment: "COMPLETED: Image display toggle system fully functional: user preference for showing item images, image display in item selection dropdowns, show_image checkbox per line item, image persistence in quotation display. User preferences updated and reflected correctly."
 
-  - task: "Navigation Menu Updates"
+  - task: "Enhanced Quotation List UI"
     implemented: true
     working: true
-    file: "includes/header.php"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        -working: true
-        -agent: "main"
-        -comment: "Updated navigation to have separate 'Tiles Inventory' and 'Other Inventory' dropdown menus as requested. Each has dedicated pages for stock management and purchase entries."
-
-  - task: "Purchase Entry Forms UI"
-    implemented: true
-    working: true
-    file: "public/tiles_purchase.php, public/other_purchase.php"
+    file: "public/quotation_list_enhanced.php"
     stuck_count: 0
     priority: "completed"
     needs_retesting: false
     status_history:
         -working: true
-        -agent: "main"
-        -comment: "Created comprehensive purchase entry forms with live damage calculations, cost breakdowns, supplier tracking, invoice management, and purchase history views with summary statistics."
+        -agent: "testing"
+        -comment: "COMPLETED: Enhanced quotation list with all advanced features: single date picker (today's quotations), date range picker (from-to dates), customer name, firm name, GST number search, statistics cards (total, value, average), enhanced search and filtering. All enhanced list features present and search parameters preserved correctly."
+
+  - task: "Form Validation System"
+    implemented: true
+    working: true
+    file: "public/quotation_enhanced.php"
+    stuck_count: 0
+    priority: "completed"
+    needs_retesting: false
+    status_history:
         -working: true
         -agent: "testing"
-        -comment: "BACKEND TESTED: Purchase Entry Forms UI fully functional for both tiles and other items. Successfully tested: transport percentage fields (0-200% validation), live calculations display, damage percentage fields (0-100% validation), cost breakdown with rupee currency, form submission with realistic data. Created test purchase entries: Tile ID 54 (100 boxes, 5.5% damage, ₹250/box, 30% transport) and Item ID 4 (50 units, 2% damage, ₹15.50/unit, 25% transport). All enhanced purchase features working correctly."
+        -comment: "COMPLETED: Form validation system working perfectly: mandatory fields validation (customer name, mobile number), mobile number format validation (exactly 10 digits), calculation mode switching validation, stock availability warnings. Customer name and mobile number validation working correctly."
+
+  - task: "Integration and Advanced Features"
+    implemented: true
+    working: true
+    file: "public/quotation_enhanced.php, public/quotation_list_enhanced.php"
+    stuck_count: 0
+    priority: "completed"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: All integration and advanced features working: integration with inventory stock data, tile and misc item selection with stock info, quotation item creation with enhanced fields, quotation to invoice conversion functionality, export functionality for quotation lists, bulk operations capabilities, enhanced customer details display, created_by user tracking. Export and bulk operations available."
 
 metadata:
   created_by: "main_agent"
