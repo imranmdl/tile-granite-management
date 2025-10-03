@@ -403,7 +403,8 @@ require_once __DIR__ . '/../includes/header.php';
                         <th>Damage %</th>
                         <th>Usable Boxes</th>
                         <th>Cost/Box</th>
-                        <th>Transport</th>
+                        <th>Cost + Transport</th>
+                        <th>Transport %</th>
                         <th>Total Cost</th>
                         <th>Notes</th>
                     </tr>
