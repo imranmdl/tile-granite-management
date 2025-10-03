@@ -141,6 +141,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_invoice'])) {
     }
 }
 
+// Handle return processing
+if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_return'])) {
+    $item_id = (int)$_POST['item_id'];
+    $item_type = $_POST['item_type'];
+    $return_quantity = (float)$_POST['return_quantity'];
+    $refund_rate = (float)$_POST['refund_rate'];
+    $return_reason = trim($_POST['return_reason'] ?? '');
+    $return_notes = trim($_POST['return_notes'] ?? '');
+    $user_id = $_SESSION['user_id'] ?? 1;
+    
+    // Validate return is within 15 days
+    $stmt = $pdo->prepare("SELECT invoice_dt FROM invoices WHERE id = ?");
+    $stmt->execute([$id]);
+    $invoice_dt = $stmt->fetchColumn();
+    
+    if (strtotime($invoice_dt) < strtotime('-15 days')) {
+        $error = 'Return period has expired. Items can only be returned within 15 days of purchase.';
+    } elseif (!$return_reason) {
+        $error = 'Return reason is required';
+    } elseif ($return_quantity <= 0) {
+        $error = 'Return quantity must be greater than 0';
+    } else {
+        try {
+            // Get original item details
+            if ($item_type === 'tile') {
+                $stmt = $pdo->prepare("SELECT ii.*, t.id as tile_id FROM invoice_items ii JOIN tiles t ON ii.tile_id = t.id WHERE ii.id = ? AND ii.invoice_id = ?");
+            } else {
+                $stmt = $pdo->prepare("SELECT imi.*, m.id as misc_id FROM invoice_misc_items imi JOIN misc_items m ON imi.misc_item_id = m.id WHERE imi.id = ? AND imi.invoice_id = ?");
+            }
+            $stmt->execute([$item_id, $id]);
+            $original_item = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$original_item) {
+                $error = 'Original item not found';
+            } else {
+                $original_rate = $item_type === 'tile' ? $original_item['rate_per_box'] : $original_item['rate_per_unit'];
+                $refund_amount = $return_quantity * $refund_rate;
+                $actual_item_id = $item_type === 'tile' ? $original_item['tile_id'] : $original_item['misc_id'];
+                
+                // Insert return entry
+                $stmt = $pdo->prepare("
+                    INSERT INTO individual_returns 
+                    (invoice_id, invoice_item_id, invoice_misc_item_id, item_type, item_id, quantity_returned, 
+                     original_rate, refund_rate, refund_amount, return_reason, return_date, notes, processed_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), ?, ?)
+                ");
+                
+                $invoice_item_id = $item_type === 'tile' ? $item_id : null;
+                $invoice_misc_item_id = $item_type === 'misc' ? $item_id : null;
+                
+                if ($stmt->execute([$id, $invoice_item_id, $invoice_misc_item_id, $item_type, $actual_item_id, 
+                                   $return_quantity, $original_rate, $refund_rate, $refund_amount, 
+                                   $return_reason, $return_notes, $user_id])) {
+                    $message = 'Return processed successfully. Refund amount: ₹' . number_format($refund_amount, 2);
+                } else {
+                    $error = 'Failed to process return';
+                }
+            }
+        } catch (Exception $e) {
+            $error = 'Database error: ' . $e->getMessage();
+        }
+    }
+}
+
 // Handle discount application
 if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_discount'])) {
     $discount_type = $_POST['discount_type'] ?? 'percentage';
