@@ -277,12 +277,29 @@ $misc_items = $pdo->query("SELECT * FROM misc_items ORDER BY name")->fetchAll();
     <?php if (auth_is_admin()): ?>
     <div class="col-md-9">
       <form method="post" class="row g-2">
-        <div class="col-md-4"><input class="form-control" name="sales_user" value="<?= h($hdr['sales_user']) ?>" placeholder="Assign salesperson (username)"></div>
-        <div class="col-md-4"><input class="form-control" type="number" step="0.01" name="commission_percent" value="<?= ($hdr['commission_percent']===null?'':n2($hdr['commission_percent'])) ?>
-<?php $users = $pdo->query("SELECT id, username FROM users WHERE active=1 ORDER BY username")->fetchAll(); ?>
-<div class="form-text">Assign by user:</div>
-<select class="form-select" name="salesperson_user_id"><?php foreach($users as $u): ?><option value="<?=$u["id"]?>" <?= (isset($hdr["salesperson_user_id"]) && (int)$hdr["salesperson_user_id"]===(int)$u["id"])?"selected":"" ?>><?=htmlspecialchars($u["username"])?></option><?php endforeach; ?></select>" placeholder="Override % (optional)"></div>
-        <div class="col-md-4"><button class="btn btn-outline-light border" name="save_sales_meta">Save Sales/Commission</button></div>
+        <div class="col-md-3">
+          <label class="form-label">Salesperson Username</label>
+          <input class="form-control" name="sales_user" value="<?= h($hdr['sales_user']) ?>" placeholder="Assign salesperson (username)">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Commission %</label>
+          <input class="form-control" type="number" step="0.01" name="commission_percent" value="<?= ($hdr['commission_percent']===null?'':n2($hdr['commission_percent'])) ?>" placeholder="Override % (optional)">
+        </div>
+        <div class="col-md-3">
+          <?php $users = $pdo->query("SELECT id, username FROM users WHERE active=1 ORDER BY username")->fetchAll(); ?>
+          <label class="form-label">Assign by User ID</label>
+          <select class="form-select" name="salesperson_user_id">
+            <option value="">Select User</option>
+            <?php foreach($users as $u): ?>
+              <option value="<?=$u["id"]?>" <?= (isset($hdr["salesperson_user_id"]) && (int)$hdr["salesperson_user_id"]===(int)$u["id"])?"selected":"" ?>>
+                <?=htmlspecialchars($u["username"])?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button class="btn btn-outline-light border" name="save_sales_meta">Save Sales/Commission</button>
+        </div>
       </form>
     </div>
     <?php endif; ?>
