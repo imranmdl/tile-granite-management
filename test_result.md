@@ -150,11 +150,14 @@ backend:
     file: "public/other_purchase.php"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: true
         -agent: "main"
         -comment: "Implemented purchase entry system for misc items with same damage calculation features, cost tracking, and history management."
+        -working: true
+        -agent: "testing"
+        -comment: "BACKEND TESTED: All other items purchase entry functionality working correctly. Successfully tested: database schema validation, purchase entry creation with realistic data (item ID 4, 50 units, 2% damage, ₹15.50/unit), damage percentage validation, form validation for required fields and negative values, purchase history display. Backend functionality fully operational."
 
 frontend:
   - task: "Enhanced Tiles Inventory UI"
