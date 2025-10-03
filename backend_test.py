@@ -63,9 +63,16 @@ class PHPAuthenticationTester:
     def test_login_with_credentials(self, username, password, expected_success=True):
         """Test login with specific credentials"""
         try:
+            # Use fresh session for invalid login tests
+            if not expected_success:
+                test_session = requests.Session()
+                test_session.headers.update(self.session.headers)
+            else:
+                test_session = self.session
+                
             # First get the login page to establish session
             login_url = f"{self.base_url}/public/login_clean.php"
-            response = self.session.get(login_url)
+            response = test_session.get(login_url)
             
             # Submit login form
             login_data = {
