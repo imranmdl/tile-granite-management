@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Backend Test Suite for PHP-based Invoice System with Discount Functionality
-Tests the invoice system focusing on discount_amount field fixes, invoice creation,
-quotation to invoice conversion, discount application, and invoice display.
+Backend Test Suite for FastAPI-based System
+Tests the FastAPI backend system and verifies basic functionality.
 """
 
 import requests
@@ -10,22 +9,20 @@ import json
 import time
 from urllib.parse import urljoin, urlparse, parse_qs
 import re
-from bs4 import BeautifulSoup
 import sys
 import os
 from datetime import datetime
 
-class InvoiceSystemTester:
+class FastAPISystemTester:
     def __init__(self, base_url="https://tilecrm-app.preview.emergentagent.com"):
         self.base_url = base_url
+        self.api_url = f"{base_url}/api"
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'application/json'
         })
         self.test_results = []
-        self.authenticated = False
-        self.test_quotation_id = None
-        self.test_invoice_id = None
         
     def log_test(self, test_name, success, message="", details=""):
         """Log test results"""
