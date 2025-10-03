@@ -282,72 +282,80 @@ class InvoiceSystemTester:
             self.log_test("Quotation to Invoice Conversion", False, f"Error: {str(e)}")
             return False
 
-    def test_tiles_purchase_entry_submission(self):
-        """Test tiles purchase entry form submission with transport percentage"""
+    def test_discount_application(self):
+        """Test applying discounts to invoices"""
         if not self.authenticate():
             return False
             
+        # Ensure we have an invoice to test with
+        if not self.test_invoice_id:
+            if not self.test_invoice_creation():
+                self.log_test("Discount Application", False, "Cannot create test invoice for discount testing")
+                return False
+        
         try:
-            # First get the form page to get available tiles
-            url = f"{self.base_url}/public/tiles_purchase.php"
-            response = self.session.get(url)
+            # Test percentage discount application
+            url = f"{self.base_url}/public/invoice_enhanced.php?id={self.test_invoice_id}"
             
+            # First get the invoice page to see current state
+            response = self.session.get(url, timeout=10)
             if response.status_code != 200:
-                self.log_test("Tiles Purchase Entry Submission", False, "Cannot access purchase form")
+                self.log_test("Discount Application", False, f"Cannot access invoice {self.test_invoice_id}: HTTP {response.status_code}")
                 return False
             
-            soup = BeautifulSoup(response.text, 'html.parser')
-            tile_select = soup.find('select', {'name': 'tile_id'})
-            
-            if not tile_select:
-                self.log_test("Tiles Purchase Entry Submission", False, "No tile selection dropdown found")
+            # Check if discount section is present
+            if 'Apply Discount' not in response.text:
+                self.log_test("Discount Application", False, "Discount section not found on invoice page")
                 return False
             
-            # Get first available tile
-            tile_options = tile_select.find_all('option')
-            tile_id = None
-            for option in tile_options:
-                if option.get('value') and option.get('value') != '':
-                    tile_id = option.get('value')
-                    break
-            
-            if not tile_id:
-                self.log_test("Tiles Purchase Entry Submission", False, "No tiles available for testing")
-                return False
-            
-            # Submit purchase entry with realistic data
-            purchase_data = {
-                'add_purchase': '1',
-                'tile_id': tile_id,
-                'purchase_date': datetime.now().strftime('%Y-%m-%d'),
-                'supplier_name': 'Rajesh Tiles Supplier',
-                'invoice_number': f'INV-{int(time.time())}',
-                'total_boxes': '100',
-                'damage_percentage': '5.5',
-                'cost_per_box': '250.00',
-                'transport_percentage': '30',  # 30% transport
-                'transport_cost': '0',
-                'notes': 'Test purchase entry with transport percentage calculation'
+            # Apply a 10% discount
+            discount_data = {
+                'apply_discount': '1',
+                'discount_type': 'percentage',
+                'discount_value': '10'
             }
             
-            response = self.session.post(url, data=purchase_data)
+            response = self.session.post(url, data=discount_data, allow_redirects=True)
             
             if response.status_code == 200:
-                if "Purchase entry added successfully" in response.text:
-                    self.log_test("Tiles Purchase Entry Submission", True, f"Successfully created purchase entry for tile {tile_id}")
-                    return True
-                elif "required fields" in response.text.lower():
-                    self.log_test("Tiles Purchase Entry Submission", False, "Form validation error - missing required fields")
+                if 'Discount applied successfully' in response.text:
+                    self.log_test("Discount Application (Percentage)", True, "Successfully applied 10% discount")
+                    
+                    # Test fixed amount discount
+                    discount_data = {
+                        'apply_discount': '1',
+                        'discount_type': 'fixed',
+                        'discount_value': '500'
+                    }
+                    
+                    response = self.session.post(url, data=discount_data, allow_redirects=True)
+                    
+                    if response.status_code == 200:
+                        if 'Discount applied successfully' in response.text:
+                            self.log_test("Discount Application (Fixed)", True, "Successfully applied ₹500 fixed discount")
+                            return True
+                        elif 'undefined array key' in response.text.lower() and 'discount_amount' in response.text.lower():
+                            self.log_test("Discount Application (Fixed)", False, "Undefined array key 'discount_amount' error detected")
+                            return False
+                        else:
+                            self.log_test("Discount Application (Fixed)", False, "Fixed discount application failed")
+                            return False
+                    else:
+                        self.log_test("Discount Application (Fixed)", False, f"HTTP {response.status_code}")
+                        return False
+                        
+                elif 'undefined array key' in response.text.lower() and 'discount_amount' in response.text.lower():
+                    self.log_test("Discount Application (Percentage)", False, "Undefined array key 'discount_amount' error detected")
                     return False
                 else:
-                    self.log_test("Tiles Purchase Entry Submission", False, "No success message found", response.text[:500])
+                    self.log_test("Discount Application (Percentage)", False, "Percentage discount application failed")
                     return False
             else:
-                self.log_test("Tiles Purchase Entry Submission", False, f"HTTP {response.status_code}")
+                self.log_test("Discount Application (Percentage)", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Tiles Purchase Entry Submission", False, f"Error: {str(e)}")
+            self.log_test("Discount Application", False, f"Error: {str(e)}")
             return False
 
     def test_other_purchase_entry_submission(self):
