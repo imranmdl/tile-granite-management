@@ -6,3 +6,4 @@
 0006_quotation_discounts_commission.sql
 0007_commission_module.sql
 0008_users_auth.sql
+0009_commission_final_value.sql
