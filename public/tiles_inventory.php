@@ -9,6 +9,54 @@ $pdo = Database::pdo();
 $message = '';
 $error = '';
 
+// Handle tile editing
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_tile'])) {
+    $tile_id = (int)$_POST['tile_id'];
+    $tile_name = trim($_POST['tile_name']);
+    $size_id = (int)$_POST['size_id'];
+    $vendor_id = $_POST['vendor_id'] ? (int)$_POST['vendor_id'] : null;
+    
+    if ($tile_name && $size_id) {
+        try {
+            $stmt = $pdo->prepare("UPDATE tiles SET name = ?, size_id = ?, vendor_id = ? WHERE id = ?");
+            if ($stmt->execute([$tile_name, $size_id, $vendor_id, $tile_id])) {
+                $message = 'Tile updated successfully';
+            } else {
+                $error = 'Failed to update tile';
+            }
+        } catch (Exception $e) {
+            $error = 'Database error: ' . $e->getMessage();
+        }
+    } else {
+        $error = 'Please provide tile name and size';
+    }
+}
+
+// Handle tile deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_tile'])) {
+    $tile_id = (int)$_POST['tile_id'];
+    
+    try {
+        // Check if tile has purchase entries
+        $check_stmt = $pdo->prepare("SELECT COUNT(*) FROM purchase_entries_tiles WHERE tile_id = ?");
+        $check_stmt->execute([$tile_id]);
+        $purchase_count = $check_stmt->fetchColumn();
+        
+        if ($purchase_count > 0) {
+            $error = 'Cannot delete tile with existing purchase entries. Delete purchase entries first.';
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM tiles WHERE id = ?");
+            if ($stmt->execute([$tile_id])) {
+                $message = 'Tile deleted successfully';
+            } else {
+                $error = 'Failed to delete tile';
+            }
+        }
+    } catch (Exception $e) {
+        $error = 'Database error: ' . $e->getMessage();
+    }
+}
+
 // Handle photo upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_photo'])) {
     $tile_id = (int)$_POST['tile_id'];
