@@ -489,11 +489,19 @@ function updateCalculationDisplay() {
     const totalBoxes = parseFloat(document.querySelector('[name="total_boxes"]').value) || 0;
     const damagePercent = parseFloat(document.querySelector('[name="damage_percentage"]').value) || 0;
     const costPerBox = parseFloat(document.querySelector('[name="cost_per_box"]').value) || 0;
+    const transportPercent = parseFloat(document.querySelector('[name="transport_percentage"]').value) || 0;
     const transportCost = parseFloat(document.querySelector('[name="transport_cost"]').value) || 0;
     
     const usableBoxes = totalBoxes * (1 - damagePercent/100);
+    
+    // Calculate cost per box with transport
+    let costPerBoxWithTransport = costPerBox;
+    if (transportPercent > 0) {
+        costPerBoxWithTransport = costPerBox * (1 + transportPercent/100);
+    }
+    
     const totalMaterialCost = totalBoxes * costPerBox;
-    const grandTotal = totalMaterialCost + transportCost;
+    const totalCostWithTransport = totalBoxes * costPerBoxWithTransport + transportCost;
     
     let html = '';
     
@@ -511,23 +519,29 @@ function updateCalculationDisplay() {
     
     if (costPerBox > 0) {
         html += `<div class="calculation-result result-cost">
-            <i class="bi bi-currency-dollar"></i> Material Cost: $${totalMaterialCost.toFixed(2)}
+            <i class="bi bi-currency-dollar"></i> Base Cost: ₹${totalMaterialCost.toFixed(2)}
         </div>`;
+        
+        if (transportPercent > 0) {
+            html += `<div class="calculation-result result-cost">
+                <i class="bi bi-truck"></i> Cost + Transport (${transportPercent}%): ₹${costPerBoxWithTransport.toFixed(2)}/box
+            </div>`;
+        }
         
         if (transportCost > 0) {
             html += `<div class="calculation-result result-cost">
-                <i class="bi bi-truck"></i> + Transport: $${transportCost.toFixed(2)}
+                <i class="bi bi-plus-circle"></i> + Fixed Transport: ₹${transportCost.toFixed(2)}
             </div>`;
         }
         
         html += `<div class="calculation-result result-final">
-            <i class="bi bi-calculator"></i> Grand Total: $${grandTotal.toFixed(2)}
+            <i class="bi bi-calculator"></i> Total Cost: ₹${totalCostWithTransport.toFixed(2)}
         </div>`;
         
         if (usableBoxes > 0) {
-            const effectiveCostPerUsableBox = grandTotal / usableBoxes;
+            const effectiveCostPerUsableBox = totalCostWithTransport / usableBoxes;
             html += `<div class="text-info small mt-2">
-                <i class="bi bi-info-circle"></i> Effective cost per usable box: $${effectiveCostPerUsableBox.toFixed(2)}
+                <i class="bi bi-info-circle"></i> Effective cost per usable box: ₹${effectiveCostPerUsableBox.toFixed(2)}
             </div>`;
         }
     }
