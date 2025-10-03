@@ -128,6 +128,82 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_tile_i
     }
 }
 
+// Handle item deletion
+if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_item'])) {
+    $item_id = (int)$_POST['item_id'];
+    $item_type = $_POST['item_type'];
+    
+    try {
+        if ($item_type === 'tile') {
+            $stmt = $pdo->prepare("DELETE FROM quotation_items WHERE id = ? AND quotation_id = ?");
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM quotation_misc_items WHERE id = ? AND quotation_id = ?");
+        }
+        
+        if ($stmt->execute([$item_id, $id])) {
+            // Update quotation total
+            updateQuotationTotal($pdo, $id);
+            $message = 'Item deleted successfully';
+            safe_redirect('quotation_enhanced.php?id=' . $id);
+        } else {
+            $error = 'Failed to delete item';
+        }
+    } catch (Exception $e) {
+        $error = 'Database error: ' . $e->getMessage();
+    }
+}
+
+// Handle item update
+if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_item'])) {
+    $item_id = (int)$_POST['item_id'];
+    $item_type = $_POST['item_type'];
+    $new_quantity = (float)$_POST['new_quantity'];
+    $new_rate = (float)$_POST['new_rate'];
+    $new_line_total = $new_quantity * $new_rate;
+    
+    try {
+        if ($item_type === 'tile') {
+            $stmt = $pdo->prepare("
+                UPDATE quotation_items 
+                SET boxes_decimal = ?, rate_per_box = ?, line_total = ?
+                WHERE id = ? AND quotation_id = ?
+            ");
+            $stmt->execute([$new_quantity, $new_rate, $new_line_total, $item_id, $id]);
+        } else {
+            $stmt = $pdo->prepare("
+                UPDATE quotation_misc_items 
+                SET qty_units = ?, rate_per_unit = ?, line_total = ?
+                WHERE id = ? AND quotation_id = ?
+            ");
+            $stmt->execute([$new_quantity, $new_rate, $new_line_total, $item_id, $id]);
+        }
+        
+        // Update quotation total
+        updateQuotationTotal($pdo, $id);
+        $message = 'Item updated successfully';
+        safe_redirect('quotation_enhanced.php?id=' . $id);
+    } catch (Exception $e) {
+        $error = 'Database error: ' . $e->getMessage();
+    }
+}
+
+// Function to update quotation total
+function updateQuotationTotal($pdo, $quotation_id) {
+    $total_stmt = $pdo->prepare("
+        SELECT 
+            COALESCE(SUM(qi.line_total), 0) + COALESCE(SUM(qmi.line_total), 0) as total
+        FROM quotations q
+        LEFT JOIN quotation_items qi ON q.id = qi.quotation_id
+        LEFT JOIN quotation_misc_items qmi ON q.id = qmi.quotation_id
+        WHERE q.id = ?
+    ");
+    $total_stmt->execute([$quotation_id]);
+    $total = (float)$total_stmt->fetchColumn();
+    
+    $update_stmt = $pdo->prepare("UPDATE quotations SET total = ?, updated_at = datetime('now') WHERE id = ?");
+    $update_stmt->execute([$total, $quotation_id]);
+}
+
 // Handle misc item addition
 if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_misc_item'])) {
     $misc_item_id = (int)$_POST['misc_item_id'];
