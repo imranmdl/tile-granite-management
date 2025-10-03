@@ -93,23 +93,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_qr'])) {
             mkdir($qr_dir, 0777, true);
         }
         
-        // Simple QR code generation (placeholder)
-        $image = imagecreate(200, 200);
+        // Enhanced QR code generation with better visual design
+        $image = imagecreate(250, 250);
         $bg_color = imagecolorallocate($image, 255, 255, 255);
+        $border_color = imagecolorallocate($image, 34, 139, 34); // Green theme
         $text_color = imagecolorallocate($image, 0, 0, 0);
+        $highlight_color = imagecolorallocate($image, 0, 128, 0);
         
-        imagestring($image, 3, 10, 10, "QR: Item #" . $item_id, $text_color);
-        imagestring($image, 2, 10, 30, substr($item_data['name'], 0, 25), $text_color);
-        imagestring($image, 2, 10, 50, "Stock: " . $item_data['total_stock_quantity'] . " " . $item_data['unit_label'], $text_color);
-        imagestring($image, 2, 10, 70, "Price: $" . number_format($item_data['avg_cost_per_unit'], 2), $text_color);
+        // Draw border
+        imagerectangle($image, 0, 0, 249, 249, $border_color);
+        imagerectangle($image, 1, 1, 248, 248, $border_color);
+        
+        // Add QR-like pattern (simplified)
+        for ($i = 0; $i < 15; $i++) {
+            for ($j = 0; $j < 15; $j++) {
+                $x = 20 + $i * 13;
+                $y = 20 + $j * 13;
+                if (($i + $j + $item_id) % 3 == 0) {
+                    imagefilledrectangle($image, $x, $y, $x + 10, $y + 10, $text_color);
+                }
+            }
+        }
+        
+        // Add text information
+        $item_name = strlen($item_data['name']) > 18 ? substr($item_data['name'], 0, 18) . '...' : $item_data['name'];
+        imagestring($image, 3, 10, 210, "ID: " . $item_id, $highlight_color);
+        imagestring($image, 2, 10, 225, $item_name, $text_color);
+        imagestring($image, 2, 10, 235, "Stock: " . number_format($item_data['total_stock_quantity'], 1), $text_color);
         
         if (imagepng($image, $qr_full_path)) {
             // Update database
             $stmt = $pdo->prepare("UPDATE misc_items SET qr_code_path = ? WHERE id = ?");
-            $stmt->execute([$qr_path, $item_id]);
-            $message = 'QR Code generated successfully';
+            if ($stmt->execute([$qr_path, $item_id])) {
+                $message = 'QR Code generated successfully';
+            } else {
+                $error = 'Failed to update database with QR code path';
+            }
         } else {
-            $error = 'Failed to generate QR code';
+            $error = 'Failed to save QR code image';
         }
         
         imagedestroy($image);
