@@ -206,10 +206,10 @@ if ($search) {
     $params[] = "%$search%";
 }
 
-if ($vendor_filter > 0) {
+if ($vendor_filter && $vendor_filter !== '0') {
     $where_conditions[] = "t.vendor_id = ?";
-    $params[] = $vendor_filter;
-} elseif ($vendor_filter === 0) {
+    $params[] = (int)$vendor_filter;
+} elseif ($vendor_filter === '0') {
     $where_conditions[] = "t.vendor_id IS NULL";
 }
 
