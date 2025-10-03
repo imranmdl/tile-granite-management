@@ -120,46 +120,61 @@ class InvoiceSystemTester:
             self.log_test("Database Schema Verification", False, f"Error: {str(e)}")
             return False
 
-    def test_other_inventory_access(self):
-        """Test access to enhanced other inventory page"""
+    def test_invoice_creation(self):
+        """Test creating a new invoice"""
         if not self.authenticate():
             return False
             
         try:
-            url = f"{self.base_url}/public/other_inventory.php"
+            # First get the invoice creation form
+            url = f"{self.base_url}/public/invoice_enhanced.php"
             response = self.session.get(url, timeout=10)
             
+            if response.status_code != 200:
+                self.log_test("Invoice Creation", False, f"Cannot access invoice creation page: HTTP {response.status_code}")
+                return False
+            
+            # Submit invoice creation form with realistic data
+            invoice_data = {
+                'create_invoice': '1',
+                'invoice_dt': datetime.now().strftime('%Y-%m-%d'),
+                'customer_name': 'Rajesh Kumar',
+                'firm_name': 'Kumar Tiles & Ceramics',
+                'phone': '9876543210',
+                'customer_gst': '27ABCDE1234F1Z5',
+                'notes': 'Test invoice creation for discount functionality testing'
+            }
+            
+            response = self.session.post(url, data=invoice_data, allow_redirects=True)
+            
             if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Check for enhanced inventory features
-                has_enhanced_table = soup.find('table', class_='inventory-table') is not None
-                has_cost_columns = 'Cost/Unit' in response.text and 'Cost + Transport' in response.text
-                has_sales_data = 'Sold Quantity' in response.text and 'Sold Revenue' in response.text
-                has_qr_features = 'QR Code' in response.text
-                has_quote_links = 'Quote Links' in response.text
-                has_rupee_currency = '₹' in response.text
-                
-                if has_enhanced_table and has_cost_columns and has_sales_data and has_qr_features and has_quote_links and has_rupee_currency:
-                    self.log_test("Enhanced Other Inventory Access", True, "All enhanced features present with rupee currency")
+                # Check if we were redirected to an invoice edit page (successful creation)
+                if 'invoice_enhanced.php?id=' in response.url:
+                    # Extract invoice ID from URL
+                    import re
+                    match = re.search(r'id=(\d+)', response.url)
+                    if match:
+                        self.test_invoice_id = int(match.group(1))
+                        self.log_test("Invoice Creation", True, f"Successfully created invoice with ID: {self.test_invoice_id}")
+                        return True
+                    else:
+                        self.log_test("Invoice Creation", False, "Invoice created but could not extract ID")
+                        return False
+                elif "Invoice" in response.text and "created successfully" in response.text:
+                    self.log_test("Invoice Creation", True, "Invoice created successfully")
                     return True
+                elif "required" in response.text.lower():
+                    self.log_test("Invoice Creation", False, "Form validation error - missing required fields")
+                    return False
                 else:
-                    missing_features = []
-                    if not has_enhanced_table: missing_features.append("Enhanced table")
-                    if not has_cost_columns: missing_features.append("Cost columns")
-                    if not has_sales_data: missing_features.append("Sales data")
-                    if not has_qr_features: missing_features.append("QR features")
-                    if not has_quote_links: missing_features.append("Quote links")
-                    if not has_rupee_currency: missing_features.append("Rupee currency")
-                    
-                    self.log_test("Enhanced Other Inventory Access", False, f"Missing features: {', '.join(missing_features)}")
+                    self.log_test("Invoice Creation", False, "No success confirmation found", response.text[:500])
                     return False
             else:
-                self.log_test("Enhanced Other Inventory Access", False, f"HTTP {response.status_code}")
+                self.log_test("Invoice Creation", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Enhanced Other Inventory Access", False, f"Error: {str(e)}")
+            self.log_test("Invoice Creation", False, f"Error: {str(e)}")
             return False
 
     def test_tiles_purchase_entry_access(self):
