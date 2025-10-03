@@ -58,6 +58,7 @@ function auth_login($username, $password) {
             name TEXT,
             email TEXT,
             active INTEGER DEFAULT 1,
+            created_by INTEGER,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ");
