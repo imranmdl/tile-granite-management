@@ -526,31 +526,16 @@ function generateQR(itemId, itemName) {
     button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
     button.disabled = true;
     
-    // Generate QR code via AJAX
-    fetch(window.location.href, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `generate_qr=1&item_id=${itemId}`
-    })
-    .then(response => response.text())
-    .then(data => {
-        // Check if generation was successful
-        if (data.includes('QR Code generated successfully')) {
-            // Reload the page to get the new QR code path, then show modal
-            window.location.reload();
-        } else {
-            alert('Failed to generate QR code');
-            button.innerHTML = originalHtml;
-            button.disabled = false;
-        }
-    })
-    .catch(error => {
-        alert('Error generating QR code');
-        button.innerHTML = originalHtml;
-        button.disabled = false;
-    });
+    // Use form submission instead of AJAX for better compatibility
+    const form = document.getElementById('qrGenerationForm');
+    const itemIdInput = document.getElementById('qrItemId');
+    itemIdInput.value = itemId;
+    
+    // Store info for modal
+    window.qrGenerationInfo = { itemId, itemName };
+    
+    // Submit form
+    form.submit();
 }
 
 function viewQR(qrPath, itemName) {
