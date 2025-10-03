@@ -144,47 +144,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_qr'])) {
             mkdir($qr_dir, 0777, true);
         }
         
-        // Enhanced QR code generation with better visual design
-        $image = imagecreate(250, 250);
-        $bg_color = imagecolorallocate($image, 255, 255, 255);
-        $border_color = imagecolorallocate($image, 100, 100, 100);
-        $text_color = imagecolorallocate($image, 0, 0, 0);
-        $highlight_color = imagecolorallocate($image, 0, 100, 200);
+        // Create QR code using SVG (no GD extension required)
+        $svg_content = '<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="200" height="200" fill="white" stroke="#333" stroke-width="2"/>
+    <text x="10" y="20" font-family="Arial" font-size="12" font-weight="bold" fill="#0066cc">QR: Tile #' . $tile_id . '</text>
+    <text x="10" y="35" font-family="Arial" font-size="10" fill="black">' . htmlspecialchars(substr($tile_data['name'], 0, 25)) . '</text>
+    <text x="10" y="50" font-family="Arial" font-size="10" fill="black">Stock: ' . number_format($tile_data['total_stock_boxes'], 1) . ' boxes</text>
+    <text x="10" y="65" font-family="Arial" font-size="10" fill="black">Sq.Ft: ' . number_format($tile_data['total_stock_sqft'], 1) . '</text>
+    <text x="10" y="80" font-family="Arial" font-size="10" fill="black">Price: ₹' . number_format($tile_data['avg_cost_per_box'], 2) . '/box</text>
+    
+    <!-- Simple QR-like pattern -->
+    <g fill="black">';
         
-        // Draw border
-        imagerectangle($image, 0, 0, 249, 249, $border_color);
-        imagerectangle($image, 1, 1, 248, 248, $border_color);
-        
-        // Add QR-like pattern (simplified)
-        for ($i = 0; $i < 15; $i++) {
-            for ($j = 0; $j < 15; $j++) {
-                $x = 20 + $i * 13;
-                $y = 20 + $j * 13;
+        // Generate simple QR-like pattern
+        for ($i = 0; $i < 12; $i++) {
+            for ($j = 0; $j < 12; $j++) {
+                $x = 20 + $i * 12;
+                $y = 100 + $j * 8;
                 if (($i + $j + $tile_id) % 3 == 0) {
-                    imagefilledrectangle($image, $x, $y, $x + 10, $y + 10, $text_color);
+                    $svg_content .= '<rect x="' . $x . '" y="' . $y . '" width="10" height="6"/>';
                 }
             }
         }
         
-        // Add text information
-        $tile_name = strlen($tile_data['name']) > 20 ? substr($tile_data['name'], 0, 20) . '...' : $tile_data['name'];
-        imagestring($image, 3, 10, 210, "ID: " . $tile_id, $highlight_color);
-        imagestring($image, 2, 10, 225, $tile_name, $text_color);
-        imagestring($image, 2, 10, 235, "Stock: " . number_format($tile_data['total_stock_boxes'], 1), $text_color);
-        
-        if (imagepng($image, $qr_full_path)) {
-            // Update database
+        $svg_content .= '</g>
+    <text x="10" y="185" font-family="Arial" font-size="8" fill="#666">Scan for details</text>
+    <text x="10" y="195" font-family="Arial" font-size="8" fill="#666">Generated: ' . date('Y-m-d H:i') . '</text>
+</svg>';
+
+        // Save SVG file
+        if (file_put_contents($qr_full_path . '.svg', $svg_content)) {
+            // Update database with SVG path
             $stmt = $pdo->prepare("UPDATE tiles SET qr_code_path = ? WHERE id = ?");
-            if ($stmt->execute([$qr_path, $tile_id])) {
+            if ($stmt->execute([$qr_path . '.svg', $tile_id])) {
                 $message = 'QR Code generated successfully';
             } else {
                 $error = 'Failed to update database with QR code path';
             }
         } else {
-            $error = 'Failed to save QR code image';
+            $error = 'Failed to save QR code file';
         }
-        
-        imagedestroy($image);
     } else {
         $error = 'Tile not found';
     }
