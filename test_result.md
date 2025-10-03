@@ -135,11 +135,14 @@ backend:
     file: "public/tiles_purchase.php"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: true
         -agent: "main"
         -comment: "Implemented purchase entry system with damage calculations (simple percentage deduction), live cost calculations, purchase history tracking, supplier/invoice management."
+        -working: true
+        -agent: "testing"
+        -comment: "BACKEND TESTED: All purchase entry functionality working correctly. Successfully tested: database schema validation, purchase entry creation with realistic data (tile ID 54, 100 boxes, 5.5% damage, ₹250/box), damage percentage validation (0-100% range), form validation for required fields and negative values, purchase history display. All 11 backend tests passed with 100% success rate."
 
   - task: "Purchase Entry System - Other Items"
     implemented: true
