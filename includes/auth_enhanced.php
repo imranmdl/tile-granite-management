@@ -509,34 +509,46 @@ class AuthSystem {
     }
 }
 
-// Helper functions for backward compatibility
-function auth_require_login() {
-    if (!AuthSystem::isLoggedIn()) {
-        header('Location: /public/login_enhanced.php');
-        exit;
+// Helper functions for backward compatibility - only define if not already defined
+if (!function_exists('auth_require_login')) {
+    function auth_require_login() {
+        if (!AuthSystem::isLoggedIn()) {
+            header('Location: /public/login_enhanced.php');
+            exit;
+        }
     }
 }
 
-function auth_get_user() {
-    return AuthSystem::getCurrentUser();
+if (!function_exists('auth_get_user')) {
+    function auth_get_user() {
+        return AuthSystem::getCurrentUser();
+    }
 }
 
-function auth_has_permission($permission) {
-    return AuthSystem::hasPermission($permission);
+if (!function_exists('auth_has_permission')) {
+    function auth_has_permission($permission) {
+        return AuthSystem::hasPermission($permission);
+    }
 }
 
-function auth_is_admin() {
-    $user = AuthSystem::getCurrentUser();
-    return $user && $user['role'] === 'admin';
+if (!function_exists('auth_is_admin')) {
+    function auth_is_admin() {
+        $user = AuthSystem::getCurrentUser();
+        return $user && $user['role'] === 'admin';
+    }
 }
 
-function auth_username() {
-    $user = AuthSystem::getCurrentUser();
-    return $user ? $user['username'] : 'guest';
+if (!function_exists('auth_username')) {
+    function auth_username() {
+        $user = AuthSystem::getCurrentUser();
+        return $user ? $user['username'] : 'guest';
+    }
 }
 
-function auth_role() {
-    $user = AuthSystem::getCurrentUser();
-    return $user ? ucfirst($user['role']) : 'Guest';
+if (!function_exists('auth_role')) {
+    function auth_role() {
+        $user = AuthSystem::getCurrentUser();
+        return $user ? ucfirst($user['role']) : 'Guest';
+    }
 }
 ?>
