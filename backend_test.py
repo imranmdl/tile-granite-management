@@ -395,11 +395,11 @@ class CommissionReportingSystemTester:
 
 def main():
     """Main test execution"""
-    tester = FastAPISystemTester()
+    tester = CommissionReportingSystemTester()
     success = tester.run_all_tests()
     
     if success:
-        print("\n🎉 All tests passed! FastAPI Backend System is working correctly.")
+        print("\n🎉 All tests passed! Commission and Reporting System is working correctly.")
         sys.exit(0)
     else:
         print("\n⚠️  Some tests failed. Please review the issues above.")
