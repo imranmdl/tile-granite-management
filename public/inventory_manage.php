@@ -95,23 +95,64 @@ function available_boxes(PDO $pdo, int $tile_id): float {
 }
 
 /* ================= POST handlers ================= */
-// Save TILE row (keeps your simple availability warning)
+// Save TILE row with improved validation and error handling
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_inv_row'])){
   $id = Pid('row_id');
-  if ($id<=0) { header("Location: inventory_manage.php"); exit; }
+  if ($id<=0) { 
+    header("Location: inventory_manage.php?err=".urlencode("Invalid item ID")); 
+    exit; 
+  }
+
+  // Validate inputs
+  $boxes_in = Pn('boxes_in');
+  $damage = Pn('damage_boxes');
+  $per_box_value = Pn('per_box_value');
+  $per_sqft_value = Pn('per_sqft_value');
+  $transport_pct = Pn('transport_pct');
+  $transport_total = Pn('transport_total');
+  
+  // Enhanced validation
+  if ($boxes_in < 0) {
+    header("Location: inventory_manage.php?err=".urlencode("Boxes in cannot be negative")."#row$id");
+    exit;
+  }
+  
+  if ($damage < 0 || $damage > $boxes_in) {
+    header("Location: inventory_manage.php?err=".urlencode("Damage boxes must be between 0 and total boxes")."#row$id");
+    exit;
+  }
+  
+  if ($per_box_value < 0 || $per_sqft_value < 0) {
+    header("Location: inventory_manage.php?err=".urlencode("Values cannot be negative")."#row$id");
+    exit;
+  }
+  
+  if ($per_box_value == 0 && $per_sqft_value == 0) {
+    header("Location: inventory_manage.php?err=".urlencode("Either per box value or per sqft value must be provided")."#row$id");
+    exit;
+  }
 
   // find tile id to compute availability
   $tileIdStmt = $pdo->prepare("SELECT tile_id FROM inventory_items WHERE id=?");
   $tileIdStmt->execute([$id]);
   $tile_id = (int)$tileIdStmt->fetchColumn();
-  $avail   = available_boxes($pdo, $tile_id);
+  
+  if (!$tile_id) {
+    header("Location: inventory_manage.php?err=".urlencode("Inventory item not found")."#row$id");
+    exit;
+  }
+  
+  $avail = available_boxes($pdo, $tile_id);
+  $net = max(0,$boxes_in - $damage);
 
-  $boxes_in = Pn('boxes_in');
-  $damage   = Pn('damage_boxes');
-  $net      = max(0,$boxes_in - $damage);
-
-  if ($net > $avail && $avail > 0) {
-    header("Location: inventory_manage.php?err=".urlencode("Not Available: only $avail boxes left")."#row$id");
+  // Improved availability check - only warn if trying to add more than available
+  $current_item_stmt = $pdo->prepare("SELECT boxes_in - COALESCE(damage_boxes, 0) as current_net FROM inventory_items WHERE id=?");
+  $current_item_stmt->execute([$id]);
+  $current_net = (float)$current_item_stmt->fetchColumn();
+  
+  $net_change = $net - $current_net;
+  if ($net_change > $avail) {
+    header("Location: inventory_manage.php?err=".urlencode("Cannot add $net_change boxes. Only $avail boxes available")."#row$id");
     exit;
   }
 
@@ -120,20 +161,26 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_inv_row'])){
   $sets = []; $params = [':id'=>$id];
   if (col_exists($pdo,'inventory_items','vendor'))            { $sets[]='vendor=:vendor';                       $params[':vendor']            = (string)P('vendor',''); }
   if (col_exists($pdo,'inventory_items','purchase_dt'))       { $sets[]='purchase_dt=:purchase_dt';             $params[':purchase_dt']       = $purchase_dt; }
-  if (col_exists($pdo,'inventory_items','per_box_value'))     { $sets[]='per_box_value=:per_box_value';         $params[':per_box_value']     = Pn('per_box_value'); }
-  if (col_exists($pdo,'inventory_items','per_sqft_value'))    { $sets[]='per_sqft_value=:per_sqft_value';       $params[':per_sqft_value']    = Pn('per_sqft_value'); }
+  if (col_exists($pdo,'inventory_items','per_box_value'))     { $sets[]='per_box_value=:per_box_value';         $params[':per_box_value']     = $per_box_value; }
+  if (col_exists($pdo,'inventory_items','per_sqft_value'))    { $sets[]='per_sqft_value=:per_sqft_value';       $params[':per_sqft_value']    = $per_sqft_value; }
   if (col_exists($pdo,'inventory_items','boxes_in'))          { $sets[]='boxes_in=:boxes_in';                   $params[':boxes_in']          = $boxes_in; }
   if (col_exists($pdo,'inventory_items','damage_boxes'))      { $sets[]='damage_boxes=:damage_boxes';           $params[':damage_boxes']      = $damage; }
-  if (col_exists($pdo,'inventory_items','transport_pct'))     { $sets[]='transport_pct=:transport_pct';         $params[':transport_pct']     = Pn('transport_pct'); }
-  if (col_exists($pdo,'inventory_items','transport_total'))   { $sets[]='transport_total=:transport_total';     $params[':transport_total']   = Pn('transport_total'); }
+  if (col_exists($pdo,'inventory_items','transport_pct'))     { $sets[]='transport_pct=:transport_pct';         $params[':transport_pct']     = $transport_pct; }
+  if (col_exists($pdo,'inventory_items','transport_per_box')) { $sets[]='transport_per_box=:transport_per_box'; $params[':transport_per_box'] = Pn('transport_per_box'); }
+  if (col_exists($pdo,'inventory_items','transport_total'))   { $sets[]='transport_total=:transport_total';     $params[':transport_total']   = $transport_total; }
   if (col_exists($pdo,'inventory_items','notes'))             { $sets[]='notes=:notes';                         $params[':notes']             = (string)P('notes',''); }
 
   if ($sets) {
-    $sql = "UPDATE inventory_items SET ".implode(', ', $sets)." WHERE id=:id";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    try {
+      $sql = "UPDATE inventory_items SET ".implode(', ', $sets)." WHERE id=:id";
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute($params);
+      header("Location: inventory_manage.php?success=".urlencode("Item updated successfully")."#row$id"); 
+    } catch (Exception $e) {
+      header("Location: inventory_manage.php?err=".urlencode("Update failed: " . $e->getMessage())."#row$id");
+    }
   }
-  header("Location: inventory_manage.php#row$id"); exit;
+  exit;
 }
 
 // Delete TILE row
