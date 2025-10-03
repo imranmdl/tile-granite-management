@@ -32,7 +32,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_tile'])) {
     }
 }
 
-// Handle tile deletion
+// Handle stock adjustment
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['adjust_stock'])) {
+    $tile_id = (int)$_POST['tile_id'];
+    $new_stock = (float)$_POST['new_stock'];
+    $adjustment_reason = trim($_POST['adjustment_reason']);
+    $adjustment_notes = trim($_POST['adjustment_notes'] ?? '');
+    
+    if ($tile_id && $new_stock >= 0 && $adjustment_reason) {
+        try {
+            // Get current stock
+            $stock_stmt = $pdo->prepare("SELECT total_stock_boxes FROM current_tiles_stock WHERE id = ?");
+            $stock_stmt->execute([$tile_id]);
+            $current_stock = (float)($stock_stmt->fetchColumn() ?? 0);
+            
+            $adjustment_quantity = $new_stock - $current_stock;
+            
+            if ($adjustment_quantity != 0) {
+                // Create adjustment entry as a purchase entry with special supplier
+                $stmt = $pdo->prepare("
+                    INSERT INTO purchase_entries_tiles 
+                    (tile_id, purchase_date, supplier_name, invoice_number, total_boxes, 
+                     damage_percentage, cost_per_box, transport_cost, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                
+                $result = $stmt->execute([
+                    $tile_id,
+                    date('Y-m-d'),
+                    'STOCK_ADJUSTMENT',
+                    'ADJ_' . date('Ymd_His'),
+                    $adjustment_quantity,
+                    0, // no damage
+                    0, // no cost for adjustments
+                    0, // no transport
+                    "Stock adjustment: $adjustment_reason. " . ($adjustment_notes ? "Notes: $adjustment_notes" : "") . " (Previous: $current_stock, New: $new_stock)"
+                ]);
+                
+                if ($result) {
+                    $message = 'Stock adjusted successfully from ' . number_format($current_stock, 1) . ' to ' . number_format($new_stock, 1) . ' boxes';
+                } else {
+                    $error = 'Failed to create stock adjustment entry';
+                }
+            } else {
+                $error = 'New stock quantity is same as current stock';
+            }
+        } catch (Exception $e) {
+            $error = 'Database error: ' . $e->getMessage();
+        }
+    } else {
+        $error = 'Please provide valid stock quantity and adjustment reason';
+    }
+}
+
+// Handle tile deletion  
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_tile'])) {
     $tile_id = (int)$_POST['tile_id'];
     
