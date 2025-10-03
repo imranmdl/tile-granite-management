@@ -77,7 +77,7 @@ class EnhancedInventoryTester:
             self.log_test("Authentication Setup", False, f"Authentication error: {str(e)}")
             return False
     
-    def test_login_with_credentials(self, username, password, expected_success=True):
+    def test_tiles_inventory_access(self):
         """Test login with specific credentials"""
         try:
             # Use fresh session for invalid login tests
