@@ -150,12 +150,14 @@ if ($size_filter) {
 
 $where_clause = $where_conditions ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-// Get tiles data with stock information
+// Get tiles data with enhanced stock and sales information
 $tiles_query = "
     SELECT t.id, t.name, t.size_id, ts.label as size_label, ts.sqft_per_box,
            t.vendor_id, v.name as vendor_name, t.photo_path, t.qr_code_path,
-           cts.total_stock_boxes, cts.total_stock_sqft, cts.avg_cost_per_box,
-           cts.min_cost_per_box, cts.max_cost_per_box, cts.purchase_count
+           cts.total_stock_boxes, cts.total_stock_sqft, 
+           cts.avg_cost_per_box, cts.avg_cost_per_box_with_transport, cts.total_boxes_cost,
+           cts.total_sold_boxes_quotes, cts.total_sold_cost_quotes,
+           cts.purchase_count
     FROM tiles t
     JOIN tile_sizes ts ON t.size_id = ts.id
     LEFT JOIN vendors v ON t.vendor_id = v.id
