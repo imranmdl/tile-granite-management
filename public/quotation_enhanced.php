@@ -492,6 +492,14 @@ require_once __DIR__ . '/../includes/header.php';
     border: 1px solid #dee2e6;
 }
 
+.commission-section {
+    background: #e8f5e8;
+    border: 1px solid #4caf50;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
 .discount-section {
     background: #fff8e1;
     border: 1px solid #ffcc02;
