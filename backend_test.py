@@ -23,6 +23,7 @@ class EnhancedInventoryTester:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         self.test_results = []
+        self.authenticated = False
         
     def log_test(self, test_name, success, message="", details=""):
         """Log test results"""
