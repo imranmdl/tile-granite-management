@@ -29,6 +29,7 @@ class CommissionReportingSystemTester:
         self.mongo_url = "mongodb://localhost:27017"
         self.db_name = "test_database"
         self.db_path = '/app/data/app.sqlite'  # SQLite database for PHP system
+        self.authenticated = False
         
     def log_test(self, test_name, success, message="", details=""):
         """Log test results"""
