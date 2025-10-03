@@ -183,12 +183,34 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_inv_row'])){
   exit;
 }
 
-// Delete TILE row
+// Delete TILE row with usage validation
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['del_inv_row'])){
-  $id = Pid('row_id'); if ($id>0){
-    $pdo->prepare("DELETE FROM inventory_items WHERE id=?")->execute([$id]);
+  $id = Pid('row_id'); 
+  if ($id > 0) {
+    // Check if this inventory item's tile has been used in any invoices
+    $usage_check = $pdo->prepare("
+      SELECT COUNT(*) FROM invoice_items ii 
+      JOIN inventory_items inv ON inv.tile_id = ii.tile_id 
+      WHERE inv.id = ?
+    ");
+    $usage_check->execute([$id]);
+    $usage_count = (int)$usage_check->fetchColumn();
+    
+    if ($usage_count > 0) {
+      header("Location: inventory_manage.php?err=".urlencode("Cannot delete: This item's tile is referenced in $usage_count invoice(s)"));
+      exit;
+    }
+    
+    try {
+      $pdo->prepare("DELETE FROM inventory_items WHERE id=?")->execute([$id]);
+      header("Location: inventory_manage.php?success=".urlencode("Item deleted successfully"));
+    } catch (Exception $e) {
+      header("Location: inventory_manage.php?err=".urlencode("Delete failed: " . $e->getMessage()));
+    }
+  } else {
+    header("Location: inventory_manage.php?err=".urlencode("Invalid item ID"));
   }
-  header("Location: inventory_manage.php"); exit;
+  exit;
 }
 
 /* ================= Fetch data ================= */
