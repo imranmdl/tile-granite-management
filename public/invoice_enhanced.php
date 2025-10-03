@@ -502,10 +502,10 @@ require_once __DIR__ . '/../includes/header.php';
                 <strong>Subtotal:</strong><br>
                 <span class="fs-5">₹<?= number_format($invoice['total'], 2) ?></span>
             </div>
-            <?php if ($invoice['discount_amount'] > 0): ?>
+            <?php if (($invoice['discount_amount'] ?? 0) > 0): ?>
             <div class="col-md-3">
                 <strong>Discount:</strong><br>
-                <span class="fs-5 text-warning">-₹<?= number_format($invoice['discount_amount'], 2) ?></span>
+                <span class="fs-5 text-warning">-₹<?= number_format($invoice['discount_amount'] ?? 0, 2) ?></span>
             </div>
             <?php endif; ?>
             <?php if (!empty($invoice_returns)): ?>
