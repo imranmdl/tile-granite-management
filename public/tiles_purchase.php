@@ -420,9 +420,16 @@ require_once __DIR__ . '/../includes/header.php';
                             <td class="fw-bold text-success">
                                 <?= number_format($entry['calculated_usable_boxes'], 1) ?>
                             </td>
-                            <td>$<?= number_format($entry['cost_per_box'], 2) ?></td>
-                            <td>$<?= number_format($entry['transport_cost'], 2) ?></td>
-                            <td class="fw-bold">$<?= number_format($entry['calculated_total_cost'], 2) ?></td>
+                            <td>₹<?= number_format($entry['cost_per_box'], 2) ?></td>
+                            <td class="fw-bold text-primary">₹<?= number_format($entry['cost_per_box_with_transport'], 2) ?></td>
+                            <td>
+                                <?php if ($entry['transport_percentage'] > 0): ?>
+                                    <?= number_format($entry['transport_percentage'], 1) ?>%
+                                <?php else: ?>
+                                    ₹<?= number_format($entry['transport_cost'], 2) ?>
+                                <?php endif; ?>
+                            </td>
+                            <td class="fw-bold">₹<?= number_format($entry['calculated_total_cost'], 2) ?></td>
                             <td>
                                 <?php if ($entry['notes']): ?>
                                     <span class="text-truncate d-inline-block" style="max-width: 150px;" 
