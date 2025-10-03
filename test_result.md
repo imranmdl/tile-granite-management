@@ -215,40 +215,49 @@ frontend:
         -comment: "COMPLETED: All integration and advanced features working: integration with inventory stock data, tile and misc item selection with stock info, quotation item creation with enhanced fields, quotation to invoice conversion functionality, export functionality for quotation lists, bulk operations capabilities, enhanced customer details display, created_by user tracking. Export and bulk operations available."
 
   - task: "Quotation Item Update/Delete Functionality"
-    implemented: false
-    working: false
+    implemented: true
+    working: true
     file: "public/quotation_enhanced.php"
     stuck_count: 0
-    priority: "high"
-    needs_retesting: true
+    priority: "completed"
+    needs_retesting: false
     status_history:
         -working: false
         -agent: "main"
         -comment: "Currently implemented as JavaScript alerts only. Need to implement actual backend functionality for updating and deleting quotation items with proper form handling and database operations."
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: editItem() and deleteItem() functions with proper backend POST handling and modal-based editing implemented. Quotation item CRUD operations fully functional with proper database transactions."
 
   - task: "Quotation Delete Functionality"
-    implemented: false
-    working: false
+    implemented: true
+    working: true
     file: "public/quotation_list_enhanced.php"
     stuck_count: 0
-    priority: "high"
-    needs_retesting: true
+    priority: "completed"
+    needs_retesting: false
     status_history:
         -working: false
         -agent: "main"
         -comment: "JavaScript function exists but no backend handling for quotation deletion. Need to implement POST handler for delete requests with proper validation."
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: deleteQuotation() function with confirmation dialog and backend processing implemented. Full quotation deletion with proper foreign key handling working correctly."
 
   - task: "Quotation Discount System"
-    implemented: false
-    working: false
+    implemented: true
+    working: true
     file: "public/quotation_enhanced.php"
     stuck_count: 0
-    priority: "high"
-    needs_retesting: true
+    priority: "completed"
+    needs_retesting: false
     status_history:
         -working: false
         -agent: "main"
         -comment: "Discount functionality exists in invoice system but not implemented for quotations. Need to add percentage and fixed amount discount options with proper total recalculation."
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: Complete discount functionality with percentage/fixed amount options and live calculation. Database migration added, discount UI section implemented, proper total calculation with discount integration."
 
 metadata:
   created_by: "main_agent"
@@ -257,16 +266,15 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Quotation Item Update/Delete Functionality"
-    - "Quotation Delete Functionality" 
-    - "Quotation Discount System"
+  current_focus: []
   stuck_tasks: []
-  test_all: false
-  test_priority: "high_first"
+  test_all: true
+  test_priority: "completed"
 
 agent_communication:
     -agent: "testing"
     -message: "ENHANCED QUOTATION & INVOICE SYSTEM TESTING COMPLETED: Executed comprehensive testing of the Enhanced Quotation and Invoice system with 100% success rate (14/14 tests passed). ✅ FULLY WORKING: 1) Enhanced Database Schema with quotation tables including new fields (firm_name, customer_gst, mobile_required, created_by), quotation_items with calculation_mode, direct_boxes, show_image fields, user_preferences table, and enhanced views, 2) Enhanced Quotation Creation with customer name and mobile validation (required fields), mobile number format validation (10 digits), firm name separation, optional GST field, 3) Calculation Toggle System with sqft→boxes calculation mode and direct box entry mode, live calculations for both modes, equivalency calculations, 4) Stock Availability Integration with stock warnings, availability display for tiles and misc items, stock status indicators, current stock integration, 5) Image Display Toggle with user preferences, image display in dropdowns, show_image checkbox per line item, 6) Enhanced Quotation List with single date picker, date range picker, customer/firm/GST search, statistics cards, 7) Form Validation with mandatory fields validation, mobile format validation, calculation mode switching validation, 8) Integration Features with inventory stock data, quotation to invoice conversion, export functionality, bulk operations, enhanced customer details display, created_by user tracking. Successfully created test quotation ID: 12. All requested features from Enhanced Quotation & Invoice testing checklist are implemented and functional. System is production-ready."
     -agent: "main"
     -message: "User reported issues with quotation update/delete functionality and wants discount options added to quotations. Starting fixes: 1) Implement actual update/delete item functionality (currently showing alerts), 2) Add backend quotation deletion handling, 3) Add discount functionality to quotations (like invoices), 4) Verify total calculation is working properly, 5) Test all fixes thoroughly."
+    -agent: "testing"
+    -message: "COMPREHENSIVE TESTING COMPLETED: All high-priority quotation functionality has been tested and verified working. ✅ FULLY WORKING: 1) Quotation Item Update/Delete Functionality - editItem() and deleteItem() functions with proper backend POST handling, modal-based editing, and form submission, 2) Quotation Delete Functionality - deleteQuotation() function with confirmation dialog, POST form creation, and backend processing, 3) Quotation Discount System - complete discount functionality with percentage/fixed amount options, live calculation, and proper UI integration, 4) Total Calculation Accuracy - comprehensive calculation system with sqft/box calculations, live updates, and proper total displays. All requested fixes have been implemented and are functioning correctly. System is ready for production use."

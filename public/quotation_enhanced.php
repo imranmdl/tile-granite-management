@@ -187,6 +187,49 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_ite
     }
 }
 
+// Handle discount application
+if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_discount'])) {
+    $discount_type = $_POST['discount_type'] ?? 'percentage';
+    $discount_value = (float)$_POST['discount_value'];
+    
+    // Get current quotation total
+    $total_stmt = $pdo->prepare("
+        SELECT 
+            COALESCE(SUM(qi.line_total), 0) + COALESCE(SUM(qmi.line_total), 0) as subtotal
+        FROM quotations q
+        LEFT JOIN quotation_items qi ON q.id = qi.quotation_id
+        LEFT JOIN quotation_misc_items qmi ON q.id = qmi.quotation_id
+        WHERE q.id = ?
+    ");
+    $total_stmt->execute([$id]);
+    $subtotal = (float)$total_stmt->fetchColumn();
+    
+    if ($discount_type === 'percentage') {
+        $discount_amount = $subtotal * ($discount_value / 100);
+    } else {
+        $discount_amount = $discount_value;
+    }
+    
+    $final_total = $subtotal - $discount_amount;
+    
+    // Update quotation with discount
+    $stmt = $pdo->prepare("
+        UPDATE quotations 
+        SET total = ?, discount_type = ?, discount_value = ?, discount_amount = ?, final_total = ?, updated_at = datetime('now')
+        WHERE id = ?
+    ");
+    
+    if ($stmt->execute([$subtotal, $discount_type, $discount_value, $discount_amount, $final_total, $id])) {
+        $message = 'Discount applied successfully';
+        // Refresh quotation data
+        $stmt = $pdo->prepare("SELECT * FROM quotations WHERE id = ?");
+        $stmt->execute([$id]);
+        $quotation = $stmt->fetch(PDO::FETCH_ASSOC);
+    } else {
+        $error = 'Failed to apply discount';
+    }
+}
+
 // Function to update quotation total
 function updateQuotationTotal($pdo, $quotation_id) {
     $total_stmt = $pdo->prepare("
@@ -200,8 +243,62 @@ function updateQuotationTotal($pdo, $quotation_id) {
     $total_stmt->execute([$quotation_id]);
     $total = (float)$total_stmt->fetchColumn();
     
-    $update_stmt = $pdo->prepare("UPDATE quotations SET total = ?, updated_at = datetime('now') WHERE id = ?");
-    $update_stmt->execute([$total, $quotation_id]);
+    // Get current discount info
+    $discount_stmt = $pdo->prepare("SELECT discount_type, discount_value, discount_amount FROM quotations WHERE id = ?");
+    $discount_stmt->execute([$quotation_id]);
+    $discount_info = $discount_stmt->fetch(PDO::FETCH_ASSOC);
+    
+    $discount_amount = 0;
+    if ($discount_info && $discount_info['discount_value'] > 0) {
+        if ($discount_info['discount_type'] === 'percentage') {
+            $discount_amount = $total * ($discount_info['discount_value'] / 100);
+        } else {
+            $discount_amount = (float)$discount_info['discount_value'];
+        }
+    }
+    
+    $final_total = $total - $discount_amount;
+    
+    $update_stmt = $pdo->prepare("UPDATE quotations SET total = ?, discount_amount = ?, final_total = ?, updated_at = datetime('now') WHERE id = ?");
+    $update_stmt->execute([$total, $discount_amount, $final_total, $quotation_id]);
+}
+
+// Handle discount application
+if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_discount'])) {
+    $discount_type = $_POST['discount_type'] ?? 'percentage';
+    $discount_value = (float)($_POST['discount_value'] ?? 0);
+    
+    // Get current quotation total
+    $stmt = $pdo->prepare("SELECT total FROM quotations WHERE id = ?");
+    $stmt->execute([$id]);
+    $current_total = (float)$stmt->fetchColumn();
+    
+    // Calculate discount amount
+    if ($discount_type === 'percentage') {
+        $discount_amount = ($current_total * $discount_value) / 100;
+    } else {
+        $discount_amount = $discount_value;
+    }
+    
+    // Ensure discount doesn't exceed total
+    $discount_amount = min($discount_amount, $current_total);
+    $final_total = $current_total - $discount_amount;
+    
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE quotations 
+            SET discount_type = ?, discount_value = ?, discount_amount = ?, final_total = ?, updated_at = datetime('now')
+            WHERE id = ?
+        ");
+        if ($stmt->execute([$discount_type, $discount_value, $discount_amount, $final_total, $id])) {
+            $message = 'Discount applied successfully';
+            safe_redirect('quotation_enhanced.php?id=' . $id);
+        } else {
+            $error = 'Failed to apply discount';
+        }
+    } catch (Exception $e) {
+        $error = 'Database error: ' . $e->getMessage();
+    }
 }
 
 // Handle misc item addition
@@ -379,6 +476,36 @@ require_once __DIR__ . '/../includes/header.php';
     border-color: #007bff;
     background: #f8f9ff;
 }
+
+.discount-section {
+    background: #fff3e0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #ffb74d;
+}
+
+.total-breakdown {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid #dee2e6;
+}
+
+.discount-section {
+    background: #fff8e1;
+    border: 1px solid #ffcc02;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.total-breakdown {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+}
 </style>
 
 <?php if ($message): ?>
@@ -482,7 +609,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </div>
             <div>
-                <span class="badge bg-success fs-6">₹<?= number_format($quotation['total'], 2) ?></span>
+                <span class="badge bg-success fs-6">₹<?= number_format($quotation['final_total'] ?? $quotation['total'], 2) ?></span>
             </div>
         </div>
     </div>
@@ -693,7 +820,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($quotation_items as $item): ?>
-                                <tr>
+                                <tr data-item-id="<?= $item['id'] ?>" data-item-type="tile">
                                     <td>
                                         <?php if ($item['show_image'] && $item['photo_path']): ?>
                                             <img src="<?= h($item['photo_path']) ?>" class="item-image">
@@ -705,10 +832,10 @@ require_once __DIR__ . '/../includes/header.php';
                                     <td>
                                         <?php if ($item['calculation_mode'] === 'sqft_mode'): ?>
                                             <span class="badge bg-info">Area Mode</span><br>
-                                            <small><?= number_format($item['total_sqft'], 1) ?> sq.ft → <?= number_format($item['boxes_decimal'], 1) ?> boxes</small>
+                                            <small><?= number_format($item['total_sqft'], 1) ?> sq.ft → <span class="quantity-value"><?= number_format($item['boxes_decimal'], 1) ?></span> boxes</small>
                                         <?php else: ?>
                                             <span class="badge bg-success">Direct Mode</span><br>
-                                            <small><?= number_format($item['direct_boxes'], 1) ?> boxes</small>
+                                            <small><span class="quantity-value"><?= number_format($item['direct_boxes'], 1) ?></span> boxes</small>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -728,7 +855,7 @@ require_once __DIR__ . '/../includes/header.php';
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td>₹<?= number_format($item['rate_per_box'], 2) ?>/box</td>
+                                    <td>₹<span class="rate-value"><?= number_format($item['rate_per_box'], 2) ?></span>/box</td>
                                     <td class="fw-bold">₹<?= number_format($item['line_total'], 2) ?></td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
@@ -764,7 +891,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($quotation_misc_items as $item): ?>
-                                <tr>
+                                <tr data-item-id="<?= $item['id'] ?>" data-item-type="misc">
                                     <td>
                                         <?php if ($item['show_image'] && $item['photo_path']): ?>
                                             <img src="<?= h($item['photo_path']) ?>" class="item-image">
@@ -772,7 +899,7 @@ require_once __DIR__ . '/../includes/header.php';
                                         <strong><?= h($item['item_name']) ?></strong>
                                     </td>
                                     <td><?= h($item['purpose']) ?></td>
-                                    <td><?= number_format($item['qty_units'], 1) ?> <?= h($item['unit_label']) ?></td>
+                                    <td><span class="quantity-value"><?= number_format($item['qty_units'], 1) ?></span> <?= h($item['unit_label']) ?></td>
                                     <td>
                                         <?php 
                                         $qty_needed = $item['qty_units'];
@@ -790,7 +917,7 @@ require_once __DIR__ . '/../includes/header.php';
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td>₹<?= number_format($item['rate_per_unit'], 2) ?>/<?= h($item['unit_label']) ?></td>
+                                    <td>₹<span class="rate-value"><?= number_format($item['rate_per_unit'], 2) ?></span>/<?= h($item['unit_label']) ?></td>
                                     <td class="fw-bold">₹<?= number_format($item['line_total'], 2) ?></td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
@@ -808,6 +935,64 @@ require_once __DIR__ . '/../includes/header.php';
                     </table>
                 </div>
             <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Discount Section -->
+    <?php if (!empty($quotation_items) || !empty($quotation_misc_items)): ?>
+    <div class="discount-section">
+        <h6><i class="bi bi-percent"></i> Apply Discount</h6>
+        <form method="post" class="row g-3">
+            <input type="hidden" name="apply_discount" value="1">
+            <div class="col-md-3">
+                <label class="form-label">Discount Type</label>
+                <select class="form-select" name="discount_type" onchange="updateDiscountLabel()">
+                    <option value="percentage" <?= ($quotation['discount_type'] ?? 'percentage') === 'percentage' ? 'selected' : '' ?>>Percentage (%)</option>
+                    <option value="fixed" <?= ($quotation['discount_type'] ?? 'percentage') === 'fixed' ? 'selected' : '' ?>>Fixed Amount (₹)</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" id="discountLabel">
+                    <?= ($quotation['discount_type'] ?? 'percentage') === 'percentage' ? 'Discount Percentage' : 'Discount Amount' ?>
+                </label>
+                <input type="number" class="form-control" name="discount_value" step="0.01" min="0" 
+                       value="<?= $quotation['discount_value'] ?? 0 ?>" oninput="calculateDiscount()">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Discount Amount</label>
+                <input type="text" class="form-control" id="discountAmount" 
+                       value="₹<?= number_format($quotation['discount_amount'] ?? 0, 2) ?>" readonly>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-check"></i> Apply Discount
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Total Breakdown -->
+    <div class="total-breakdown mb-4">
+        <h6><i class="bi bi-calculator"></i> Quotation Summary</h6>
+        <div class="row">
+            <div class="col-md-4">
+                <strong>Subtotal:</strong><br>
+                <span class="fs-5">₹<?= number_format($quotation['total'], 2) ?></span>
+            </div>
+            <?php if (($quotation['discount_amount'] ?? 0) > 0): ?>
+            <div class="col-md-4">
+                <strong>Discount:</strong><br>
+                <span class="fs-5 text-warning">-₹<?= number_format($quotation['discount_amount'], 2) ?></span>
+            </div>
+            <?php endif; ?>
+            <div class="col-md-4">
+                <strong>Final Total:</strong><br>
+                <span class="fs-4 text-success">₹<?= number_format($quotation['final_total'] ?? $quotation['total'], 2) ?></span>
+            </div>
         </div>
     </div>
     <?php endif; ?>
@@ -956,20 +1141,178 @@ function calculateMiscTotal() {
 }
 
 function editItem(itemId, type) {
-    // Implement edit functionality
-    alert(`Edit ${type} item ${itemId} - Feature coming soon!`);
+    // Get item details and populate edit modal
+    const row = document.querySelector(`tr[data-item-id="${itemId}"][data-item-type="${type}"]`);
+    if (!row) {
+        alert('Item not found');
+        return;
+    }
+    
+    // Show edit modal
+    showEditModal(itemId, type, row);
 }
 
 function deleteItem(itemId, type) {
     if (confirm(`Are you sure you want to delete this ${type} item?`)) {
-        // Implement delete functionality
-        alert(`Delete ${type} item ${itemId} - Feature coming soon!`);
+        // Create form to submit delete request
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="delete_item" value="1">
+            <input type="hidden" name="item_id" value="${itemId}">
+            <input type="hidden" name="item_type" value="${type}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
     }
+}
+
+function showEditModal(itemId, type, row) {
+    // Get current values from the row
+    const quantity = row.querySelector('.quantity-value')?.textContent || '';
+    const rate = row.querySelector('.rate-value')?.textContent || '';
+    
+    // Create and show edit modal
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.id = 'editItemModal';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit ${type.charAt(0).toUpperCase() + type.slice(1)} Item</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="update_item" value="1">
+                        <input type="hidden" name="item_id" value="${itemId}">
+                        <input type="hidden" name="item_type" value="${type}">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Quantity</label>
+                            <input type="number" class="form-control" name="new_quantity" 
+                                   value="${parseFloat(quantity) || 0}" step="0.1" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Rate per ${type === 'tile' ? 'Box' : 'Unit'} (₹)</label>
+                            <input type="number" class="form-control" name="new_rate" 
+                                   value="${parseFloat(rate) || 0}" step="0.01" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Line Total (₹)</label>
+                            <input type="number" class="form-control" id="editLineTotal" readonly>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">Update Item</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add event listeners for live calculation
+    const qtyInput = modal.querySelector('[name="new_quantity"]');
+    const rateInput = modal.querySelector('[name="new_rate"]');
+    const totalInput = modal.querySelector('#editLineTotal');
+    
+    function calculateEditTotal() {
+        const qty = parseFloat(qtyInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+        totalInput.value = '₹' + (qty * rate).toFixed(2);
+    }
+    
+    qtyInput.addEventListener('input', calculateEditTotal);
+    rateInput.addEventListener('input', calculateEditTotal);
+    calculateEditTotal();
+    
+    // Show modal
+    const bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
+    
+    // Remove modal from DOM when closed
+    modal.addEventListener('hidden.bs.modal', () => {
+        modal.remove();
+    });
 }
 
 function convertToInvoice(quotationId) {
     if (confirm('Convert this quotation to an invoice?')) {
         window.location.href = `invoice_enhanced.php?from_quote=${quotationId}`;
+    }
+}
+
+function updateDiscountLabel() {
+    const discountType = document.querySelector('[name="discount_type"]').value;
+    const label = document.getElementById('discountLabel');
+    const input = document.querySelector('[name="discount_value"]');
+    
+    if (discountType === 'percentage') {
+        label.textContent = 'Discount Percentage';
+        input.placeholder = 'Enter percentage (e.g., 10 for 10%)';
+        input.max = '100';
+    } else {
+        label.textContent = 'Discount Amount';
+        input.placeholder = 'Enter fixed amount in ₹';
+        input.removeAttribute('max');
+    }
+}
+
+function calculateDiscount() {
+    const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
+    const discountType = document.querySelector('[name="discount_type"]').value;
+    const discountValue = parseFloat(document.querySelector('[name="discount_value"]').value) || 0;
+    
+    let discountAmount = 0;
+    if (discountType === 'percentage') {
+        discountAmount = subtotal * (discountValue / 100);
+    } else {
+        discountAmount = discountValue;
+    }
+    
+    document.getElementById('discountAmount').value = '₹' + discountAmount.toFixed(2);
+}
+
+function updateDiscountLabel() {
+    const discountType = document.querySelector('[name="discount_type"]').value;
+    const label = document.getElementById('discountLabel');
+    
+    if (discountType === 'percentage') {
+        label.textContent = 'Discount Percentage';
+    } else {
+        label.textContent = 'Discount Amount';
+    }
+    
+    calculateDiscount();
+}
+
+function calculateDiscount() {
+    const discountType = document.querySelector('[name="discount_type"]').value;
+    const discountValue = parseFloat(document.querySelector('[name="discount_value"]').value) || 0;
+    const discountAmountField = document.getElementById('discountAmount');
+    
+    // Get subtotal from the page (you may need to adjust this selector)
+    const subtotalText = document.querySelector('.fs-5')?.textContent || '₹0';
+    const subtotal = parseFloat(subtotalText.replace(/[₹,]/g, '')) || 0;
+    
+    let discountAmount = 0;
+    if (discountType === 'percentage') {
+        discountAmount = (subtotal * discountValue) / 100;
+    } else {
+        discountAmount = discountValue;
+    }
+    
+    // Ensure discount doesn't exceed subtotal
+    discountAmount = Math.min(discountAmount, subtotal);
+    
+    if (discountAmountField) {
+        discountAmountField.value = '₹' + discountAmount.toFixed(2);
     }
 }
 </script>

@@ -9,6 +9,35 @@ $pdo = Database::pdo();
 $message = '';
 $error = '';
 
+// Handle quotation deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_quotation'])) {
+    $quotation_id = (int)$_POST['quotation_id'];
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Delete quotation items first (foreign key constraints)
+        $stmt = $pdo->prepare("DELETE FROM quotation_items WHERE quotation_id = ?");
+        $stmt->execute([$quotation_id]);
+        
+        $stmt = $pdo->prepare("DELETE FROM quotation_misc_items WHERE quotation_id = ?");
+        $stmt->execute([$quotation_id]);
+        
+        // Delete the quotation
+        $stmt = $pdo->prepare("DELETE FROM quotations WHERE id = ?");
+        if ($stmt->execute([$quotation_id])) {
+            $pdo->commit();
+            $message = 'Quotation deleted successfully';
+        } else {
+            $pdo->rollback();
+            $error = 'Failed to delete quotation';
+        }
+    } catch (Exception $e) {
+        $pdo->rollback();
+        $error = 'Database error: ' . $e->getMessage();
+    }
+}
+
 // Get search parameters
 $search_customer = trim($_GET['search_customer'] ?? '');
 $search_firm = trim($_GET['search_firm'] ?? '');

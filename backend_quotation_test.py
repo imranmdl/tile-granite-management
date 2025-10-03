@@ -16,7 +16,7 @@ import os
 from datetime import datetime
 
 class EnhancedQuotationTester:
-    def __init__(self, base_url="http://localhost"):
+    def __init__(self, base_url="http://localhost:8080"):
         self.base_url = base_url
         self.session = requests.Session()
         self.session.headers.update({
@@ -50,7 +50,7 @@ class EnhancedQuotationTester:
             
         try:
             # Get login page first
-            login_url = f"{self.base_url}/public/login_clean.php"
+            login_url = f"{self.base_url}/login_clean.php"
             response = self.session.get(login_url, timeout=10)
             
             if response.status_code != 200:
@@ -63,12 +63,21 @@ class EnhancedQuotationTester:
                 'password': 'admin123'
             }
             
-            response = self.session.post(login_url, data=login_data, allow_redirects=True)
+            response = self.session.post(login_url, data=login_data, allow_redirects=False)
             
-            if response.status_code == 200 and ('dashboard' in response.url.lower() or 'index.php' in response.url):
-                self.authenticated = True
-                self.log_test("Authentication Setup", True, "Successfully authenticated as admin")
-                return True
+            # Check if login was successful by testing access to a protected page
+            if response.status_code == 302:
+                # Try to access a protected page to verify authentication
+                test_url = f"{self.base_url}/quotation_enhanced.php"
+                test_response = self.session.get(test_url)
+                
+                if test_response.status_code == 200 and 'login' not in test_response.url.lower():
+                    self.authenticated = True
+                    self.log_test("Authentication Setup", True, "Successfully authenticated as admin")
+                    return True
+                else:
+                    self.log_test("Authentication Setup", False, "Authentication failed - redirected to login")
+                    return False
             else:
                 self.log_test("Authentication Setup", False, f"Login failed: {response.status_code}")
                 return False
@@ -83,7 +92,7 @@ class EnhancedQuotationTester:
             return False
             
         try:
-            url = f"{self.base_url}/public/quotation_enhanced.php"
+            url = f"{self.base_url}/quotation_enhanced.php"
             response = self.session.get(url, timeout=10)
             
             if response.status_code == 200:
@@ -123,7 +132,7 @@ class EnhancedQuotationTester:
             return False
             
         try:
-            url = f"{self.base_url}/public/quotation_enhanced.php"
+            url = f"{self.base_url}/quotation_enhanced.php"
             
             # Test with missing required fields
             invalid_data = {
@@ -175,7 +184,7 @@ class EnhancedQuotationTester:
             return False
             
         try:
-            url = f"{self.base_url}/public/quotation_enhanced.php"
+            url = f"{self.base_url}/quotation_enhanced.php"
             
             # Create quotation with all enhanced fields
             quotation_data = {
@@ -313,7 +322,7 @@ class EnhancedQuotationTester:
             return False
             
         try:
-            url = f"{self.base_url}/public/quotation_enhanced.php"
+            url = f"{self.base_url}/quotation_enhanced.php"
             
             # Test updating image display preference
             preference_data = {
@@ -352,7 +361,7 @@ class EnhancedQuotationTester:
             return False
             
         try:
-            url = f"{self.base_url}/public/quotation_list_enhanced.php"
+            url = f"{self.base_url}/quotation_list_enhanced.php"
             response = self.session.get(url, timeout=10)
             
             if response.status_code == 200:
@@ -444,7 +453,7 @@ class EnhancedQuotationTester:
             
         try:
             # Test if enhanced views are working by accessing quotation list
-            url = f"{self.base_url}/public/quotation_list_enhanced.php"
+            url = f"{self.base_url}/quotation_list_enhanced.php"
             response = self.session.get(url, timeout=10)
             
             if response.status_code == 200:
@@ -513,7 +522,7 @@ class EnhancedQuotationTester:
             return False
             
         try:
-            url = f"{self.base_url}/public/quotation_list_enhanced.php"
+            url = f"{self.base_url}/quotation_list_enhanced.php"
             response = self.session.get(url, timeout=10)
             
             if response.status_code == 200:
@@ -539,6 +548,182 @@ class EnhancedQuotationTester:
                 
         except Exception as e:
             self.log_test("Export Functionality", False, f"Error: {str(e)}")
+            return False
+
+    def test_quotation_item_update_delete_functionality(self):
+        """Test quotation item update and delete functionality"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            quotation_id = getattr(self, 'created_quotation_id', 1)
+            url = f"{self.base_url}/public/quotation_enhanced.php?id={quotation_id}"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Check for update/delete buttons in item rows
+                update_buttons = soup.find_all('button', string=lambda text: text and 'update' in text.lower())
+                delete_buttons = soup.find_all('button', string=lambda text: text and 'delete' in text.lower())
+                
+                # Check for actual backend handling (not just JavaScript alerts)
+                has_update_form = soup.find('form', {'action': lambda x: x and 'update_item' in x}) is not None
+                has_delete_form = soup.find('form', {'action': lambda x: x and 'delete_item' in x}) is not None
+                
+                # Check for JavaScript functions that handle actual backend calls
+                has_update_function = 'updateQuotationItem' in response.text and 'POST' in response.text
+                has_delete_function = 'deleteQuotationItem' in response.text and 'POST' in response.text
+                
+                # Check if it's just JavaScript alerts (which would be a failure)
+                is_just_alerts = 'alert(' in response.text and ('updateQuotationItem' not in response.text or 'deleteQuotationItem' not in response.text)
+                
+                if (len(update_buttons) > 0 or len(delete_buttons) > 0) and (has_update_function or has_delete_function) and not is_just_alerts:
+                    self.log_test("Quotation Item Update/Delete Functionality", True, f"Found {len(update_buttons)} update and {len(delete_buttons)} delete buttons with backend handling")
+                    return True
+                elif is_just_alerts:
+                    self.log_test("Quotation Item Update/Delete Functionality", False, "Only JavaScript alerts found - no actual backend functionality")
+                    return False
+                else:
+                    self.log_test("Quotation Item Update/Delete Functionality", False, "No update/delete functionality found")
+                    return False
+            else:
+                self.log_test("Quotation Item Update/Delete Functionality", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Quotation Item Update/Delete Functionality", False, f"Error: {str(e)}")
+            return False
+
+    def test_quotation_delete_functionality(self):
+        """Test quotation deletion from list page"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            url = f"{self.base_url}/quotation_list_enhanced.php"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Check for delete buttons in quotation list
+                delete_buttons = soup.find_all('button', string=lambda text: text and 'delete' in text.lower())
+                delete_links = soup.find_all('a', string=lambda text: text and 'delete' in text.lower())
+                
+                # Check for actual backend handling
+                has_delete_form = soup.find('form', {'method': 'POST'}) is not None
+                has_delete_function = 'deleteQuotation' in response.text
+                
+                # Check for proper POST handler
+                has_post_handler = 'POST' in response.text and ('delete_quotation' in response.text or 'action=delete' in response.text)
+                
+                # Check if it's just JavaScript function without backend
+                is_just_js = 'deleteQuotation(' in response.text and 'POST' not in response.text
+                
+                if (len(delete_buttons) > 0 or len(delete_links) > 0) and has_post_handler and not is_just_js:
+                    self.log_test("Quotation Delete Functionality", True, f"Found {len(delete_buttons)} delete buttons with backend POST handling")
+                    return True
+                elif is_just_js:
+                    self.log_test("Quotation Delete Functionality", False, "Only JavaScript function found - no backend POST handler")
+                    return False
+                else:
+                    self.log_test("Quotation Delete Functionality", False, "No quotation delete functionality found")
+                    return False
+            else:
+                self.log_test("Quotation Delete Functionality", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Quotation Delete Functionality", False, f"Error: {str(e)}")
+            return False
+
+    def test_quotation_discount_system(self):
+        """Test discount functionality in quotations"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            quotation_id = getattr(self, 'created_quotation_id', 1)
+            url = f"{self.base_url}/public/quotation_enhanced.php?id={quotation_id}"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Check for discount fields
+                discount_percentage_field = soup.find('input', {'name': 'discount_percentage'})
+                discount_amount_field = soup.find('input', {'name': 'discount_amount'})
+                discount_type_select = soup.find('select', {'name': 'discount_type'})
+                
+                # Check for discount calculation in totals
+                has_discount_display = 'Discount' in response.text and ('₹' in response.text or 'Rs.' in response.text)
+                has_discount_calculation = 'calculateDiscount' in response.text or 'discount_total' in response.text
+                
+                # Check for both percentage and fixed amount options
+                has_percentage_option = discount_type_select and any('percentage' in option.text.lower() for option in discount_type_select.find_all('option')) if discount_type_select else False
+                has_fixed_option = discount_type_select and any('fixed' in option.text.lower() or 'amount' in option.text.lower() for option in discount_type_select.find_all('option')) if discount_type_select else False
+                
+                if (discount_percentage_field or discount_amount_field or discount_type_select) and has_discount_calculation:
+                    discount_features = []
+                    if discount_percentage_field: discount_features.append("percentage field")
+                    if discount_amount_field: discount_features.append("amount field")
+                    if discount_type_select: discount_features.append("type selector")
+                    if has_percentage_option: discount_features.append("percentage option")
+                    if has_fixed_option: discount_features.append("fixed amount option")
+                    
+                    self.log_test("Quotation Discount System", True, f"Discount functionality present: {', '.join(discount_features)}")
+                    return True
+                else:
+                    self.log_test("Quotation Discount System", False, "No discount functionality found in quotations")
+                    return False
+            else:
+                self.log_test("Quotation Discount System", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Quotation Discount System", False, f"Error: {str(e)}")
+            return False
+
+    def test_total_calculation_accuracy(self):
+        """Test that subtotal and total calculations are working correctly"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            quotation_id = getattr(self, 'created_quotation_id', 1)
+            url = f"{self.base_url}/public/quotation_enhanced.php?id={quotation_id}"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Check for total calculation elements
+                has_subtotal = soup.find('span', {'id': 'subtotal'}) is not None or 'Subtotal' in response.text
+                has_total = soup.find('span', {'id': 'total'}) is not None or 'Total' in response.text
+                has_calculation_js = 'calculateTotal' in response.text or 'updateTotals' in response.text
+                
+                # Check for live calculation functionality
+                has_live_calculation = 'onchange' in response.text and ('calculate' in response.text.lower() or 'update' in response.text.lower())
+                
+                if has_subtotal and has_total and has_calculation_js and has_live_calculation:
+                    self.log_test("Total Calculation Accuracy", True, "Total calculation system present with live updates")
+                    return True
+                else:
+                    missing_features = []
+                    if not has_subtotal: missing_features.append("subtotal display")
+                    if not has_total: missing_features.append("total display")
+                    if not has_calculation_js: missing_features.append("calculation JavaScript")
+                    if not has_live_calculation: missing_features.append("live calculation")
+                    
+                    self.log_test("Total Calculation Accuracy", False, f"Missing calculation features: {', '.join(missing_features)}")
+                    return False
+            else:
+                self.log_test("Total Calculation Accuracy", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Total Calculation Accuracy", False, f"Error: {str(e)}")
             return False
 
     def run_all_tests(self):
@@ -569,6 +754,12 @@ class EnhancedQuotationTester:
         self.test_database_schema_integration()
         self.test_quotation_to_invoice_conversion()
         self.test_export_functionality()
+        
+        # High-priority functionality tests (current focus)
+        self.test_quotation_item_update_delete_functionality()
+        self.test_quotation_delete_functionality()
+        self.test_quotation_discount_system()
+        self.test_total_calculation_accuracy()
         
         # Summary
         print("\n" + "=" * 70)
