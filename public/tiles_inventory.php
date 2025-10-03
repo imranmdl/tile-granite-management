@@ -598,6 +598,57 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Edit Tile Modal -->
+<div class="modal fade" id="editTileModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="editTileForm" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Tile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="edit_tile" value="1">
+                    <input type="hidden" name="tile_id" id="editTileId">
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Tile Name *</label>
+                            <input type="text" class="form-control" name="tile_name" id="editTileName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Size</label>
+                            <select class="form-select" name="size_id" id="editTileSize">
+                                <?php foreach ($sizes as $size): ?>
+                                    <option value="<?= $size['id'] ?>"><?= h($size['label']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Vendor</label>
+                            <select class="form-select" name="vendor_id" id="editTileVendor">
+                                <option value="">No Vendor</option>
+                                <?php foreach ($vendors as $vendor): ?>
+                                    <option value="<?= $vendor['id'] ?>"><?= h($vendor['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="deleteTile()">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Update Tile
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- QR Generation Form (Hidden) -->
 <form id="qrGenerationForm" method="post" style="display: none;">
     <input type="hidden" name="tile_id" id="qrTileId">
