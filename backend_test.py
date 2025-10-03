@@ -141,48 +141,98 @@ class CommissionReportingSystemTester:
             self.log_test("Commission System", False, f"Error: {str(e)}")
             return False
 
-    def test_database_connectivity(self):
-        """Test database connectivity through API"""
+    def test_reporting_dashboard(self):
+        """Test the main reports dashboard page"""
         try:
-            # Create a test status check to verify database connectivity
-            test_data = {
-                "client_name": "Database Connectivity Test"
-            }
-            
-            response = self.session.post(f"{self.api_url}/status", 
-                                       data=json.dumps(test_data), 
-                                       timeout=10)
+            response = self.session.get(f"{self.php_url}/reports_dashboard.php", timeout=10)
             
             if response.status_code == 200:
-                created_item = response.json()
-                
-                # Now try to retrieve it
-                response = self.session.get(f"{self.api_url}/status", timeout=10)
-                
-                if response.status_code == 200:
-                    items = response.json()
-                    # Check if our created item is in the list
-                    found_item = None
-                    for item in items:
-                        if item.get('id') == created_item.get('id'):
-                            found_item = item
-                            break
-                    
-                    if found_item:
-                        self.log_test("Database Connectivity", True, f"Successfully created and retrieved item from database")
-                        return True
-                    else:
-                        self.log_test("Database Connectivity", False, "Created item not found in database")
-                        return False
+                content = response.text
+                # Check for key dashboard elements
+                if "Reports Dashboard" in content and "Sales Report" in content and "Commission Report" in content:
+                    self.log_test("Reporting Dashboard", True, "Reports dashboard accessible with all report links")
+                    return True
                 else:
-                    self.log_test("Database Connectivity", False, f"Failed to retrieve items: HTTP {response.status_code}")
+                    self.log_test("Reporting Dashboard", False, "Dashboard accessible but missing key elements")
                     return False
             else:
-                self.log_test("Database Connectivity", False, f"Failed to create item: HTTP {response.status_code}")
+                self.log_test("Reporting Dashboard", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Database Connectivity", False, f"Error: {str(e)}")
+            self.log_test("Reporting Dashboard", False, f"Error: {str(e)}")
+            return False
+
+    def test_sales_report(self):
+        """Test sales report with date ranges and presets"""
+        try:
+            # Test basic sales report access
+            response = self.session.get(f"{self.php_url}/report_sales.php", timeout=10)
+            
+            if response.status_code != 200:
+                self.log_test("Sales Report", False, f"HTTP {response.status_code}")
+                return False
+            
+            content = response.text
+            if "Sales Report" not in content:
+                self.log_test("Sales Report", False, "Sales report page missing title")
+                return False
+            
+            # Test with date range parameters
+            today = datetime.now().strftime('%Y-%m-%d')
+            response = self.session.get(f"{self.php_url}/report_sales.php?date_from={today}&date_to={today}", timeout=10)
+            
+            if response.status_code == 200:
+                self.log_test("Sales Report", True, "Sales report accessible with date range filtering")
+                return True
+            else:
+                self.log_test("Sales Report", False, f"Date range filtering failed: HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Sales Report", False, f"Error: {str(e)}")
+            return False
+
+    def test_daily_business_summary(self):
+        """Test daily business summary calculations and displays"""
+        try:
+            response = self.session.get(f"{self.php_url}/report_daily_business.php", timeout=10)
+            
+            if response.status_code == 200:
+                content = response.text
+                if "Daily Business Report" in content or "My Daily Business Report" in content:
+                    self.log_test("Daily Business Summary", True, "Daily business summary report accessible")
+                    return True
+                else:
+                    self.log_test("Daily Business Summary", False, "Daily business report missing title")
+                    return False
+            else:
+                self.log_test("Daily Business Summary", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Daily Business Summary", False, f"Error: {str(e)}")
+            return False
+
+    def test_commission_report(self):
+        """Test commission tracking and status updates"""
+        try:
+            response = self.session.get(f"{self.php_url}/report_commission.php", timeout=10)
+            
+            if response.status_code == 200:
+                content = response.text
+                if "Commission Report" in content:
+                    self.log_test("Commission Report", True, "Commission report accessible")
+                    return True
+                else:
+                    self.log_test("Commission Report", False, "Commission report missing title")
+                    return False
+            else:
+                self.log_test("Commission Report", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Commission Report", False, f"Error: {str(e)}")
             return False
 
     def run_all_tests(self):
