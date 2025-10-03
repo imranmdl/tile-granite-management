@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Backend Test Suite for PHP-based Enhanced Inventory Management System
-Tests the complete inventory system including tiles, other items, purchase entries, 
-QR code generation, cost calculations, and enhanced UI features.
+Backend Test Suite for PHP-based Invoice System with Discount Functionality
+Tests the invoice system focusing on discount_amount field fixes, invoice creation,
+quotation to invoice conversion, discount application, and invoice display.
 """
 
 import requests
@@ -15,8 +15,8 @@ import sys
 import os
 from datetime import datetime
 
-class EnhancedInventoryTester:
-    def __init__(self, base_url="http://localhost"):
+class InvoiceSystemTester:
+    def __init__(self, base_url="https://tilecrm-app.preview.emergentagent.com"):
         self.base_url = base_url
         self.session = requests.Session()
         self.session.headers.update({
@@ -24,6 +24,8 @@ class EnhancedInventoryTester:
         })
         self.test_results = []
         self.authenticated = False
+        self.test_quotation_id = None
+        self.test_invoice_id = None
         
     def log_test(self, test_name, success, message="", details=""):
         """Log test results"""
