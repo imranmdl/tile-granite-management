@@ -192,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_qr'])) {
 
 // Get search and filter parameters
 $search = trim($_GET['search'] ?? '');
-$vendor_filter = (int)($_GET['vendor'] ?? 0);
+$vendor_filter = isset($_GET['vendor']) ? $_GET['vendor'] : '';
 $size_filter = (int)($_GET['size'] ?? 0);
 
 // Build query with search and filters
