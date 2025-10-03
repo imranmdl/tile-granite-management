@@ -109,7 +109,14 @@ $id=(int)($_GET['id']??0);
 if ($id>0 && auth_is_admin() && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_sales_meta'])){
   $sales_user = trim($_POST['sales_user'] ?? '');
   $commission_percent = ($_POST['commission_percent'] === '' ? null : (float)$_POST['commission_percent']);
-  $pdo->prepare("UPDATE invoices SET sales_user=?, commission_percent=?, salesperson_user_id=? WHERE id=?")->execute([$sales_user, $commission_percent, $id]);
+  $salesperson_user_id = (int)($_POST['salesperson_user_id'] ?? 0);
+  
+  $pdo->prepare("UPDATE invoices SET sales_user=?, commission_percent=?, salesperson_user_id=? WHERE id=?")->execute([$sales_user, $commission_percent, $salesperson_user_id, $id]);
+  
+  // Auto-sync commission when admin updates commission settings
+  require_once __DIR__ . '/../includes/commission.php';
+  Commission::sync_for_invoice($pdo, $id);
+  
   header('Location: invoice.php?id='.$id); exit;
 }
 
