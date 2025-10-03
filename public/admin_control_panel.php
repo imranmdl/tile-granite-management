@@ -1,10 +1,9 @@
 <?php
 // public/admin_control_panel.php - Admin Control Panel
 require_once __DIR__ . '/../includes/Database.php';
-require_once __DIR__ . '/../includes/auth_enhanced.php';
+require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
-AuthSystem::init();
 auth_require_login();
 
 // Check admin permission
