@@ -49,6 +49,46 @@ class CommissionReportingSystemTester:
             print(f"    Details: {details}")
         print()
 
+    def authenticate_php_system(self):
+        """Authenticate with the PHP system using admin/admin123"""
+        try:
+            # Get login page first to establish session
+            login_response = self.session.get(f"{self.php_url}/login_clean.php", timeout=10)
+            if login_response.status_code != 200:
+                return False
+            
+            # Attempt login with admin credentials
+            login_data = {
+                'username': 'admin',
+                'password': 'admin123'
+            }
+            
+            # Set proper headers for form submission
+            self.session.headers.update({
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': f"{self.php_url}/login_clean.php"
+            })
+            
+            auth_response = self.session.post(f"{self.php_url}/login_clean.php", data=login_data, timeout=10, allow_redirects=True)
+            
+            # Reset headers
+            self.session.headers.update({
+                'Content-Type': 'application/json'
+            })
+            
+            # Check if authentication was successful by trying to access a protected page
+            test_response = self.session.get(f"{self.php_url}/reports_dashboard.php", timeout=10)
+            
+            if test_response.status_code == 200 and "login" not in test_response.text.lower():
+                self.authenticated = True
+                return True
+            else:
+                return False
+                
+        except Exception as e:
+            print(f"Authentication error: {str(e)}")
+            return False
+
     async def test_database_connection(self):
         """Test MongoDB database connection and basic collections"""
         try:
