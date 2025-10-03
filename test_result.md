@@ -214,6 +214,42 @@ frontend:
         -agent: "testing"
         -comment: "COMPLETED: All integration and advanced features working: integration with inventory stock data, tile and misc item selection with stock info, quotation item creation with enhanced fields, quotation to invoice conversion functionality, export functionality for quotation lists, bulk operations capabilities, enhanced customer details display, created_by user tracking. Export and bulk operations available."
 
+  - task: "Quotation Item Update/Delete Functionality"
+    implemented: false
+    working: false
+    file: "public/quotation_enhanced.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: false
+        -agent: "main"
+        -comment: "Currently implemented as JavaScript alerts only. Need to implement actual backend functionality for updating and deleting quotation items with proper form handling and database operations."
+
+  - task: "Quotation Delete Functionality"
+    implemented: false
+    working: false
+    file: "public/quotation_list_enhanced.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: false
+        -agent: "main"
+        -comment: "JavaScript function exists but no backend handling for quotation deletion. Need to implement POST handler for delete requests with proper validation."
+
+  - task: "Quotation Discount System"
+    implemented: false
+    working: false
+    file: "public/quotation_enhanced.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: false
+        -agent: "main"
+        -comment: "Discount functionality exists in invoice system but not implemented for quotations. Need to add percentage and fixed amount discount options with proper total recalculation."
+
 metadata:
   created_by: "main_agent"
   version: "2.0"
