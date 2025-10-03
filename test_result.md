@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Resolve critical 'Undefined array key' warnings in users_management.php where code attempts to access non-existent columns (locked_until, last_login_at, last_login_ip, failed_login_attempts) from users_simple table schema."
+user_problem_statement: "Implement Enhanced Inventory (Tiles) system with purchase entries, damage calculations, improved UI (sticky columns, search, column picker), barcode/label generation (QR codes), and photo galleries. Apply features to both Tiles Inventory and Other Inventory with separate navigation menus."
 
 backend:
   - task: "Authentication System Stabilization"
@@ -110,18 +110,48 @@ backend:
     working: true
     file: "public/users_management.php"
     stuck_count: 0
+    priority: "completed"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: Authentication system fully functional and tested with 100% success rate."
+
+  - task: "Enhanced Inventory Database Schema"
+    implemented: true
+    working: true
+    file: "includes/sql/migrations/0010_enhanced_inventory.sql"
+    stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
-        -working: false
-        -agent: "main"
-        -comment: "Fixed undefined array key warnings by removing references to non-existent columns. However, discovered environment mismatch - PHP codebase in React/FastAPI/MongoDB environment. PHP interpreter not installed."
         -working: true
         -agent: "main"
-        -comment: "RESOLVED: Installed PHP 8.2 + Apache web server. Authentication system now fully functional. Login works, users_management.php displays correctly without undefined array key warnings. Statistics show properly (3 users total, 3 active, 1 admin, 0 inactive)."
+        -comment: "Created enhanced inventory tables: purchase_entries_tiles, purchase_entries_misc, views current_tiles_stock, current_misc_stock. Added photo and QR code support columns to tiles and misc_items tables."
+
+  - task: "Purchase Entry System - Tiles"
+    implemented: true
+    working: true
+    file: "public/tiles_purchase.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
         -working: true
-        -agent: "testing"
-        -comment: "COMPREHENSIVE TESTING COMPLETED: Ran 22 authentication tests with 100% success rate. All login flows working (admin/admin123, manager1/manager123, sales1/sales123). Invalid login properly rejected. Session management working. Users management page loads without undefined array key warnings. User statistics display correctly (5 users total, 5 active, 1 admin, 0 inactive). User creation working. Form validation working. Role-based access control working (sales users cannot create users). Password reset and permissions management UI present. Database permissions fixed. All functionality confirmed working."
+        -agent: "main"
+        -comment: "Implemented purchase entry system with damage calculations (simple percentage deduction), live cost calculations, purchase history tracking, supplier/invoice management."
+
+  - task: "Purchase Entry System - Other Items"
+    implemented: true
+    working: true
+    file: "public/other_purchase.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Implemented purchase entry system for misc items with same damage calculation features, cost tracking, and history management."
 
 frontend:
   - task: "User Management UI Fixes"
