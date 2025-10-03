@@ -804,14 +804,16 @@ class InvoiceSystemTester:
 
 def main():
     """Main test execution"""
-    tester = EnhancedInventoryTester()
+    tester = InvoiceSystemTester()
     success = tester.run_all_tests()
     
     if success:
-        print("\n🎉 All tests passed! Enhanced Inventory System is working correctly.")
+        print("\n🎉 All tests passed! Invoice System with discount functionality is working correctly.")
+        print("✅ No 'undefined array key discount_amount' errors found.")
         sys.exit(0)
     else:
         print("\n⚠️  Some tests failed. Please review the issues above.")
+        print("🔍 Check for 'undefined array key' errors in the failed tests.")
         sys.exit(1)
 
 if __name__ == "__main__":
