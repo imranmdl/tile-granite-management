@@ -177,12 +177,15 @@ frontend:
     working: true
     file: "public/other_inventory.php"
     stuck_count: 0
-    priority: "high"
-    needs_retesting: true
+    priority: "completed"
+    needs_retesting: false
     status_history:
         -working: true
         -agent: "main"
         -comment: "Implemented enhanced other inventory with same UI features as tiles inventory but with green theme. Separate navigation menu, photo upload, QR code generation, search functionality."
+        -working: true
+        -agent: "testing"
+        -comment: "BACKEND TESTED: Enhanced Other Inventory UI fully functional. Successfully tested: enhanced table with inventory-table class, cost columns (Cost/Unit, Cost + Transport, Total Cost), sales data columns (Sold Quantity, Sold Revenue, Quote Links), QR code functionality, rupee currency display (₹). All enhanced features present and working correctly."
 
   - task: "Navigation Menu Updates"
     implemented: true
