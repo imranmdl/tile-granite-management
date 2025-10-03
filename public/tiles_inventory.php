@@ -569,9 +569,9 @@ require_once __DIR__ . '/../includes/header.php';
                                 <button type="button" class="btn btn-info" onclick="viewHistory(<?= $tile['id'] ?>)" title="View History">
                                     <i class="bi bi-clock-history"></i>
                                 </button>
-                                <a href="tiles.php#tile<?= $tile['id'] ?>" class="btn btn-warning" title="Edit Tile">
+                                <button type="button" class="btn btn-warning" onclick="editTile(<?= $tile['id'] ?>, '<?= h($tile['name']) ?>', <?= $tile['size_id'] ?>, <?= $tile['vendor_id'] ?? 'null' ?>)" title="Edit Tile">
                                     <i class="bi bi-pencil"></i>
-                                </a>
+                                </button>
                             </div>
                         </td>
                     </tr>
