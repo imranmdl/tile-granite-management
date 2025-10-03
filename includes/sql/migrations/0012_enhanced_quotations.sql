@@ -6,7 +6,7 @@ ALTER TABLE quotations ADD COLUMN firm_name TEXT NULL;
 ALTER TABLE quotations ADD COLUMN customer_gst TEXT NULL;
 ALTER TABLE quotations ADD COLUMN mobile_required INTEGER DEFAULT 1;
 ALTER TABLE quotations ADD COLUMN created_by INTEGER NULL;
-ALTER TABLE quotations ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE quotations ADD COLUMN updated_at TEXT NULL;
 
 -- Add new fields to invoices table  
 ALTER TABLE invoices ADD COLUMN firm_name TEXT NULL;
