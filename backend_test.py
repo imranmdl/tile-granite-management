@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Backend Test Suite for PHP-based Tile Business Management Authentication System
-Tests the complete authentication flow, user management, and database operations.
+Backend Test Suite for PHP-based Enhanced Inventory Management System
+Tests the complete inventory system including tiles, other items, purchase entries, 
+QR code generation, cost calculations, and enhanced UI features.
 """
 
 import requests
@@ -11,8 +12,10 @@ from urllib.parse import urljoin, urlparse, parse_qs
 import re
 from bs4 import BeautifulSoup
 import sys
+import os
+from datetime import datetime
 
-class PHPAuthenticationTester:
+class EnhancedInventoryTester:
     def __init__(self, base_url="http://localhost"):
         self.base_url = base_url
         self.session = requests.Session()
