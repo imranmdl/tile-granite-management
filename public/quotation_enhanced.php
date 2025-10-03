@@ -1316,6 +1316,15 @@ function updateDiscountLabel() {
     }
 }
 
+function calculateCommission() {
+    const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
+    const commissionPercentage = parseFloat(document.querySelector('[name="commission_percentage"]').value) || 0;
+    
+    const commissionAmount = (subtotal * commissionPercentage) / 100;
+    
+    document.getElementById('commissionAmount').value = '₹' + commissionAmount.toFixed(2);
+}
+
 function calculateDiscount() {
     const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
     const discountType = document.querySelector('[name="discount_type"]').value;
