@@ -669,6 +669,27 @@ function viewHistory(itemId) {
 function exportData() {
     alert('Data export feature coming soon!');
 }
+
+function editItem(itemId, itemName, unitLabel) {
+    document.getElementById('editItemId').value = itemId;
+    document.getElementById('editItemName').value = itemName;
+    document.getElementById('editItemUnit').value = unitLabel;
+    
+    new bootstrap.Modal(document.getElementById('editItemModal')).show();
+}
+
+function deleteItem() {
+    if (confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="delete_item" value="1">
+            <input type="hidden" name="item_id" value="${document.getElementById('editItemId').value}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
