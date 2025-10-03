@@ -575,6 +575,11 @@ require_once __DIR__ . '/../includes/header.php';
                                 <button type="button" class="btn btn-warning" onclick="editTile(<?= $tile['id'] ?>, '<?= h($tile['name']) ?>', <?= $tile['size_id'] ?>, <?= $tile['vendor_id'] ?? 'null' ?>)" title="Edit Tile">
                                     <i class="bi bi-pencil"></i>
                                 </button>
+                                <?php if ($tile['purchase_count'] > 0): ?>
+                                <button type="button" class="btn btn-secondary" onclick="editStockQuantity(<?= $tile['id'] ?>, <?= $tile['total_stock_boxes'] ?? 0 ?>)" title="Edit Stock">
+                                    <i class="bi bi-box-seam"></i>
+                                </button>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
