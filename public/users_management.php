@@ -205,8 +205,9 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Users List -->
 <div class="row g-3">
     <?php foreach ($users as $user): 
-        $is_locked = $user['locked_until'] && $user['locked_until'] > date('Y-m-d H:i:s');
-        $last_login = $user['last_login_at'] ? date('M j, Y g:i A', strtotime($user['last_login_at'])) : 'Never';
+        // Note: locked_until and last_login_at columns don't exist in current schema
+        $is_locked = false; // Simplified - no locking mechanism in current schema
+        $created_date = $user['created_at'] ? date('M j, Y g:i A', strtotime($user['created_at'])) : 'Unknown';
     ?>
     <div class="col-md-6 col-lg-4">
         <div class="card user-card h-100">
