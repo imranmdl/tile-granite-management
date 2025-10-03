@@ -884,11 +884,20 @@ function calculateRefund() {
 }
 
 function editInvoiceItem(itemId, itemType) {
-    alert('Edit invoice item functionality - Feature coming soon!');
+    // Get item details and populate edit modal
+    const row = document.querySelector(`tr[data-item-id="${itemId}"][data-item-type="${itemType}"]`);
+    if (!row) {
+        alert('Item not found');
+        return;
+    }
+    
+    // Show edit modal
+    showInvoiceEditModal(itemId, itemType, row);
 }
 
 function addNewItem() {
-    alert('Add new item to invoice functionality - Feature coming soon!');
+    alert('Add new item functionality - This would redirect to add new items to the invoice');
+    // Could redirect to quotation_enhanced.php or similar add item page
 }
 
 function processReturn() {
@@ -897,9 +906,90 @@ function processReturn() {
 
 function markAsPaid(invoiceId) {
     if (confirm('Mark this invoice as paid?')) {
-        // Implement mark as paid functionality
-        alert('Mark as paid functionality - Feature coming soon!');
+        // Create form to submit mark as paid request
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="mark_as_paid" value="1">
+        `;
+        document.body.appendChild(form);
+        form.submit();
     }
+}
+
+function showInvoiceEditModal(itemId, itemType, row) {
+    // Get current values from the row
+    const quantity = row.querySelector('.quantity-value')?.textContent || '';
+    const rate = row.querySelector('.rate-value')?.textContent || '';
+    
+    // Create and show edit modal
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.id = 'editInvoiceItemModal';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Invoice ${itemType.charAt(0).toUpperCase() + itemType.slice(1)} Item</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="update_invoice_item" value="1">
+                        <input type="hidden" name="item_id" value="${itemId}">
+                        <input type="hidden" name="item_type" value="${itemType}">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Quantity</label>
+                            <input type="number" class="form-control" name="new_quantity" 
+                                   value="${parseFloat(quantity) || 0}" step="0.1" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Rate per ${itemType === 'tile' ? 'Box' : 'Unit'} (₹)</label>
+                            <input type="number" class="form-control" name="new_rate" 
+                                   value="${parseFloat(rate) || 0}" step="0.01" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Line Total (₹)</label>
+                            <input type="number" class="form-control" id="editInvoiceLineTotal" readonly>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">Update Invoice Item</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add event listeners for live calculation
+    const qtyInput = modal.querySelector('[name="new_quantity"]');
+    const rateInput = modal.querySelector('[name="new_rate"]');
+    const totalInput = modal.querySelector('#editInvoiceLineTotal');
+    
+    function calculateInvoiceEditTotal() {
+        const qty = parseFloat(qtyInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+        totalInput.value = '₹' + (qty * rate).toFixed(2);
+    }
+    
+    qtyInput.addEventListener('input', calculateInvoiceEditTotal);
+    rateInput.addEventListener('input', calculateInvoiceEditTotal);
+    calculateInvoiceEditTotal();
+    
+    // Show modal
+    const bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
+    
+    // Remove modal from DOM when closed
+    modal.addEventListener('hidden.bs.modal', () => {
+        modal.remove();
+    });
 }
 </script>
 
