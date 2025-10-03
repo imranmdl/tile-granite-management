@@ -141,6 +141,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_invoice'])) {
     }
 }
 
+// Handle invoice item update
+if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_invoice_item'])) {
+    $item_id = (int)$_POST['item_id'];
+    $item_type = $_POST['item_type'];
+    $new_quantity = (float)$_POST['new_quantity'];
+    $new_rate = (float)$_POST['new_rate'];
+    $new_line_total = $new_quantity * $new_rate;
+    
+    try {
+        if ($item_type === 'tile') {
+            $stmt = $pdo->prepare("
+                UPDATE invoice_items 
+                SET boxes_decimal = ?, rate_per_box = ?, line_total = ?
+                WHERE id = ? AND invoice_id = ?
+            ");
+            $stmt->execute([$new_quantity, $new_rate, $new_line_total, $item_id, $id]);
+        } else {
+            $stmt = $pdo->prepare("
+                UPDATE invoice_misc_items 
+                SET qty_units = ?, rate_per_unit = ?, line_total = ?
+                WHERE id = ? AND invoice_id = ?
+            ");
+            $stmt->execute([$new_quantity, $new_rate, $new_line_total, $item_id, $id]);
+        }
+        
+        // Update invoice total
+        updateInvoiceTotal($pdo, $id);
+        $message = 'Invoice item updated successfully';
+        safe_redirect('invoice_enhanced.php?id=' . $id);
+    } catch (Exception $e) {
+        $error = 'Database error: ' . $e->getMessage();
+    }
+}
+
+// Handle mark as paid
+if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_as_paid'])) {
+    try {
+        $stmt = $pdo->prepare("UPDATE invoices SET status = 'paid', updated_at = datetime('now') WHERE id = ?");
+        if ($stmt->execute([$id])) {
+            $message = 'Invoice marked as paid successfully';
+            // Refresh invoice data
+            $stmt = $pdo->prepare("SELECT * FROM invoices WHERE id = ?");
+            $stmt->execute([$id]);
+            $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+        } else {
+            $error = 'Failed to mark invoice as paid';
+        }
+    } catch (Exception $e) {
+        $error = 'Database error: ' . $e->getMessage();
+    }
+}
+
+// Function to update invoice total
+function updateInvoiceTotal($pdo, $invoice_id) {
+    $total_stmt = $pdo->prepare("
+        SELECT 
+            COALESCE(SUM(ii.line_total), 0) + COALESCE(SUM(imi.line_total), 0) as total
+        FROM invoices i
+        LEFT JOIN invoice_items ii ON i.id = ii.invoice_id
+        LEFT JOIN invoice_misc_items imi ON i.id = imi.invoice_id
+        WHERE i.id = ?
+    ");
+    $total_stmt->execute([$invoice_id]);
+    $total = (float)$total_stmt->fetchColumn();
+    
+    // Get current discount info
+    $discount_stmt = $pdo->prepare("SELECT discount_type, discount_value, discount_amount FROM invoices WHERE id = ?");
+    $discount_stmt->execute([$invoice_id]);
+    $discount_info = $discount_stmt->fetch(PDO::FETCH_ASSOC);
+    
+    $discount_amount = 0;
+    if ($discount_info && ($discount_info['discount_value'] ?? 0) > 0) {
+        if ($discount_info['discount_type'] === 'percentage') {
+            $discount_amount = $total * (($discount_info['discount_value'] ?? 0) / 100);
+        } else {
+            $discount_amount = (float)($discount_info['discount_value'] ?? 0);
+        }
+    }
+    
+    $final_total = $total - $discount_amount;
+    
+    $update_stmt = $pdo->prepare("UPDATE invoices SET total = ?, discount_amount = ?, final_total = ?, updated_at = datetime('now') WHERE id = ?");
+    $update_stmt->execute([$total, $discount_amount, $final_total, $invoice_id]);
+}
+
 // Handle return processing
 if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_return'])) {
     $item_id = (int)$_POST['item_id'];
