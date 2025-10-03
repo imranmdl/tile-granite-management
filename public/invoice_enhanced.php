@@ -231,7 +231,7 @@ if ($id > 0) {
                        WHEN ir.item_type = 'tile' THEN ts.label 
                        WHEN ir.item_type = 'misc' THEN m.unit_label 
                    END as item_unit
-            FROM invoice_returns ir
+            FROM individual_returns ir
             LEFT JOIN tiles t ON ir.item_type = 'tile' AND ir.item_id = t.id
             LEFT JOIN tile_sizes ts ON t.size_id = ts.id
             LEFT JOIN misc_items m ON ir.item_type = 'misc' AND ir.item_id = m.id
