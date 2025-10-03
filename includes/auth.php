@@ -103,11 +103,16 @@ function auth_has_permission(string $permission, int $user_id = null): bool {
   $role_permissions = $basic_permissions[$role] ?? [];
   return in_array($permission, $role_permissions);
 }
-
-function auth_get_user(): ?array {
-  return auth_user();
 }
 
-function auth_require_login() {
-  require_login();
+if (!function_exists('auth_get_user')) {
+    function auth_get_user(): ?array {
+      return auth_user();
+    }
+}
+
+if (!function_exists('auth_require_login')) {
+    function auth_require_login() {
+      require_login();
+    }
 }
