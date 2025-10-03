@@ -827,7 +827,30 @@ function printQRCodes() {
 }
 
 function exportData() {
-    alert('Data export feature coming soon!');
+    // Get current table data
+    const table = document.getElementById('inventoryTable');
+    const rows = table.querySelectorAll('tr');
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    rows.forEach((row, index) => {
+        const cols = row.querySelectorAll(index === 0 ? 'th' : 'td');
+        const rowData = Array.from(cols).map(col => {
+            // Clean text content and escape commas
+            let text = col.textContent.trim().replace(/"/g, '""');
+            return `"${text}"`;
+        });
+        csvContent += rowData.join(",") + "\r\n";
+    });
+    
+    // Create download link
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `tiles_inventory_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 function editTile(tileId, tileName, sizeId, vendorId) {
