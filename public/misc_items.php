@@ -1,8 +1,13 @@
 <?php
-// public/misc_items.php — process-first; duplicate-safe for items; safe redirects
-require_once __DIR__ . '/../includes/auth.php';
+// public/misc_items.php — Redirect to enhanced other inventory system
+require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
-require_login();
+
+auth_require_login();
+
+// Redirect to the enhanced other inventory system
+safe_redirect('other_inventory.php');
+exit;
 
 $pdo = Database::pdo();
 
