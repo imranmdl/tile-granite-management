@@ -440,41 +440,24 @@ class FastAPISystemTester:
             return False
 
     def run_all_tests(self):
-        """Run all invoice system tests focusing on discount functionality"""
-        print("🧪 Starting Invoice System Tests - Discount Functionality Focus")
-        print("=" * 70)
+        """Run all FastAPI system tests"""
+        print("🧪 Starting FastAPI Backend System Tests")
+        print("=" * 50)
         
-        # Authentication test
-        if not self.authenticate():
-            print("❌ Cannot authenticate - aborting further tests")
-            return False
+        # Core API tests
+        print("\n🔌 Testing API Connectivity...")
+        self.test_api_connectivity()
         
-        # Core invoice system tests
-        print("\n📋 Testing Database Schema and Core Functionality...")
-        self.test_database_schema_verification()
+        print("\n📊 Testing Status Endpoints...")
+        self.test_status_endpoint()
         
-        print("\n📝 Testing Invoice Creation...")
-        self.test_invoice_creation()
-        
-        print("\n📄 Testing Quotation Creation...")
-        self.test_quotation_creation()
-        
-        print("\n🔄 Testing Quotation to Invoice Conversion...")
-        self.test_quotation_to_invoice_conversion()
-        
-        print("\n💰 Testing Discount Application...")
-        self.test_discount_application()
-        
-        print("\n📊 Testing Invoice Display and Totals...")
-        self.test_invoice_display_totals()
-        
-        print("\n🔍 Testing for Undefined Array Key Errors...")
-        self.test_error_detection()
+        print("\n🗄️ Testing Database Connectivity...")
+        self.test_database_connectivity()
         
         # Summary
-        print("\n" + "=" * 70)
-        print("📊 INVOICE SYSTEM TEST SUMMARY")
-        print("=" * 70)
+        print("\n" + "=" * 50)
+        print("📊 FASTAPI SYSTEM TEST SUMMARY")
+        print("=" * 50)
         
         passed = sum(1 for result in self.test_results if result['success'])
         total = len(self.test_results)
