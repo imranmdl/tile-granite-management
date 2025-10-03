@@ -363,6 +363,10 @@ require_once __DIR__ . '/../includes/header.php';
         <label class="form-check-label" for="col-cost">Cost Details</label>
     </div>
     <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="col-sales" checked>
+        <label class="form-check-label" for="col-sales">Sales Data</label>
+    </div>
+    <div class="form-check">
         <input class="form-check-input" type="checkbox" id="col-qr" checked>
         <label class="form-check-label" for="col-qr">QR Code</label>
     </div>
