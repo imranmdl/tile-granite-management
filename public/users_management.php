@@ -230,13 +230,6 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php if ($user['email']): ?>
                         <i class="bi bi-envelope"></i> <?= h($user['email']) ?><br>
                     <?php endif; ?>
-                    <?php if ($user['phone']): ?>
-                        <i class="bi bi-phone"></i> <?= h($user['phone']) ?><br>
-                    <?php endif; ?>
-                    <i class="bi bi-clock"></i> Last login: <?= $last_login ?><br>
-                    <?php if ($user['last_login_ip']): ?>
-                        <i class="bi bi-geo"></i> IP: <?= h($user['last_login_ip']) ?><br>
-                    <?php endif; ?>
                     <i class="bi bi-calendar-plus"></i> Created: <?= date('M j, Y', strtotime($user['created_at'])) ?>
                     <?php if ($user['created_by_username']): ?>
                         by <?= h($user['created_by_username']) ?>
