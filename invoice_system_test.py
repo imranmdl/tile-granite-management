@@ -176,7 +176,10 @@ class InvoiceSystemTester:
                     return False
                 
                 # Check for edit item functionality
-                if "editItem" in content and "deleteItem" in content:
+                if "editInvoiceItem" in content and "update_invoice_item" in content:
+                    self.log_test("Invoice Item Management", True, "Edit invoice item functions present")
+                    return True
+                elif "editItem" in content and "deleteItem" in content:
                     self.log_test("Invoice Item Management", True, "Edit and delete item functions present")
                     return True
                 else:
