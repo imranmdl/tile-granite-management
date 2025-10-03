@@ -80,7 +80,7 @@ class PHPAuthenticationTester:
                 'password': password
             }
             
-            response = self.session.post(login_url, data=login_data, allow_redirects=False)
+            response = test_session.post(login_url, data=login_data, allow_redirects=False)
             
             if expected_success:
                 if response.status_code in [302, 301]:  # Redirect on successful login
