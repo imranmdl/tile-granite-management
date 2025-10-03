@@ -420,9 +420,9 @@ class CommissionReportingSystemTester:
         self.test_chart_integration()
         
         # Summary
-        print("\n" + "=" * 60)
-        print("📊 COMMISSION & REPORTING SYSTEM TEST SUMMARY")
-        print("=" * 60)
+        print("\n" + "=" * 70)
+        print("📊 FASTAPI BACKEND TEST SUMMARY")
+        print("=" * 70)
         
         passed = sum(1 for result in self.test_results if result['success'])
         total = len(self.test_results)
