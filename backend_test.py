@@ -358,72 +358,65 @@ class InvoiceSystemTester:
             self.log_test("Discount Application", False, f"Error: {str(e)}")
             return False
 
-    def test_other_purchase_entry_submission(self):
-        """Test other items purchase entry form submission with transport percentage"""
+    def test_invoice_display_totals(self):
+        """Test invoice display to verify totals are calculated correctly without errors"""
         if not self.authenticate():
             return False
             
+        # Ensure we have an invoice to test with
+        if not self.test_invoice_id:
+            if not self.test_invoice_creation():
+                self.log_test("Invoice Display Totals", False, "Cannot create test invoice for display testing")
+                return False
+        
         try:
-            # First get the form page to get available items
-            url = f"{self.base_url}/public/other_purchase.php"
-            response = self.session.get(url)
-            
-            if response.status_code != 200:
-                self.log_test("Other Items Purchase Entry Submission", False, "Cannot access purchase form")
-                return False
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            item_select = soup.find('select', {'name': 'item_id'})
-            
-            if not item_select:
-                self.log_test("Other Items Purchase Entry Submission", False, "No item selection dropdown found")
-                return False
-            
-            # Get first available item
-            item_options = item_select.find_all('option')
-            item_id = None
-            for option in item_options:
-                if option.get('value') and option.get('value') != '':
-                    item_id = option.get('value')
-                    break
-            
-            if not item_id:
-                self.log_test("Other Items Purchase Entry Submission", False, "No items available for testing")
-                return False
-            
-            # Submit purchase entry with realistic data
-            purchase_data = {
-                'add_purchase': '1',
-                'item_id': item_id,
-                'purchase_date': datetime.now().strftime('%Y-%m-%d'),
-                'supplier_name': 'Mumbai Hardware Supplies',
-                'invoice_number': f'MHS-{int(time.time())}',
-                'total_quantity': '50',
-                'damage_percentage': '2.0',
-                'cost_per_unit': '15.50',
-                'transport_percentage': '25',  # 25% transport
-                'transport_cost': '0',
-                'notes': 'Test purchase entry for misc items with transport calculation'
-            }
-            
-            response = self.session.post(url, data=purchase_data)
+            # Access the invoice page
+            url = f"{self.base_url}/public/invoice_enhanced.php?id={self.test_invoice_id}"
+            response = self.session.get(url, timeout=10)
             
             if response.status_code == 200:
-                if "Purchase entry added successfully" in response.text:
-                    self.log_test("Other Items Purchase Entry Submission", True, f"Successfully created purchase entry for item {item_id}")
+                # Check for undefined array key errors
+                if 'undefined array key' in response.text.lower():
+                    if 'discount_amount' in response.text.lower():
+                        self.log_test("Invoice Display Totals", False, "Undefined array key 'discount_amount' error found in invoice display")
+                        return False
+                    elif 'final_total' in response.text.lower():
+                        self.log_test("Invoice Display Totals", False, "Undefined array key 'final_total' error found in invoice display")
+                        return False
+                    else:
+                        self.log_test("Invoice Display Totals", False, "Undefined array key error found in invoice display")
+                        return False
+                
+                # Check for proper total display elements
+                has_subtotal = 'Subtotal:' in response.text or 'subtotal' in response.text.lower()
+                has_final_total = 'Final Total:' in response.text or 'final_total' in response.text.lower()
+                has_currency = '₹' in response.text
+                has_invoice_summary = 'Invoice Summary' in response.text or 'summary' in response.text.lower()
+                
+                # Check for discount display elements
+                has_discount_section = 'Apply Discount' in response.text
+                has_discount_amount_field = 'Discount Amount' in response.text
+                
+                if has_subtotal and has_final_total and has_currency and has_invoice_summary and has_discount_section and has_discount_amount_field:
+                    self.log_test("Invoice Display Totals", True, "Invoice displays correctly with all total fields and no undefined array key errors")
                     return True
-                elif "required fields" in response.text.lower():
-                    self.log_test("Other Items Purchase Entry Submission", False, "Form validation error - missing required fields")
-                    return False
                 else:
-                    self.log_test("Other Items Purchase Entry Submission", False, "No success message found", response.text[:500])
+                    missing_elements = []
+                    if not has_subtotal: missing_elements.append("Subtotal")
+                    if not has_final_total: missing_elements.append("Final Total")
+                    if not has_currency: missing_elements.append("Currency (₹)")
+                    if not has_invoice_summary: missing_elements.append("Invoice Summary")
+                    if not has_discount_section: missing_elements.append("Discount Section")
+                    if not has_discount_amount_field: missing_elements.append("Discount Amount Field")
+                    
+                    self.log_test("Invoice Display Totals", False, f"Missing display elements: {', '.join(missing_elements)}")
                     return False
             else:
-                self.log_test("Other Items Purchase Entry Submission", False, f"HTTP {response.status_code}")
+                self.log_test("Invoice Display Totals", False, f"Cannot access invoice: HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Other Items Purchase Entry Submission", False, f"Error: {str(e)}")
+            self.log_test("Invoice Display Totals", False, f"Error: {str(e)}")
             return False
 
     def test_purchase_history_access(self):
