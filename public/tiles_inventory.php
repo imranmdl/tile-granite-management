@@ -191,7 +191,7 @@ require_once __DIR__ . '/../includes/header.php';
 }
 
 .inventory-table {
-    min-width: 1200px;
+    min-width: 1800px;
 }
 
 .inventory-table th {
