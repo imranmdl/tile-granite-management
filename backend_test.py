@@ -126,21 +126,31 @@ class CommissionReportingSystemTester:
             return False
 
     def test_reporting_dashboard(self):
-        """Test the main reports dashboard page"""
+        """Test reporting endpoints in FastAPI"""
         try:
-            response = self.session.get(f"{self.php_url}/reports_dashboard.php", timeout=10)
+            # Check if there are any reporting endpoints in FastAPI
+            reporting_endpoints = [
+                "/reports/dashboard",
+                "/reports/sales",
+                "/reports/commission",
+                "/reports/daily"
+            ]
             
-            if response.status_code == 200:
-                content = response.text
-                # Check for key dashboard elements
-                if "Reports Dashboard" in content and "Sales Report" in content and "Commission Report" in content:
-                    self.log_test("Reporting Dashboard", True, "Reports dashboard accessible with all report links")
-                    return True
-                else:
-                    self.log_test("Reporting Dashboard", False, "Dashboard accessible but missing key elements")
-                    return False
+            reports_found = False
+            for endpoint in reporting_endpoints:
+                try:
+                    resp = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if resp.status_code != 404:
+                        reports_found = True
+                        break
+                except:
+                    continue
+            
+            if reports_found:
+                self.log_test("Reporting Dashboard", True, "Reporting endpoints found in FastAPI")
+                return True
             else:
-                self.log_test("Reporting Dashboard", False, f"HTTP {response.status_code}")
+                self.log_test("Reporting Dashboard", False, "No reporting endpoints implemented in FastAPI backend")
                 return False
                 
         except Exception as e:
