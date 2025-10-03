@@ -1,17 +1,12 @@
 <?php
-// includes/auth.php — DB-backed auth with roles (admin, manager, sales)
-require_once __DIR__ . '/Database.php';
-require_once __DIR__ . '/session_helper.php';
-ensure_session_started();
+// includes/auth.php — Redirect to clean authentication system
+// This file now redirects to the new, clean authentication system
 
-// Try to load enhanced auth system if available
-if (file_exists(__DIR__ . '/auth_enhanced.php')) {
-  require_once __DIR__ . '/auth_enhanced.php';
-  // Initialize enhanced auth system
-  if (class_exists('AuthSystem')) {
-    AuthSystem::init();
-  }
-}
+// Load the clean, working authentication system
+require_once __DIR__ . '/simple_auth.php';
+
+// Note: All functions are now provided by simple_auth.php
+// This maintains backward compatibility while using the clean system
 
 function auth_user(): ?array { return $_SESSION['user'] ?? null; }
 function auth_user_id(): ?int { return $_SESSION['user']['id'] ?? null; }
