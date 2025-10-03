@@ -26,13 +26,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = trim($_POST['name'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         
-        $current_user = auth_get_user();
-        $result = AuthSystem::createUser($username, $email, $password, $role, $name, $phone, $current_user['id']);
-        
-        if ($result['success']) {
-            $message = $result['message'];
+        // Simple validation
+        if (empty($username) || empty($password)) {
+            $error = 'Username and password are required';
+        } elseif (strlen($password) < 6) {
+            $error = 'Password must be at least 6 characters';
         } else {
-            $error = $result['message'];
+            // Check if username exists
+            $stmt = $pdo->prepare("SELECT id FROM users_simple WHERE username = ?");
+            $stmt->execute([$username]);
+            if ($stmt->fetchColumn()) {
+                $error = 'Username already exists';
+            } else {
+                // Create user
+                $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                $current_user = auth_get_user();
+                
+                $stmt = $pdo->prepare("
+                    INSERT INTO users_simple (username, password_hash, role, name, email, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                
+                if ($stmt->execute([$username, $password_hash, $role, $name, $email, $current_user['id']])) {
+                    $message = 'User created successfully';
+                } else {
+                    $error = 'Failed to create user';
+                }
+            }
         }
     }
     
