@@ -48,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 <div class="card shadow-sm mt-5"><div class="card-body">
 <h3 class="mb-3 text-center">🧱 Tile Suite</h3>
 <?php if ($msg): ?><div class="alert alert-danger"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
+<?php if ($success_msg): ?><div class="alert alert-success"><?= htmlspecialchars($success_msg) ?></div><?php endif; ?>
 <form method="post">
   <div class="mb-3"><label class="form-label">Username</label><input class="form-control" name="username" required></div>
   <div class="mb-3"><label class="form-label">Password</label><input class="form-control" name="password" type="password" required></div>
