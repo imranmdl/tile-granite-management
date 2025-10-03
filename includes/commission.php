@@ -63,6 +63,14 @@ class Commission {
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $q=(float)($r['q']??0); $c=isset($r['c'])&&$r['c']!==null?(float)$r['c']:0.0; $base += $q*$c; } } }
     return max(0.0, $base);
   }
+  
+  public static function compute_invoice_final_value(PDO $pdo, int $invoice_id): float {
+    // Get the final invoice total (after discount, including GST if applicable)
+    $st = $pdo->prepare("SELECT total FROM invoices WHERE id = ?");
+    $st->execute([$invoice_id]);
+    $total = $st->fetchColumn();
+    return $total ? (float)$total : 0.0;
+  }
   public static function sync_for_invoice(PDO $pdo, int $invoice_id): array {
     $st=$pdo->prepare("SELECT * FROM invoices WHERE id=?"); $st->execute([$invoice_id]); $inv=$st->fetch(PDO::FETCH_ASSOC); if(!$inv) return ['ok'=>false,'msg'=>'Invoice not found'];
     $sales_user_id=self::resolve_sales_user_id($pdo,$inv); if(!$sales_user_id) return ['ok'=>false,'msg'=>'Sales user not mapped to a valid login user'];
