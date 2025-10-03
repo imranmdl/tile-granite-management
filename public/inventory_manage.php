@@ -317,10 +317,7 @@ require_once __DIR__ . '/../includes/header.php';
               <button class="btn btn-sm btn-primary" name="save_inv_row" value="1">Save</button>
             </td>
             <td>
-              <form method="post" onsubmit="return confirm('Delete this inventory row?')">
-                <input type="hidden" name="row_id" value="<?= (int)$r['id'] ?>">
-                <button class="btn btn-sm btn-outline-danger" name="del_inv_row" value="1">X</button>
-              </form>
+              <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?= (int)$r['id'] ?>)">Delete</button>
             </td>
           </form>
         </tr>
