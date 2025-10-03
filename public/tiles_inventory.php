@@ -974,6 +974,19 @@ function editTile(tileId, tileName, sizeId, vendorId) {
     new bootstrap.Modal(document.getElementById('editTileModal')).show();
 }
 
+function deleteTile() {
+    if (confirm('Are you sure you want to delete this tile? This action cannot be undone.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="delete_tile" value="1">
+            <input type="hidden" name="tile_id" value="${document.getElementById('editTileId').value}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
 function editStockQuantity(tileId, currentStock) {
     document.getElementById('stockTileId').value = tileId;
     document.getElementById('currentStock').value = parseFloat(currentStock).toFixed(1);
