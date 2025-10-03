@@ -120,10 +120,10 @@ class InvoiceSystemTester:
             # Create invoice data
             invoice_data = {
                 'customer_name': 'John Smith',
-                'mobile_number': '9876543210',
+                'phone': '9876543210',
                 'firm_name': 'Smith Enterprises',
                 'customer_gst': 'GST123456789',
-                'action': 'create_invoice'
+                'create_invoice': '1'
             }
             
             response = self.session.post(f"{self.base_url}/invoice_enhanced.php", data=invoice_data)
