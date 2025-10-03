@@ -548,6 +548,45 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Edit Item Modal -->
+<div class="modal fade" id="editItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="editItemForm" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="edit_item" value="1">
+                    <input type="hidden" name="item_id" id="editItemId">
+                    
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Item Name *</label>
+                            <input type="text" class="form-control" name="item_name" id="editItemName" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Unit *</label>
+                            <input type="text" class="form-control" name="unit_label" id="editItemUnit" required 
+                                   placeholder="e.g., pieces, kg, liters">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="deleteItem()">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Update Item
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- QR Generation Form (Hidden) -->
 <form id="qrGenerationForm" method="post" style="display: none;">
     <input type="hidden" name="item_id" id="qrItemId">
