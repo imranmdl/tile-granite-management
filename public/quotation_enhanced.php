@@ -939,6 +939,50 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
     <?php endif; ?>
 
+    <!-- Commission Section -->
+    <?php if (!empty($quotation_items) || !empty($quotation_misc_items)): ?>
+    <div class="commission-section">
+        <h6><i class="bi bi-person-check"></i> Commission Settings</h6>
+        <form method="post" class="row g-3">
+            <input type="hidden" name="apply_commission" value="1">
+            <div class="col-md-4">
+                <label class="form-label">Sales Person</label>
+                <select class="form-select" name="commission_user_id">
+                    <option value="">No Commission</option>
+                    <?php
+                    $users_stmt = $pdo->prepare("SELECT id, username, role FROM users_simple WHERE status = 'active' ORDER BY username");
+                    $users_stmt->execute();
+                    $users = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
+                    foreach ($users as $user):
+                    ?>
+                        <option value="<?= $user['id'] ?>" 
+                                <?= ($quotation['commission_user_id'] ?? 0) == $user['id'] ? 'selected' : '' ?>>
+                            <?= h($user['username']) ?> (<?= h($user['role']) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Commission %</label>
+                <input type="number" class="form-control" name="commission_percentage" step="0.01" min="0" max="50" 
+                       value="<?= $quotation['commission_percentage'] ?? 0 ?>" oninput="calculateCommission()">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Commission Amount</label>
+                <input type="text" class="form-control" id="commissionAmount" 
+                       value="₹<?= number_format($quotation['commission_amount'] ?? 0, 2) ?>" readonly>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-info">
+                        <i class="bi bi-check"></i> Apply
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
     <!-- Discount Section -->
     <?php if (!empty($quotation_items) || !empty($quotation_misc_items)): ?>
     <div class="discount-section">
