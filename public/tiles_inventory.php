@@ -654,6 +654,60 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Edit Stock Modal -->
+<div class="modal fade" id="editStockModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="editStockForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Adjust Stock Quantity</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="adjust_stock" value="1">
+                    <input type="hidden" name="tile_id" id="stockTileId">
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> This will create a stock adjustment entry to correct inventory levels.
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Current Stock</label>
+                            <input type="number" class="form-control" id="currentStock" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">New Stock Quantity *</label>
+                            <input type="number" class="form-control" name="new_stock" id="newStock" step="0.1" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Adjustment Reason *</label>
+                            <select class="form-select" name="adjustment_reason" required>
+                                <option value="">Select reason...</option>
+                                <option value="physical_count">Physical Count Correction</option>
+                                <option value="damage">Damage/Breakage</option>
+                                <option value="loss">Loss/Theft</option>
+                                <option value="return">Customer Return</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="adjustment_notes" rows="2" placeholder="Additional details about this adjustment"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Adjust Stock
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Edit Tile Modal -->
 <div class="modal fade" id="editTileModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
