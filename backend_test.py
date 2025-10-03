@@ -86,35 +86,40 @@ class CommissionReportingSystemTester:
             return False
 
     def test_commission_system(self):
-        """Test commission application functionality"""
+        """Test commission system endpoints in FastAPI"""
         try:
-            # Check if commission system is accessible
-            response = self.session.get(f"{self.php_url}/commission_settings.php", timeout=10)
+            # Check if there are any commission-related endpoints
+            # Since the current FastAPI only has basic endpoints, this will test what exists
             
+            # Test basic API endpoint
+            response = self.session.get(f"{self.api_url}/", timeout=10)
             if response.status_code != 200:
-                self.log_test("Commission System", False, f"Commission settings page not accessible: HTTP {response.status_code}")
+                self.log_test("Commission System", False, f"Basic API not accessible: HTTP {response.status_code}")
                 return False
             
-            # Check database for commission data
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            # Check if there are any commission endpoints (they don't exist in current implementation)
+            commission_endpoints = [
+                "/commission/rates",
+                "/commission/calculate", 
+                "/commission/ledger"
+            ]
             
-            # Check commission rates
-            cursor.execute("SELECT COUNT(*) FROM commission_rates")
-            rates_count = cursor.fetchone()[0]
+            commission_found = False
+            for endpoint in commission_endpoints:
+                try:
+                    resp = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if resp.status_code != 404:
+                        commission_found = True
+                        break
+                except:
+                    continue
             
-            # Check commission ledger
-            cursor.execute("SELECT COUNT(*) FROM commission_ledger")
-            ledger_count = cursor.fetchone()[0]
-            
-            conn.close()
-            
-            if rates_count > 0 or ledger_count > 0:
-                self.log_test("Commission System", True, f"Commission system functional with {rates_count} rates and {ledger_count} ledger entries")
+            if commission_found:
+                self.log_test("Commission System", True, "Commission endpoints found in FastAPI")
                 return True
             else:
-                self.log_test("Commission System", True, "Commission system accessible but no data yet (expected for new system)")
-                return True
+                self.log_test("Commission System", False, "No commission endpoints implemented in FastAPI backend")
+                return False
                 
         except Exception as e:
             self.log_test("Commission System", False, f"Error: {str(e)}")
