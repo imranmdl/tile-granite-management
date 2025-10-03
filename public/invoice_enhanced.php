@@ -655,8 +655,8 @@ require_once __DIR__ . '/../includes/header.php';
                                         <small class="text-muted"><?= h($item['size_label']) ?></small>
                                     </td>
                                     <td><?= h($item['purpose']) ?></td>
-                                    <td><?= number_format($item['boxes_decimal'], 1) ?> boxes</td>
-                                    <td>₹<?= number_format($item['rate_per_box'], 2) ?>/box</td>
+                                    <td><span class="quantity-value"><?= number_format($item['boxes_decimal'], 1) ?></span> boxes</td>
+                                    <td>₹<span class="rate-value"><?= number_format($item['rate_per_box'], 2) ?></span>/box</td>
                                     <td class="fw-bold">₹<?= number_format($item['line_total'], 2) ?></td>
                                     <td>
                                         <?php
