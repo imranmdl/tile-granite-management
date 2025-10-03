@@ -516,7 +516,7 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
             <div class="col-md-3">
                 <strong>Final Total:</strong><br>
-                <span class="fs-4 text-success">₹<?= number_format($invoice['final_total'] ?? $invoice['total'], 2) ?></span>
+                <span class="fs-4 text-success">₹<?= number_format($invoice['final_total'] ?? $invoice['total'] ?? 0, 2) ?></span>
             </div>
         </div>
     </div>
