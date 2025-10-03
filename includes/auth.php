@@ -1,9 +1,8 @@
 <?php
 // includes/auth.php — DB-backed auth with roles (admin, manager, sales)
 require_once __DIR__ . '/Database.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/session_helper.php';
+ensure_session_started();
 
 // Try to load enhanced auth system if available
 if (file_exists(__DIR__ . '/auth_enhanced.php')) {
