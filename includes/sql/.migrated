@@ -1,0 +1,8 @@
+0001_core.sql
+0002_sales.sql
+0003_expenses.sql
+0004_commission.sql
+0005_returns.sql
+0006_quotation_discounts_commission.sql
+0007_commission_module.sql
+0008_users_auth.sql
