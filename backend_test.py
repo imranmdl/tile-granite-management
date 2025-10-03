@@ -63,45 +63,46 @@ class FastAPISystemTester:
             self.log_test("API Connectivity", False, f"Error: {str(e)}")
             return False
 
-    def test_database_schema_verification(self):
-        """Test database schema to verify discount_amount and final_total fields exist"""
-        if not self.authenticate():
-            return False
-            
+    def test_status_endpoint(self):
+        """Test the status endpoint functionality"""
         try:
-            # Try to access invoice creation page to check if discount fields are present
-            url = f"{self.base_url}/public/invoice_enhanced.php"
-            response = self.session.get(url, timeout=10)
+            # Test GET status endpoint
+            response = self.session.get(f"{self.api_url}/status", timeout=10)
             
             if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Check for discount-related elements in the page
-                has_discount_section = 'Apply Discount' in response.text
-                has_discount_type = 'discount_type' in response.text
-                has_discount_value = 'discount_value' in response.text
-                has_discount_amount = 'discount_amount' in response.text or 'Discount Amount' in response.text
-                has_final_total = 'final_total' in response.text or 'Final Total' in response.text
-                
-                if has_discount_section and has_discount_type and has_discount_value and has_discount_amount and has_final_total:
-                    self.log_test("Database Schema Verification", True, "All discount fields (discount_amount, final_total) are present in invoice system")
-                    return True
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_test("Status Endpoint (GET)", True, f"Status endpoint returns list with {len(data)} items")
                 else:
-                    missing_features = []
-                    if not has_discount_section: missing_features.append("Discount section")
-                    if not has_discount_type: missing_features.append("Discount type field")
-                    if not has_discount_value: missing_features.append("Discount value field")
-                    if not has_discount_amount: missing_features.append("Discount amount field")
-                    if not has_final_total: missing_features.append("Final total field")
-                    
-                    self.log_test("Database Schema Verification", False, f"Missing discount fields: {', '.join(missing_features)}")
+                    self.log_test("Status Endpoint (GET)", False, f"Expected list, got: {type(data)}")
                     return False
             else:
-                self.log_test("Database Schema Verification", False, f"Cannot access invoice page: HTTP {response.status_code}")
+                self.log_test("Status Endpoint (GET)", False, f"HTTP {response.status_code}")
+                return False
+            
+            # Test POST status endpoint
+            test_data = {
+                "client_name": "Test Client for Invoice System"
+            }
+            
+            response = self.session.post(f"{self.api_url}/status", 
+                                       data=json.dumps(test_data), 
+                                       timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('client_name') == test_data['client_name']:
+                    self.log_test("Status Endpoint (POST)", True, f"Successfully created status check with ID: {data.get('id')}")
+                    return True
+                else:
+                    self.log_test("Status Endpoint (POST)", False, f"Unexpected response: {data}")
+                    return False
+            else:
+                self.log_test("Status Endpoint (POST)", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Database Schema Verification", False, f"Error: {str(e)}")
+            self.log_test("Status Endpoint", False, f"Error: {str(e)}")
             return False
 
     def test_invoice_creation(self):
