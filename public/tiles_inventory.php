@@ -776,17 +776,38 @@ function viewQR(qrPath, tileName) {
 
 function printQR() {
     const qrImage = document.getElementById('qrModalImage').src;
+    const qrTitle = document.getElementById('qrModalTitle').textContent;
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
         <html>
-            <head><title>QR Code Print</title></head>
-            <body style="text-align: center; padding: 20px;">
-                <h3>${document.getElementById('qrModalTitle').textContent}</h3>
-                <img src="${qrImage}" style="max-width: 300px;">
+            <head>
+                <title>QR Code Print</title>
+                <style>
+                    @media print {
+                        body { margin: 0; padding: 20px; }
+                        .qr-container { text-align: center; page-break-inside: avoid; }
+                        .qr-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+                        .qr-image { max-width: 200px; height: auto; }
+                        .print-info { font-size: 10px; color: #666; margin-top: 10px; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="qr-container">
+                    <div class="qr-title">${qrTitle}</div>
+                    <img src="${qrImage}" class="qr-image" alt="QR Code">
+                    <div class="print-info">Printed on: ${new Date().toLocaleDateString()}</div>
+                </div>
             </body>
         </html>
     `);
-    printWindow.print();
+    
+    printWindow.onload = function() {
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 250);
+    };
 }
 
 function downloadQR() {
