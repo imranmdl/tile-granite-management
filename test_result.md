@@ -117,17 +117,17 @@ backend:
         -agent: "testing"
         -comment: "COMPLETED: Authentication system fully functional and tested with 100% success rate."
 
-  - task: "Enhanced Inventory Database Schema"
+  - task: "Enhanced Inventory Database Schema with Cost Calculations"
     implemented: true
     working: true
-    file: "includes/sql/migrations/0010_enhanced_inventory.sql"
+    file: "includes/sql/migrations/0010_enhanced_inventory.sql, 0011_inventory_enhancements.sql"
     stuck_count: 0
-    priority: "high"
+    priority: "completed"
     needs_retesting: false
     status_history:
         -working: true
         -agent: "main"
-        -comment: "Created enhanced inventory tables: purchase_entries_tiles, purchase_entries_misc, views current_tiles_stock, current_misc_stock. Added photo and QR code support columns to tiles and misc_items tables."
+        -comment: "COMPLETED: Enhanced database schema with transport percentage calculations, sales data integration, and cost breakdown views. Added columns: transport_percentage to support Cost/Box * (1 + Transport%) calculation model. Updated views to include sales data from quotation tables and enhanced cost calculations."
 
   - task: "Purchase Entry System - Tiles"
     implemented: true
