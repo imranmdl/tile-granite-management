@@ -76,364 +76,611 @@ class EnhancedInventoryTester:
         except Exception as e:
             self.log_test("Authentication Setup", False, f"Authentication error: {str(e)}")
             return False
-    
+
     def test_tiles_inventory_access(self):
-        """Test login with specific credentials"""
+        """Test access to enhanced tiles inventory page"""
+        if not self.authenticate():
+            return False
+            
         try:
-            # Use fresh session for invalid login tests
-            if not expected_success:
-                test_session = requests.Session()
-                test_session.headers.update(self.session.headers)
-            else:
-                test_session = self.session
+            url = f"{self.base_url}/public/tiles_inventory.php"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
                 
-            # First get the login page to establish session
-            login_url = f"{self.base_url}/public/login_clean.php"
-            response = test_session.get(login_url)
-            
-            # Submit login form
-            login_data = {
-                'username': username,
-                'password': password
-            }
-            
-            response = test_session.post(login_url, data=login_data, allow_redirects=False)
-            
-            if expected_success:
-                if response.status_code in [302, 301]:  # Redirect on successful login
-                    location = response.headers.get('Location', '')
-                    if 'index.php' in location or location.startswith('/public/'):
-                        self.log_test(f"Login Test ({username})", True, f"Successful login and redirect to {location}")
-                        return True
-                    else:
-                        self.log_test(f"Login Test ({username})", False, f"Unexpected redirect: {location}")
-                        return False
+                # Check for enhanced inventory features
+                has_enhanced_table = soup.find('table', class_='inventory-table') is not None
+                has_cost_columns = 'Cost/Box' in response.text and 'Cost + Transport' in response.text
+                has_sales_data = 'Sold Boxes' in response.text and 'Sold Revenue' in response.text
+                has_qr_features = 'QR Code' in response.text
+                has_invoice_links = 'Invoice Links' in response.text
+                
+                if has_enhanced_table and has_cost_columns and has_sales_data and has_qr_features and has_invoice_links:
+                    self.log_test("Enhanced Tiles Inventory Access", True, "All enhanced features present")
+                    return True
                 else:
-                    self.log_test(f"Login Test ({username})", False, f"No redirect on login, status: {response.status_code}")
-                    return False
-            else:
-                # For invalid credentials, should stay on login page with error
-                if response.status_code == 200:
-                    if "Invalid username or password" in response.text:
-                        self.log_test(f"Invalid Login Test ({username})", True, "Correctly rejected invalid credentials")
-                        return True
-                    else:
-                        self.log_test(f"Invalid Login Test ({username})", False, "No error message for invalid credentials")
-                        return False
-                elif response.status_code in [302, 301]:
-                    self.log_test(f"Invalid Login Test ({username})", False, "Should not redirect on invalid credentials")
-                    return False
-                else:
-                    self.log_test(f"Invalid Login Test ({username})", False, f"Unexpected status: {response.status_code}")
-                    return False
+                    missing_features = []
+                    if not has_enhanced_table: missing_features.append("Enhanced table")
+                    if not has_cost_columns: missing_features.append("Cost columns")
+                    if not has_sales_data: missing_features.append("Sales data")
+                    if not has_qr_features: missing_features.append("QR features")
+                    if not has_invoice_links: missing_features.append("Invoice links")
                     
-        except Exception as e:
-            self.log_test(f"Login Test ({username})", False, f"Error: {str(e)}")
-            return False
-    
-    def test_session_management(self):
-        """Test session management and authentication persistence"""
-        try:
-            # Login first
-            if not self.test_login_with_credentials("admin", "admin123"):
-                return False
-            
-            # Try to access protected page
-            users_url = f"{self.base_url}/public/users_management.php"
-            response = self.session.get(users_url)
-            
-            if response.status_code == 200:
-                if "User Management" in response.text and "Total Users" in response.text:
-                    self.log_test("Session Management", True, "Successfully accessed protected page after login")
-                    return True
-                else:
-                    self.log_test("Session Management", False, "Protected page content missing", response.text[:500])
+                    self.log_test("Enhanced Tiles Inventory Access", False, f"Missing features: {', '.join(missing_features)}")
                     return False
             else:
-                self.log_test("Session Management", False, f"Cannot access protected page: HTTP {response.status_code}")
+                self.log_test("Enhanced Tiles Inventory Access", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Session Management", False, f"Error: {str(e)}")
+            self.log_test("Enhanced Tiles Inventory Access", False, f"Error: {str(e)}")
             return False
-    
-    def test_users_management_page(self):
-        """Test users management page functionality"""
-        try:
-            # Ensure we're logged in as admin
-            self.test_login_with_credentials("admin", "admin123")
+
+    def test_other_inventory_access(self):
+        """Test access to enhanced other inventory page"""
+        if not self.authenticate():
+            return False
             
-            users_url = f"{self.base_url}/public/users_management.php"
-            response = self.session.get(users_url)
+        try:
+            url = f"{self.base_url}/public/other_inventory.php"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Check for enhanced inventory features
+                has_enhanced_table = soup.find('table', class_='inventory-table') is not None
+                has_cost_columns = 'Cost/Unit' in response.text and 'Cost + Transport' in response.text
+                has_sales_data = 'Sold Quantity' in response.text and 'Sold Revenue' in response.text
+                has_qr_features = 'QR Code' in response.text
+                has_quote_links = 'Quote Links' in response.text
+                has_rupee_currency = '₹' in response.text
+                
+                if has_enhanced_table and has_cost_columns and has_sales_data and has_qr_features and has_quote_links and has_rupee_currency:
+                    self.log_test("Enhanced Other Inventory Access", True, "All enhanced features present with rupee currency")
+                    return True
+                else:
+                    missing_features = []
+                    if not has_enhanced_table: missing_features.append("Enhanced table")
+                    if not has_cost_columns: missing_features.append("Cost columns")
+                    if not has_sales_data: missing_features.append("Sales data")
+                    if not has_qr_features: missing_features.append("QR features")
+                    if not has_quote_links: missing_features.append("Quote links")
+                    if not has_rupee_currency: missing_features.append("Rupee currency")
+                    
+                    self.log_test("Enhanced Other Inventory Access", False, f"Missing features: {', '.join(missing_features)}")
+                    return False
+            else:
+                self.log_test("Enhanced Other Inventory Access", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Enhanced Other Inventory Access", False, f"Error: {str(e)}")
+            return False
+
+    def test_tiles_purchase_entry_access(self):
+        """Test access to tiles purchase entry system"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            url = f"{self.base_url}/public/tiles_purchase.php"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Check for enhanced purchase entry features
+                has_transport_percentage = 'Transport %' in response.text
+                has_live_calculations = 'Live Calculations' in response.text
+                has_damage_percentage = 'Damage %' in response.text
+                has_cost_breakdown = 'Cost + Transport' in response.text
+                has_rupee_currency = '₹' in response.text
+                
+                if has_transport_percentage and has_live_calculations and has_damage_percentage and has_cost_breakdown and has_rupee_currency:
+                    self.log_test("Tiles Purchase Entry Access", True, "All enhanced purchase features present")
+                    return True
+                else:
+                    missing_features = []
+                    if not has_transport_percentage: missing_features.append("Transport percentage")
+                    if not has_live_calculations: missing_features.append("Live calculations")
+                    if not has_damage_percentage: missing_features.append("Damage percentage")
+                    if not has_cost_breakdown: missing_features.append("Cost breakdown")
+                    if not has_rupee_currency: missing_features.append("Rupee currency")
+                    
+                    self.log_test("Tiles Purchase Entry Access", False, f"Missing features: {', '.join(missing_features)}")
+                    return False
+            else:
+                self.log_test("Tiles Purchase Entry Access", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Tiles Purchase Entry Access", False, f"Error: {str(e)}")
+            return False
+
+    def test_other_purchase_entry_access(self):
+        """Test access to other items purchase entry system"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            url = f"{self.base_url}/public/other_purchase.php"
+            response = self.session.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Check for enhanced purchase entry features
+                has_transport_percentage = 'Transport %' in response.text
+                has_live_calculations = 'Live Calculations' in response.text
+                has_damage_percentage = 'Damage %' in response.text
+                has_cost_breakdown = 'Cost + Transport' in response.text
+                has_rupee_currency = '₹' in response.text
+                
+                if has_transport_percentage and has_live_calculations and has_damage_percentage and has_cost_breakdown and has_rupee_currency:
+                    self.log_test("Other Items Purchase Entry Access", True, "All enhanced purchase features present")
+                    return True
+                else:
+                    missing_features = []
+                    if not has_transport_percentage: missing_features.append("Transport percentage")
+                    if not has_live_calculations: missing_features.append("Live calculations")
+                    if not has_damage_percentage: missing_features.append("Damage percentage")
+                    if not has_cost_breakdown: missing_features.append("Cost breakdown")
+                    if not has_rupee_currency: missing_features.append("Rupee currency")
+                    
+                    self.log_test("Other Items Purchase Entry Access", False, f"Missing features: {', '.join(missing_features)}")
+                    return False
+            else:
+                self.log_test("Other Items Purchase Entry Access", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Other Items Purchase Entry Access", False, f"Error: {str(e)}")
+            return False
+
+    def test_tiles_purchase_entry_submission(self):
+        """Test tiles purchase entry form submission with transport percentage"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            # First get the form page to get available tiles
+            url = f"{self.base_url}/public/tiles_purchase.php"
+            response = self.session.get(url)
             
             if response.status_code != 200:
-                self.log_test("Users Management Page", False, f"HTTP {response.status_code}")
+                self.log_test("Tiles Purchase Entry Submission", False, "Cannot access purchase form")
                 return False
             
-            # Parse the HTML to check for key elements
             soup = BeautifulSoup(response.text, 'html.parser')
+            tile_select = soup.find('select', {'name': 'tile_id'})
             
-            # Check for statistics cards
-            stats_found = len(soup.find_all('div', class_='card-body')) >= 4
-            
-            # Check for user list
-            user_cards = soup.find_all('div', class_='user-card')
-            
-            # Check for no undefined array key warnings
-            has_warnings = "Undefined array key" in response.text or "Warning:" in response.text
-            
-            if stats_found and len(user_cards) >= 3 and not has_warnings:
-                self.log_test("Users Management Page", True, f"Page loads correctly with {len(user_cards)} users, no warnings")
-                return True
-            else:
-                issues = []
-                if not stats_found:
-                    issues.append("Statistics cards missing")
-                if len(user_cards) < 3:
-                    issues.append(f"Expected 3+ users, found {len(user_cards)}")
-                if has_warnings:
-                    issues.append("PHP warnings present")
-                
-                self.log_test("Users Management Page", False, f"Issues: {', '.join(issues)}")
-                return False
-                
-        except Exception as e:
-            self.log_test("Users Management Page", False, f"Error: {str(e)}")
-            return False
-    
-    def test_user_statistics(self):
-        """Test user statistics display"""
-        try:
-            # Ensure we're logged in as admin
-            self.test_login_with_credentials("admin", "admin123")
-            
-            users_url = f"{self.base_url}/public/users_management.php"
-            response = self.session.get(users_url)
-            
-            if response.status_code != 200:
+            if not tile_select:
+                self.log_test("Tiles Purchase Entry Submission", False, "No tile selection dropdown found")
                 return False
             
-            # Extract statistics from the page
-            soup = BeautifulSoup(response.text, 'html.parser')
+            # Get first available tile
+            tile_options = tile_select.find_all('option')
+            tile_id = None
+            for option in tile_options:
+                if option.get('value') and option.get('value') != '':
+                    tile_id = option.get('value')
+                    break
             
-            # Find statistics cards
-            stats = {}
-            card_bodies = soup.find_all('div', class_='card-body')
-            
-            for card in card_bodies:
-                title_elem = card.find('h6', class_='card-title')
-                value_elem = card.find('h3')
-                
-                if title_elem and value_elem:
-                    title = title_elem.get_text().strip()
-                    value = value_elem.get_text().strip()
-                    stats[title] = value
-            
-            # Validate expected statistics
-            expected_stats = ['Total Users', 'Active Users', 'Administrators', 'Inactive Users']
-            found_stats = all(stat in stats for stat in expected_stats)
-            
-            if found_stats:
-                stats_summary = ", ".join([f"{k}: {v}" for k, v in stats.items()])
-                self.log_test("User Statistics", True, f"All statistics present - {stats_summary}")
-                return True
-            else:
-                missing = [stat for stat in expected_stats if stat not in stats]
-                self.log_test("User Statistics", False, f"Missing statistics: {missing}")
+            if not tile_id:
+                self.log_test("Tiles Purchase Entry Submission", False, "No tiles available for testing")
                 return False
-                
-        except Exception as e:
-            self.log_test("User Statistics", False, f"Error: {str(e)}")
-            return False
-    
-    def test_user_creation(self):
-        """Test user creation functionality"""
-        try:
-            # Ensure we're logged in as admin
-            self.test_login_with_credentials("admin", "admin123")
             
-            # Generate unique username
-            test_username = f"testuser_{int(time.time())}"
-            
-            users_url = f"{self.base_url}/public/users_management.php"
-            
-            # Submit user creation form
-            user_data = {
-                'create_user': '1',
-                'username': test_username,
-                'password': 'TestPass123!',
-                'role': 'sales',
-                'name': 'Test User',
-                'email': 'test@example.com'
+            # Submit purchase entry with realistic data
+            purchase_data = {
+                'add_purchase': '1',
+                'tile_id': tile_id,
+                'purchase_date': datetime.now().strftime('%Y-%m-%d'),
+                'supplier_name': 'Rajesh Tiles Supplier',
+                'invoice_number': f'INV-{int(time.time())}',
+                'total_boxes': '100',
+                'damage_percentage': '5.5',
+                'cost_per_box': '250.00',
+                'transport_percentage': '30',  # 30% transport
+                'transport_cost': '0',
+                'notes': 'Test purchase entry with transport percentage calculation'
             }
             
-            response = self.session.post(users_url, data=user_data)
+            response = self.session.post(url, data=purchase_data)
             
             if response.status_code == 200:
-                if "User created successfully" in response.text:
-                    self.log_test("User Creation", True, f"Successfully created user: {test_username}")
+                if "Purchase entry added successfully" in response.text:
+                    self.log_test("Tiles Purchase Entry Submission", True, f"Successfully created purchase entry for tile {tile_id}")
                     return True
-                elif "Username already exists" in response.text:
-                    self.log_test("User Creation", False, "Username conflict (expected for repeated tests)")
+                elif "required fields" in response.text.lower():
+                    self.log_test("Tiles Purchase Entry Submission", False, "Form validation error - missing required fields")
                     return False
                 else:
-                    self.log_test("User Creation", False, "No success message found", response.text[:500])
+                    self.log_test("Tiles Purchase Entry Submission", False, "No success message found", response.text[:500])
                     return False
             else:
-                self.log_test("User Creation", False, f"HTTP {response.status_code}")
+                self.log_test("Tiles Purchase Entry Submission", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("User Creation", False, f"Error: {str(e)}")
+            self.log_test("Tiles Purchase Entry Submission", False, f"Error: {str(e)}")
             return False
-    
+
+    def test_other_purchase_entry_submission(self):
+        """Test other items purchase entry form submission with transport percentage"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            # First get the form page to get available items
+            url = f"{self.base_url}/public/other_purchase.php"
+            response = self.session.get(url)
+            
+            if response.status_code != 200:
+                self.log_test("Other Items Purchase Entry Submission", False, "Cannot access purchase form")
+                return False
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            item_select = soup.find('select', {'name': 'item_id'})
+            
+            if not item_select:
+                self.log_test("Other Items Purchase Entry Submission", False, "No item selection dropdown found")
+                return False
+            
+            # Get first available item
+            item_options = item_select.find_all('option')
+            item_id = None
+            for option in item_options:
+                if option.get('value') and option.get('value') != '':
+                    item_id = option.get('value')
+                    break
+            
+            if not item_id:
+                self.log_test("Other Items Purchase Entry Submission", False, "No items available for testing")
+                return False
+            
+            # Submit purchase entry with realistic data
+            purchase_data = {
+                'add_purchase': '1',
+                'item_id': item_id,
+                'purchase_date': datetime.now().strftime('%Y-%m-%d'),
+                'supplier_name': 'Mumbai Hardware Supplies',
+                'invoice_number': f'MHS-{int(time.time())}',
+                'total_quantity': '50',
+                'damage_percentage': '2.0',
+                'cost_per_unit': '15.50',
+                'transport_percentage': '25',  # 25% transport
+                'transport_cost': '0',
+                'notes': 'Test purchase entry for misc items with transport calculation'
+            }
+            
+            response = self.session.post(url, data=purchase_data)
+            
+            if response.status_code == 200:
+                if "Purchase entry added successfully" in response.text:
+                    self.log_test("Other Items Purchase Entry Submission", True, f"Successfully created purchase entry for item {item_id}")
+                    return True
+                elif "required fields" in response.text.lower():
+                    self.log_test("Other Items Purchase Entry Submission", False, "Form validation error - missing required fields")
+                    return False
+                else:
+                    self.log_test("Other Items Purchase Entry Submission", False, "No success message found", response.text[:500])
+                    return False
+            else:
+                self.log_test("Other Items Purchase Entry Submission", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Other Items Purchase Entry Submission", False, f"Error: {str(e)}")
+            return False
+
+    def test_purchase_history_access(self):
+        """Test access to purchase history with enhanced columns"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            # Test tiles purchase history
+            url = f"{self.base_url}/public/tiles_purchase.php?view=history"
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                has_cost_breakdown = 'Cost + Transport' in response.text
+                has_transport_column = 'Transport %' in response.text
+                has_rupee_currency = '₹' in response.text
+                
+                if has_cost_breakdown and has_transport_column and has_rupee_currency:
+                    self.log_test("Purchase History Access (Tiles)", True, "Enhanced history columns present")
+                else:
+                    self.log_test("Purchase History Access (Tiles)", False, "Missing enhanced history features")
+                    return False
+            else:
+                self.log_test("Purchase History Access (Tiles)", False, f"HTTP {response.status_code}")
+                return False
+            
+            # Test other items purchase history
+            url = f"{self.base_url}/public/other_purchase.php?view=history"
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                has_cost_breakdown = 'Cost + Transport' in response.text
+                has_transport_column = 'Transport %' in response.text
+                has_rupee_currency = '₹' in response.text
+                
+                if has_cost_breakdown and has_transport_column and has_rupee_currency:
+                    self.log_test("Purchase History Access (Other Items)", True, "Enhanced history columns present")
+                    return True
+                else:
+                    self.log_test("Purchase History Access (Other Items)", False, "Missing enhanced history features")
+                    return False
+            else:
+                self.log_test("Purchase History Access (Other Items)", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Purchase History Access", False, f"Error: {str(e)}")
+            return False
+
+    def test_qr_code_generation(self):
+        """Test QR code generation functionality"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            # Test tiles QR generation
+            url = f"{self.base_url}/public/tiles_inventory.php"
+            response = self.session.get(url)
+            
+            if response.status_code != 200:
+                self.log_test("QR Code Generation", False, "Cannot access tiles inventory")
+                return False
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Look for QR generation buttons or existing QR codes
+            qr_buttons = soup.find_all('button', string=lambda text: text and 'qr' in text.lower())
+            qr_images = soup.find_all('img', class_='qr-thumb')
+            
+            has_qr_functionality = len(qr_buttons) > 0 or len(qr_images) > 0
+            has_qr_modal = soup.find('div', id='qrCodeModal') is not None
+            
+            if has_qr_functionality and has_qr_modal:
+                self.log_test("QR Code Generation (Tiles)", True, f"QR functionality present - {len(qr_buttons)} buttons, {len(qr_images)} existing QR codes")
+            else:
+                self.log_test("QR Code Generation (Tiles)", False, "QR functionality missing")
+                return False
+            
+            # Test other items QR generation
+            url = f"{self.base_url}/public/other_inventory.php"
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                qr_buttons = soup.find_all('button', string=lambda text: text and 'qr' in text.lower())
+                qr_images = soup.find_all('img', class_='qr-thumb')
+                has_qr_functionality = len(qr_buttons) > 0 or len(qr_images) > 0
+                has_qr_modal = soup.find('div', id='qrCodeModal') is not None
+                
+                if has_qr_functionality and has_qr_modal:
+                    self.log_test("QR Code Generation (Other Items)", True, f"QR functionality present - {len(qr_buttons)} buttons, {len(qr_images)} existing QR codes")
+                    return True
+                else:
+                    self.log_test("QR Code Generation (Other Items)", False, "QR functionality missing")
+                    return False
+            else:
+                self.log_test("QR Code Generation (Other Items)", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("QR Code Generation", False, f"Error: {str(e)}")
+            return False
+
+    def test_cost_calculations(self):
+        """Test cost calculation features in inventory displays"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            # Test tiles inventory cost calculations
+            url = f"{self.base_url}/public/tiles_inventory.php"
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                # Check for cost calculation columns
+                has_cost_per_box = 'Cost/Box' in response.text
+                has_cost_with_transport = 'Cost + Transport' in response.text
+                has_total_box_cost = 'Total Box Cost' in response.text
+                has_rupee_currency = '₹' in response.text
+                
+                if has_cost_per_box and has_cost_with_transport and has_total_box_cost and has_rupee_currency:
+                    self.log_test("Cost Calculations (Tiles)", True, "All cost calculation columns present")
+                else:
+                    missing = []
+                    if not has_cost_per_box: missing.append("Cost/Box")
+                    if not has_cost_with_transport: missing.append("Cost + Transport")
+                    if not has_total_box_cost: missing.append("Total Box Cost")
+                    if not has_rupee_currency: missing.append("Rupee currency")
+                    
+                    self.log_test("Cost Calculations (Tiles)", False, f"Missing: {', '.join(missing)}")
+                    return False
+            else:
+                self.log_test("Cost Calculations (Tiles)", False, f"HTTP {response.status_code}")
+                return False
+            
+            # Test other items inventory cost calculations
+            url = f"{self.base_url}/public/other_inventory.php"
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                has_cost_per_unit = 'Cost/Unit' in response.text
+                has_cost_with_transport = 'Cost + Transport' in response.text
+                has_total_cost = 'Total Cost' in response.text
+                has_rupee_currency = '₹' in response.text
+                
+                if has_cost_per_unit and has_cost_with_transport and has_total_cost and has_rupee_currency:
+                    self.log_test("Cost Calculations (Other Items)", True, "All cost calculation columns present")
+                    return True
+                else:
+                    missing = []
+                    if not has_cost_per_unit: missing.append("Cost/Unit")
+                    if not has_cost_with_transport: missing.append("Cost + Transport")
+                    if not has_total_cost: missing.append("Total Cost")
+                    if not has_rupee_currency: missing.append("Rupee currency")
+                    
+                    self.log_test("Cost Calculations (Other Items)", False, f"Missing: {', '.join(missing)}")
+                    return False
+            else:
+                self.log_test("Cost Calculations (Other Items)", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Cost Calculations", False, f"Error: {str(e)}")
+            return False
+
+    def test_sales_data_integration(self):
+        """Test sales data integration in inventory displays"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            # Test tiles inventory sales data
+            url = f"{self.base_url}/public/tiles_inventory.php"
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                has_sold_boxes = 'Sold Boxes' in response.text
+                has_sold_revenue = 'Sold Revenue' in response.text
+                has_invoice_links = 'Invoice Links' in response.text
+                
+                if has_sold_boxes and has_sold_revenue and has_invoice_links:
+                    self.log_test("Sales Data Integration (Tiles)", True, "All sales data columns present")
+                else:
+                    missing = []
+                    if not has_sold_boxes: missing.append("Sold Boxes")
+                    if not has_sold_revenue: missing.append("Sold Revenue")
+                    if not has_invoice_links: missing.append("Invoice Links")
+                    
+                    self.log_test("Sales Data Integration (Tiles)", False, f"Missing: {', '.join(missing)}")
+                    return False
+            else:
+                self.log_test("Sales Data Integration (Tiles)", False, f"HTTP {response.status_code}")
+                return False
+            
+            # Test other items inventory sales data
+            url = f"{self.base_url}/public/other_inventory.php"
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                has_sold_quantity = 'Sold Quantity' in response.text
+                has_sold_revenue = 'Sold Revenue' in response.text
+                has_quote_links = 'Quote Links' in response.text
+                
+                if has_sold_quantity and has_sold_revenue and has_quote_links:
+                    self.log_test("Sales Data Integration (Other Items)", True, "All sales data columns present")
+                    return True
+                else:
+                    missing = []
+                    if not has_sold_quantity: missing.append("Sold Quantity")
+                    if not has_sold_revenue: missing.append("Sold Revenue")
+                    if not has_quote_links: missing.append("Quote Links")
+                    
+                    self.log_test("Sales Data Integration (Other Items)", False, f"Missing: {', '.join(missing)}")
+                    return False
+            else:
+                self.log_test("Sales Data Integration (Other Items)", False, f"HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Sales Data Integration", False, f"Error: {str(e)}")
+            return False
+
     def test_form_validation(self):
-        """Test form validation for user creation"""
+        """Test form validation for purchase entries"""
+        if not self.authenticate():
+            return False
+            
         try:
-            # Ensure we're logged in as admin
-            self.test_login_with_credentials("admin", "admin123")
+            # Test tiles purchase validation
+            url = f"{self.base_url}/public/tiles_purchase.php"
             
-            users_url = f"{self.base_url}/public/users_management.php"
-            
-            # Test with empty username
-            user_data = {
-                'create_user': '1',
-                'username': '',
-                'password': 'TestPass123!',
-                'role': 'sales'
+            # Test with invalid transport percentage (over 200%)
+            invalid_data = {
+                'add_purchase': '1',
+                'tile_id': '1',
+                'purchase_date': datetime.now().strftime('%Y-%m-%d'),
+                'total_boxes': '10',
+                'damage_percentage': '5',
+                'cost_per_box': '100',
+                'transport_percentage': '250',  # Invalid - over 200%
             }
             
-            response = self.session.post(users_url, data=user_data)
+            response = self.session.post(url, data=invalid_data)
             
-            if "Username and password are required" in response.text:
-                self.log_test("Form Validation (Empty Username)", True, "Correctly validates empty username")
+            if response.status_code == 200:
+                if "Transport percentage must be between 0 and 200" in response.text:
+                    self.log_test("Form Validation (Transport %)", True, "Correctly validates transport percentage limits")
+                else:
+                    self.log_test("Form Validation (Transport %)", False, "Should reject transport percentage > 200%")
+                    return False
             else:
-                self.log_test("Form Validation (Empty Username)", False, "Should reject empty username")
+                self.log_test("Form Validation (Transport %)", False, f"HTTP {response.status_code}")
                 return False
             
-            # Test with short password
-            user_data = {
-                'create_user': '1',
-                'username': 'testuser',
-                'password': '123',
-                'role': 'sales'
-            }
+            # Test with invalid damage percentage (over 100%)
+            invalid_data['transport_percentage'] = '30'
+            invalid_data['damage_percentage'] = '150'  # Invalid - over 100%
             
-            response = self.session.post(users_url, data=user_data)
+            response = self.session.post(url, data=invalid_data)
             
-            if "Password must be at least 6 characters" in response.text:
-                self.log_test("Form Validation (Short Password)", True, "Correctly validates password length")
-                return True
+            if response.status_code == 200:
+                if "Damage percentage must be between 0 and 100" in response.text:
+                    self.log_test("Form Validation (Damage %)", True, "Correctly validates damage percentage limits")
+                    return True
+                else:
+                    self.log_test("Form Validation (Damage %)", False, "Should reject damage percentage > 100%")
+                    return False
             else:
-                self.log_test("Form Validation (Short Password)", False, "Should reject short password")
+                self.log_test("Form Validation (Damage %)", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
             self.log_test("Form Validation", False, f"Error: {str(e)}")
             return False
-    
-    def test_role_based_access(self):
-        """Test role-based access control"""
-        try:
-            # Test manager access
-            if self.test_login_with_credentials("manager1", "manager123"):
-                users_url = f"{self.base_url}/public/users_management.php"
-                response = self.session.get(users_url)
-                
-                if response.status_code == 200 and "User Management" in response.text:
-                    self.log_test("Role-based Access (Manager)", True, "Manager can access user management")
-                else:
-                    self.log_test("Role-based Access (Manager)", False, "Manager should have access to user management")
-                    return False
-            
-            # Test sales access (should be denied for user creation)
-            if self.test_login_with_credentials("sales1", "sales123"):
-                users_url = f"{self.base_url}/public/users_management.php"
-                response = self.session.get(users_url)
-                
-                if response.status_code == 200:
-                    # Sales should see the page but not have create permissions
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    create_button = soup.find('button', string=lambda text: text and 'Create New User' in text)
-                    
-                    if not create_button:
-                        self.log_test("Role-based Access (Sales)", True, "Sales user has limited access (no create button)")
-                        return True
-                    else:
-                        self.log_test("Role-based Access (Sales)", False, "Sales user should not see create button")
-                        return False
-                else:
-                    self.log_test("Role-based Access (Sales)", False, f"Sales user denied access: HTTP {response.status_code}")
-                    return False
-                    
-        except Exception as e:
-            self.log_test("Role-based Access", False, f"Error: {str(e)}")
-            return False
-    
-    def test_logout_functionality(self):
-        """Test logout functionality"""
-        try:
-            # Login first
-            if not self.test_login_with_credentials("admin", "admin123"):
-                return False
-            
-            # Logout
-            logout_url = f"{self.base_url}/public/logout_clean.php"
-            response = self.session.get(logout_url, allow_redirects=False)
-            
-            if response.status_code in [302, 301]:
-                # Should redirect to login page
-                location = response.headers.get('Location', '')
-                if 'login' in location.lower():
-                    # Try to access protected page after logout
-                    users_url = f"{self.base_url}/public/users_management.php"
-                    response = self.session.get(users_url, allow_redirects=False)
-                    
-                    if response.status_code in [302, 301]:
-                        self.log_test("Logout Functionality", True, "Successfully logged out and redirected")
-                        return True
-                    else:
-                        self.log_test("Logout Functionality", False, "Should redirect to login after logout")
-                        return False
-                else:
-                    self.log_test("Logout Functionality", False, f"Unexpected redirect after logout: {location}")
-                    return False
-            else:
-                self.log_test("Logout Functionality", False, f"No redirect on logout: HTTP {response.status_code}")
-                return False
-                
-        except Exception as e:
-            self.log_test("Logout Functionality", False, f"Error: {str(e)}")
-            return False
-    
+
     def run_all_tests(self):
-        """Run all authentication tests"""
-        print("🧪 Starting PHP Authentication System Tests")
+        """Run all enhanced inventory system tests"""
+        print("🧪 Starting Enhanced Inventory System Tests")
         print("=" * 60)
         
-        # Basic connectivity tests
-        if not self.test_login_page_access():
-            print("❌ Cannot access login page - aborting further tests")
+        # Authentication test
+        if not self.authenticate():
+            print("❌ Cannot authenticate - aborting further tests")
             return False
         
-        # Authentication tests
-        self.test_login_with_credentials("admin", "admin123", True)
-        self.test_login_with_credentials("manager1", "manager123", True)
-        self.test_login_with_credentials("sales1", "sales123", True)
-        self.test_login_with_credentials("invalid", "invalid", False)
+        # Enhanced inventory access tests
+        self.test_tiles_inventory_access()
+        self.test_other_inventory_access()
         
-        # Session and access tests
-        self.test_session_management()
-        self.test_users_management_page()
-        self.test_user_statistics()
+        # Purchase entry system tests
+        self.test_tiles_purchase_entry_access()
+        self.test_other_purchase_entry_access()
         
-        # User management tests
-        self.test_user_creation()
+        # Purchase entry functionality tests
+        self.test_tiles_purchase_entry_submission()
+        self.test_other_purchase_entry_submission()
+        
+        # Purchase history tests
+        self.test_purchase_history_access()
+        
+        # Enhanced features tests
+        self.test_qr_code_generation()
+        self.test_cost_calculations()
+        self.test_sales_data_integration()
+        
+        # Validation tests
         self.test_form_validation()
-        self.test_role_based_access()
-        
-        # Logout test
-        self.test_logout_functionality()
         
         # Summary
         print("\n" + "=" * 60)
@@ -459,11 +706,11 @@ class EnhancedInventoryTester:
 
 def main():
     """Main test execution"""
-    tester = PHPAuthenticationTester()
+    tester = EnhancedInventoryTester()
     success = tester.run_all_tests()
     
     if success:
-        print("\n🎉 All tests passed! Authentication system is working correctly.")
+        print("\n🎉 All tests passed! Enhanced Inventory System is working correctly.")
         sys.exit(0)
     else:
         print("\n⚠️  Some tests failed. Please review the issues above.")
