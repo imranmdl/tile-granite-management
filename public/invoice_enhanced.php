@@ -757,7 +757,7 @@ function updateDiscountLabel() {
 }
 
 function calculateDiscount() {
-    const subtotal = <?= isset($invoice) ? $invoice['total'] : 0 ?>;
+    const subtotal = <?= isset($invoice) ? ($invoice['total'] ?? 0) : 0 ?>;
     const discountType = document.querySelector('[name="discount_type"]').value;
     const discountValue = parseFloat(document.querySelector('[name="discount_value"]').value) || 0;
     
