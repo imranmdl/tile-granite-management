@@ -236,16 +236,9 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                 </p>
                 
-                <?php if ($is_locked): ?>
+                <?php if (!$user['active']): ?>
                     <div class="alert alert-warning py-1 px-2 small">
-                        <i class="bi bi-lock"></i> Locked until <?= date('M j g:i A', strtotime($user['locked_until'])) ?>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if ($user['failed_login_attempts'] > 0): ?>
-                    <div class="alert alert-info py-1 px-2 small">
-                        <i class="bi bi-exclamation-triangle"></i> 
-                        <?= $user['failed_login_attempts'] ?> failed login attempts
+                        <i class="bi bi-person-x"></i> Account Inactive
                     </div>
                 <?php endif; ?>
             </div>
