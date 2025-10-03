@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Implement Enhanced Inventory (Tiles) system with purchase entries, damage calculations, improved UI (sticky columns, search, column picker), barcode/label generation (QR codes), and photo galleries. Apply features to both Tiles Inventory and Other Inventory with separate navigation menus."
+user_problem_statement: "Enhanced Inventory system with cost breakdowns, sales data, QR code generation, and invoice linking. Specific requirements: 1) Cost/Box + transport percentage calculation (200 + 30% = 260 rs), 2) Total box cost, 3) Total sold boxes, 4) Total sold box cost, 5) Invoice links, 6) QR codes with modal popup display. Apply to both Tiles and Other Inventory modules."
 
 backend:
   - task: "Authentication System Stabilization"
