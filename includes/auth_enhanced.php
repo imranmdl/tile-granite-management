@@ -221,8 +221,7 @@ class AuthSystem {
             self::$pdo->prepare("UPDATE user_sessions SET active = 0 WHERE id = ?")->execute([$session_id]);
         }
         
-        session_unset();
-        session_destroy();
+        safe_session_destroy();
         return true;
     }
     
