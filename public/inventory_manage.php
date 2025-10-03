@@ -343,10 +343,10 @@ const num = v => {
   return isFinite(x) ? x : 0;
 };
 
-// -------- live calc for TILE rows ----------
+// -------- improved live calc for TILE rows ----------
 document.querySelectorAll('tr[id^="row"]').forEach(tr => {
   const spb = num(tr.dataset.spb || '0');
-  const tpbConst = num(tr.dataset.tpb || '0'); // stored per-box transport (if any)
+  const tpbConst = num(tr.dataset.tpb || '0');
   const availServer = num(tr.dataset.avail || '0');
   const form = tr.querySelector('form.tile-form');
   if (!form) return;
@@ -363,7 +363,43 @@ document.querySelectorAll('tr[id^="row"]').forEach(tr => {
     const boxes  = num(fld('boxes_in')?.value);
     const dmg    = num(fld('damage_boxes')?.value);
     const pct    = num(fld('transport_pct')?.value);
+    const tpb    = num(fld('transport_per_box')?.value);
     const ttot   = num(fld('transport_total')?.value);
+
+    // Validation highlighting
+    const boxesInput = fld('boxes_in');
+    const damageInput = fld('damage_boxes');
+    const perBoxInput = fld('per_box_value');
+    const perSqftInput = fld('per_sqft_value');
+    
+    // Reset validation styles
+    [boxesInput, damageInput, perBoxInput, perSqftInput].forEach(input => {
+      if (input) input.classList.remove('is-invalid', 'is-valid');
+    });
+    
+    // Validate and highlight issues
+    if (boxes < 0) {
+      boxesInput?.classList.add('is-invalid');
+      return;
+    } else {
+      boxesInput?.classList.add('is-valid');
+    }
+    
+    if (dmg < 0 || dmg > boxes) {
+      damageInput?.classList.add('is-invalid');
+      return;
+    } else {
+      damageInput?.classList.add('is-valid');
+    }
+    
+    if (perBox === 0 && perSqf === 0) {
+      perBoxInput?.classList.add('is-invalid');
+      perSqftInput?.classList.add('is-invalid');
+      return;
+    } else {
+      perBoxInput?.classList.add('is-valid');
+      perSqftInput?.classList.add('is-valid');
+    }
 
     const base   = perBox > 0 ? perBox : (perSqf > 0 ? perSqf * spb : 0);
     const netB   = Math.max(0, boxes - dmg);
@@ -371,18 +407,79 @@ document.querySelectorAll('tr[id^="row"]').forEach(tr => {
     const fromPct   = base * (pct/100);
     const fromTotal = (ttot > 0 && netB > 0) ? (ttot / netB) : 0;
 
-    const ttb = fromPct + tpbConst + fromTotal;
+    const ttb = fromPct + tpb + fromTotal;
     const cb  = base + ttb;
     const cs  = spb > 0 ? (cb / spb) : 0;
-    const netValue = (isFinite(availServer) ? availServer : netB) * cb;
+    const netValue = netB * cb;
 
     if (elTtb) elTtb.textContent = n2(ttb);
     if (elCb)  elCb.textContent  = n2(cb);
     if (elCs)  elCs.textContent  = n2(cs);
     if (elNet) elNet.textContent = n2(netValue);
+    
+    // Update row background based on validation
+    if (boxes < 0 || dmg < 0 || dmg > boxes || (perBox === 0 && perSqf === 0)) {
+      tr.style.backgroundColor = '#f8d7da';
+    } else {
+      tr.style.backgroundColor = '';
+    }
   };
 
-  form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', recalc));
+  form.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', recalc);
+    inp.addEventListener('blur', recalc);
+  });
+  
+  // Initial calculation
+  recalc();
+});
+
+// Confirmation for delete
+function confirmDelete(itemId) {
+  if (confirm('Are you sure you want to delete this inventory item? This action cannot be undone.')) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+      <input type="hidden" name="row_id" value="${itemId}">
+      <input type="hidden" name="del_inv_row" value="1">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+// Auto-save functionality (optional)
+let autoSaveTimeout = null;
+document.querySelectorAll('tr[id^="row"] input').forEach(input => {
+  input.addEventListener('input', function() {
+    // Clear previous timeout
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+    
+    // Show unsaved changes indicator
+    const saveBtn = this.closest('tr').querySelector('button[name="save_inv_row"]');
+    if (saveBtn) {
+      saveBtn.classList.add('btn-warning');
+      saveBtn.textContent = 'Save*';
+    }
+    
+    // Auto-save after 3 seconds of no changes
+    autoSaveTimeout = setTimeout(() => {
+      if (confirm('Auto-save changes?')) {
+        this.closest('form').submit();
+      }
+    }, 3000);
+  });
+});
+
+// Reset save button on focus
+document.querySelectorAll('button[name="save_inv_row"]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    this.classList.remove('btn-warning');
+    this.classList.add('btn-primary');
+    this.textContent = 'Save';
+  });
 });
 </script>
 
