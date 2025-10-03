@@ -14,9 +14,18 @@ if (file_exists(__DIR__ . '/auth_enhanced.php')) {
 
 function auth_user(): ?array { return $_SESSION['user'] ?? null; }
 function auth_user_id(): ?int { return $_SESSION['user']['id'] ?? null; }
-function auth_username(): string { return $_SESSION['user']['username'] ?? ''; }
-function auth_role(): string { return $_SESSION['user']['role'] ?? 'sales'; }
-function auth_is_admin(): bool { return in_array(auth_role(), ['admin','manager'], true); } // managers treated as elevated
+
+if (!function_exists('auth_username')) {
+    function auth_username(): string { return $_SESSION['user']['username'] ?? ''; }
+}
+
+if (!function_exists('auth_role')) {
+    function auth_role(): string { return $_SESSION['user']['role'] ?? 'sales'; }
+}
+
+if (!function_exists('auth_is_admin')) {
+    function auth_is_admin(): bool { return in_array(auth_role(), ['admin','manager'], true); }
+} // managers treated as elevated
 function require_login($roles = null){
   if (!auth_user()) { header('Location: /public/login.php'); exit; }
   if ($roles) {
