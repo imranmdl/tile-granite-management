@@ -177,7 +177,7 @@ $company_name = 'Tile Suite Business';
                     <div class="session-info">
                         <small>
                             <i class="bi bi-clock"></i> Session Timeout: 
-                            <?= AuthSystem::getSetting('session_timeout_minutes', 300) ?> minutes
+                            300 minutes
                         </small>
                     </div>
                 </div>
