@@ -646,7 +646,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($invoice_items as $item): ?>
-                                <tr>
+                                <tr data-item-id="<?= $item['id'] ?>" data-item-type="tile">
                                     <td>
                                         <?php if ($item['show_image'] && $item['photo_path']): ?>
                                             <img src="<?= h($item['photo_path']) ?>" class="item-image" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 8px;">
