@@ -56,6 +56,7 @@ function auth_logout(){
 }
 
 // Enhanced permission functions for compatibility
+if (!function_exists('auth_has_permission')) {
 function auth_has_permission(string $permission, int $user_id = null): bool {
   // If enhanced auth system is available, use it
   if (class_exists('AuthSystem')) {
