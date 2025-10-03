@@ -105,61 +105,48 @@ class FastAPISystemTester:
             self.log_test("Status Endpoint", False, f"Error: {str(e)}")
             return False
 
-    def test_invoice_creation(self):
-        """Test creating a new invoice"""
-        if not self.authenticate():
-            return False
-            
+    def test_database_connectivity(self):
+        """Test database connectivity through API"""
         try:
-            # First get the invoice creation form
-            url = f"{self.base_url}/public/invoice_enhanced.php"
-            response = self.session.get(url, timeout=10)
-            
-            if response.status_code != 200:
-                self.log_test("Invoice Creation", False, f"Cannot access invoice creation page: HTTP {response.status_code}")
-                return False
-            
-            # Submit invoice creation form with realistic data
-            invoice_data = {
-                'create_invoice': '1',
-                'invoice_dt': datetime.now().strftime('%Y-%m-%d'),
-                'customer_name': 'Rajesh Kumar',
-                'firm_name': 'Kumar Tiles & Ceramics',
-                'phone': '9876543210',
-                'customer_gst': '27ABCDE1234F1Z5',
-                'notes': 'Test invoice creation for discount functionality testing'
+            # Create a test status check to verify database connectivity
+            test_data = {
+                "client_name": "Database Connectivity Test"
             }
             
-            response = self.session.post(url, data=invoice_data, allow_redirects=True)
+            response = self.session.post(f"{self.api_url}/status", 
+                                       data=json.dumps(test_data), 
+                                       timeout=10)
             
             if response.status_code == 200:
-                # Check if we were redirected to an invoice edit page (successful creation)
-                if 'invoice_enhanced.php?id=' in response.url:
-                    # Extract invoice ID from URL
-                    import re
-                    match = re.search(r'id=(\d+)', response.url)
-                    if match:
-                        self.test_invoice_id = int(match.group(1))
-                        self.log_test("Invoice Creation", True, f"Successfully created invoice with ID: {self.test_invoice_id}")
+                created_item = response.json()
+                
+                # Now try to retrieve it
+                response = self.session.get(f"{self.api_url}/status", timeout=10)
+                
+                if response.status_code == 200:
+                    items = response.json()
+                    # Check if our created item is in the list
+                    found_item = None
+                    for item in items:
+                        if item.get('id') == created_item.get('id'):
+                            found_item = item
+                            break
+                    
+                    if found_item:
+                        self.log_test("Database Connectivity", True, f"Successfully created and retrieved item from database")
                         return True
                     else:
-                        self.log_test("Invoice Creation", False, "Invoice created but could not extract ID")
+                        self.log_test("Database Connectivity", False, "Created item not found in database")
                         return False
-                elif "Invoice" in response.text and "created successfully" in response.text:
-                    self.log_test("Invoice Creation", True, "Invoice created successfully")
-                    return True
-                elif "required" in response.text.lower():
-                    self.log_test("Invoice Creation", False, "Form validation error - missing required fields")
-                    return False
                 else:
-                    self.log_test("Invoice Creation", False, "No success confirmation found", response.text[:500])
+                    self.log_test("Database Connectivity", False, f"Failed to retrieve items: HTTP {response.status_code}")
                     return False
             else:
-                self.log_test("Invoice Creation", False, f"HTTP {response.status_code}")
+                self.log_test("Database Connectivity", False, f"Failed to create item: HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Invoice Creation", False, f"Error: {str(e)}")
+            self.log_test("Database Connectivity", False, f"Error: {str(e)}")
             return False
 
     def test_quotation_creation(self):
