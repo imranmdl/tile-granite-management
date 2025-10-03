@@ -75,8 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (strlen($new_password) >= 8) {
             $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("
-                UPDATE users_enhanced 
-                SET password_hash = ?, failed_login_attempts = 0, locked_until = NULL 
+                UPDATE users_simple 
+                SET password_hash = ?
                 WHERE id = ?
             ");
             
