@@ -206,9 +206,11 @@ if ($search) {
     $params[] = "%$search%";
 }
 
-if ($vendor_filter) {
+if ($vendor_filter > 0) {
     $where_conditions[] = "t.vendor_id = ?";
     $params[] = $vendor_filter;
+} elseif ($vendor_filter === 0) {
+    $where_conditions[] = "t.vendor_id IS NULL";
 }
 
 if ($size_filter) {
