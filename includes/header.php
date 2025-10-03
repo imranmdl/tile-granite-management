@@ -106,17 +106,29 @@ if (!function_exists('nav_active_any')) {
           <a class="nav-link <?= nav_active('index.php',$path) ?>" href="<?= $base ?>/index.php">Dashboard</a>
         </li>
 
-        <!-- Inventory -->
+        <!-- Tiles Inventory -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle <?= nav_active_any(['tiles.php','misc_items.php','inventory.php','inventory_manage.php','inventory_advanced.php'],$path) ?>"
-             href="#" data-bs-toggle="dropdown">Inventory</a>
+          <a class="nav-link dropdown-toggle <?= nav_active_any(['tiles.php','tiles_inventory.php','tiles_purchase.php','tiles_stock.php'],$path) ?>"
+             href="#" data-bs-toggle="dropdown">Tiles Inventory</a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item <?= nav_active('tiles.php',$path) ?>" href="<?= $base ?>/tiles.php">Tiles &amp; Sizes</a></li>
-            <li><a class="dropdown-item <?= nav_active('misc_items.php',$path) ?>" href="<?= $base ?>/misc_items.php">Other Items</a></li>
+            <li><a class="dropdown-item <?= nav_active('tiles_inventory.php',$path) ?>" href="<?= $base ?>/tiles_inventory.php">Tiles Stock</a></li>
+            <li><a class="dropdown-item <?= nav_active('tiles_purchase.php',$path) ?>" href="<?= $base ?>/tiles_purchase.php">Purchase Entry</a></li>
             <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item <?= nav_active('inventory.php',$path) ?>" href="<?= $base ?>/inventory.php">Add Inventory</a></li>
-            <li><a class="dropdown-item <?= nav_active('inventory_manage.php',$path) ?>" href="<?= $base ?>/inventory_manage.php">Manage Inventory</a></li>
-            <li><a class="dropdown-item <?= nav_active('inventory_advanced.php',$path) ?>" href="<?= $base ?>/inventory_advanced.php">Advanced Inventory</a></li>
+            <li><a class="dropdown-item <?= nav_active('inventory.php',$path) ?>" href="<?= $base ?>/inventory.php">Legacy Add Inventory</a></li>
+          </ul>
+        </li>
+
+        <!-- Other Inventory -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle <?= nav_active_any(['misc_items.php','other_inventory.php','other_purchase.php'],$path) ?>"
+             href="#" data-bs-toggle="dropdown">Other Inventory</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item <?= nav_active('misc_items.php',$path) ?>" href="<?= $base ?>/misc_items.php">Other Items</a></li>
+            <li><a class="dropdown-item <?= nav_active('other_inventory.php',$path) ?>" href="<?= $base ?>/other_inventory.php">Other Stock</a></li>
+            <li><a class="dropdown-item <?= nav_active('other_purchase.php',$path) ?>" href="<?= $base ?>/other_purchase.php">Purchase Entry</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item <?= nav_active('inventory_manage.php',$path) ?>" href="<?= $base ?>/inventory_manage.php">Legacy Manage</a></li>
           </ul>
         </li>
 
