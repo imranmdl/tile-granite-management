@@ -207,7 +207,7 @@ if ($search) {
 }
 
 if ($vendor_filter) {
-    $where_conditions[] = "(t.vendor_id = ? OR t.vendor_id IS NULL)";
+    $where_conditions[] = "t.vendor_id = ?";
     $params[] = $vendor_filter;
 }
 
