@@ -554,6 +554,30 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- QR Code Display Modal -->
+<div class="modal fade" id="qrCodeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrModalTitle">QR Code Generated</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="qrModalImage" src="" class="img-fluid mb-3" style="max-width: 200px;">
+                <div id="qrCodeData" class="small text-muted"></div>
+                <div class="mt-3">
+                    <button type="button" class="btn btn-primary" onclick="printQR()">
+                        <i class="bi bi-printer"></i> Print QR Code
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="downloadQR()">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- QR Generation Form (Hidden) -->
 <form id="qrGenerationForm" method="post" style="display: none;">
     <input type="hidden" name="tile_id" id="qrTileId">
