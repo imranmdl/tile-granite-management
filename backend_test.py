@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Backend Test Suite for Commission and Reporting System
-Tests the comprehensive commission and reporting system implementation.
+Tests the actual FastAPI backend system implementation.
 """
 
 import requests
@@ -11,19 +11,22 @@ from urllib.parse import urljoin, urlparse, parse_qs
 import re
 import sys
 import os
-import sqlite3
 from datetime import datetime
+from motor.motor_asyncio import AsyncIOMotorClient
+import asyncio
 
 class CommissionReportingSystemTester:
     def __init__(self, base_url="https://tilecrm-app.preview.emergentagent.com"):
         self.base_url = base_url
-        self.php_url = f"{base_url}/public"
+        self.api_url = f"{base_url}/api"
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'application/json'
         })
         self.test_results = []
-        self.db_path = '/app/data/app.sqlite'
+        self.mongo_url = "mongodb://localhost:27017"
+        self.db_name = "test_database"
         
     def log_test(self, test_name, success, message="", details=""):
         """Log test results"""
