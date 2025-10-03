@@ -131,11 +131,13 @@ if ($search) {
     $params[] = "%$search%";
 }
 
-// Get misc items data with stock information
+// Get misc items data with enhanced stock and sales information
 $items_query = "
     SELECT m.id, m.name, m.unit_label, m.photo_path, m.qr_code_path,
-           cms.total_stock_quantity, cms.avg_cost_per_unit,
-           cms.min_cost_per_unit, cms.max_cost_per_unit, cms.purchase_count
+           cms.total_stock_quantity, 
+           cms.avg_cost_per_unit, cms.avg_cost_per_unit_with_transport, cms.total_quantity_cost,
+           cms.total_sold_quantity_quotes, cms.total_sold_cost_quotes,
+           cms.purchase_count
     FROM misc_items m
     LEFT JOIN current_misc_stock cms ON m.id = cms.id
     $where_clause
