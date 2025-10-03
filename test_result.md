@@ -330,14 +330,14 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Invoice System Frontend"
-    - "Authentication System Frontend"
-    - "Invoice Creation UI"
-    - "Edit Invoice Item Modal"
-    - "Mark as Paid Button"
-    - "View/Print Button"
-    - "Discount System UI"
-  stuck_tasks: []
+    - "Web Interface Access Issue"
+    - "PHP System Routing"
+    - "React Frontend Integration"
+  stuck_tasks: 
+    - "Reporting Dashboard"
+    - "Sales Report"
+    - "Daily Business Summary"
+    - "Commission Report"
   test_all: false
   test_priority: "high_first"
 
