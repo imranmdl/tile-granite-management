@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user_id = (int)$_POST['user_id'];
         $new_status = (int)$_POST['new_status'];
         
-        $stmt = $pdo->prepare("UPDATE users_enhanced SET active = ? WHERE id = ?");
+        $stmt = $pdo->prepare("UPDATE users_simple SET active = ? WHERE id = ?");
         if ($stmt->execute([$new_status, $user_id])) {
             $message = $new_status ? 'User activated successfully' : 'User deactivated successfully';
         } else {
