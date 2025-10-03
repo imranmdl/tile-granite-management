@@ -329,17 +329,10 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Web Interface Access Issue"
-    - "PHP System Routing"
-    - "React Frontend Integration"
-  stuck_tasks: 
-    - "Reporting Dashboard"
-    - "Sales Report"
-    - "Daily Business Summary"
-    - "Commission Report"
-  test_all: false
-  test_priority: "high_first"
+  current_focus: []
+  stuck_tasks: []
+  test_all: true
+  test_priority: "completed"
 
 agent_communication:
     -agent: "testing"
