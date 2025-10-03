@@ -993,7 +993,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <select class="form-select" name="commission_user_id">
                     <option value="">No Commission</option>
                     <?php
-                    $users_stmt = $pdo->prepare("SELECT id, username, role FROM users_simple WHERE status = 'active' ORDER BY username");
+                    $users_stmt = $pdo->prepare("SELECT id, username, role FROM users_simple WHERE active = 1 ORDER BY username");
                     $users_stmt->execute();
                     $users = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
                     foreach ($users as $user):
