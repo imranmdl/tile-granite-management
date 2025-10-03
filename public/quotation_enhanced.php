@@ -1363,9 +1363,7 @@ function calculateCommission() {
 }
 
 function calculateDiscount() {
-    // Get subtotal from the page
-    const subtotalText = document.querySelector('.fs-5')?.textContent || '₹0';
-    const subtotal = parseFloat(subtotalText.replace(/[₹,]/g, '')) || 0;
+    const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
     const discountType = document.querySelector('[name="discount_type"]').value;
     const discountValue = parseFloat(document.querySelector('[name="discount_value"]').value) || 0;
     
