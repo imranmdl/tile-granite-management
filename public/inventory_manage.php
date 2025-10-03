@@ -241,7 +241,17 @@ require_once __DIR__ . '/../includes/header.php';
   <hr class="mt-2 mb-3">
 
   <?php if (!empty($_GET['err'])): ?>
-    <div class="alert alert-danger"><?= h($_GET['err']) ?></div>
+    <div class="alert alert-danger alert-dismissible fade show">
+      <?= h($_GET['err']) ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <?php endif; ?>
+  
+  <?php if (!empty($_GET['success'])): ?>
+    <div class="alert alert-success alert-dismissible fade show">
+      <?= h($_GET['success']) ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
   <?php endif; ?>
 
   <div class="table-responsive">
