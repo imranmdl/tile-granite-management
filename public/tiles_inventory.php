@@ -806,6 +806,28 @@ function exportData() {
     alert('Data export feature coming soon!');
 }
 
+function editTile(tileId, tileName, sizeId, vendorId) {
+    document.getElementById('editTileId').value = tileId;
+    document.getElementById('editTileName').value = tileName;
+    document.getElementById('editTileSize').value = sizeId;
+    document.getElementById('editTileVendor').value = vendorId || '';
+    
+    new bootstrap.Modal(document.getElementById('editTileModal')).show();
+}
+
+function deleteTile() {
+    if (confirm('Are you sure you want to delete this tile? This action cannot be undone.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="delete_tile" value="1">
+            <input type="hidden" name="tile_id" value="${document.getElementById('editTileId').value}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
 // Close column picker when clicking outside
 document.addEventListener('click', function(event) {
     const picker = document.getElementById('columnPicker');
