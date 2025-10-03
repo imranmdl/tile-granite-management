@@ -42,38 +42,25 @@ class FastAPISystemTester:
             print(f"    Details: {details}")
         print()
         
-    def authenticate(self):
-        """Authenticate with admin credentials"""
-        if self.authenticated:
-            return True
-            
+    def test_api_connectivity(self):
+        """Test basic API connectivity"""
         try:
-            # Get login page first
-            login_url = f"{self.base_url}/public/login_clean.php"
-            response = self.session.get(login_url, timeout=10)
+            response = self.session.get(f"{self.api_url}/", timeout=10)
             
-            if response.status_code != 200:
-                self.log_test("Authentication Setup", False, f"Cannot access login page: HTTP {response.status_code}")
-                return False
-            
-            # Submit login form
-            login_data = {
-                'username': 'admin',
-                'password': 'admin123'
-            }
-            
-            response = self.session.post(login_url, data=login_data, allow_redirects=True)
-            
-            if response.status_code == 200 and ('dashboard' in response.url.lower() or 'index.php' in response.url):
-                self.authenticated = True
-                self.log_test("Authentication Setup", True, "Successfully authenticated as admin")
-                return True
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('message') == 'Hello World':
+                    self.log_test("API Connectivity", True, "FastAPI backend is responding correctly")
+                    return True
+                else:
+                    self.log_test("API Connectivity", False, f"Unexpected response: {data}")
+                    return False
             else:
-                self.log_test("Authentication Setup", False, f"Login failed: {response.status_code}")
+                self.log_test("API Connectivity", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Authentication Setup", False, f"Authentication error: {str(e)}")
+            self.log_test("API Connectivity", False, f"Error: {str(e)}")
             return False
 
     def test_database_schema_verification(self):
