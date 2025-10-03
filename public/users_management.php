@@ -185,8 +185,8 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="col-md-3">
         <div class="card text-bg-warning">
             <div class="card-body">
-                <h6 class="card-title">Locked Users</h6>
-                <h3><?= $stats['locked_users'] ?></h3>
+                <h6 class="card-title">Inactive Users</h6>
+                <h3><?= $stats['inactive_users'] ?></h3>
             </div>
         </div>
     </div>
