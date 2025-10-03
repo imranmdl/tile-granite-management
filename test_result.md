@@ -257,10 +257,13 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Quotation Item Update/Delete Functionality"
+    - "Quotation Delete Functionality" 
+    - "Quotation Discount System"
   stuck_tasks: []
-  test_all: true
-  test_priority: "completed"
+  test_all: false
+  test_priority: "high_first"
 
 agent_communication:
     -agent: "testing"
