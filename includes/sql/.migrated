@@ -12,3 +12,4 @@
 0012_enhanced_quotations.sql
 0013_quotation_discounts.sql
 0014_individual_returns.sql
+0015_invoice_discounts.sql
