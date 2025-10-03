@@ -647,9 +647,47 @@ function generateQR(tileId, tileName) {
 }
 
 function viewQR(qrPath, tileName) {
-    document.getElementById('photoViewTitle').textContent = tileName + ' - QR Code';
-    document.getElementById('photoViewImage').src = qrPath;
-    new bootstrap.Modal(document.getElementById('photoViewModal')).show();
+    document.getElementById('qrModalTitle').textContent = tileName + ' - QR Code';
+    document.getElementById('qrModalImage').src = qrPath;
+    
+    // Show QR code data
+    const qrData = {
+        type: 'tile_inventory',
+        name: tileName,
+        scan_url: qrPath,
+        generated: new Date().toLocaleString()
+    };
+    document.getElementById('qrCodeData').innerHTML = `
+        <strong>Scan this QR code to view:</strong><br>
+        • Stock levels and pricing<br>
+        • Item photos and details<br>
+        • Current availability
+    `;
+    
+    new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
+}
+
+function printQR() {
+    const qrImage = document.getElementById('qrModalImage').src;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head><title>QR Code Print</title></head>
+            <body style="text-align: center; padding: 20px;">
+                <h3>${document.getElementById('qrModalTitle').textContent}</h3>
+                <img src="${qrImage}" style="max-width: 300px;">
+            </body>
+        </html>
+    `);
+    printWindow.print();
+}
+
+function downloadQR() {
+    const qrImage = document.getElementById('qrModalImage').src;
+    const link = document.createElement('a');
+    link.download = 'qr-code-' + Date.now() + '.png';
+    link.href = qrImage;
+    link.click();
 }
 
 function viewHistory(tileId) {
