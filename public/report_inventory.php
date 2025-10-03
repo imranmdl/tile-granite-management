@@ -1,248 +1,378 @@
 <?php
-// public/report_inventory.php — Read-only Inventory Report (Tiles + Misc) with CSV export
-require_once __DIR__ . '/../includes/auth.php';
+// public/report_inventory.php - Inventory Report (FR-RP-02)
+require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
-require_once __DIR__ . '/../includes/report_range.php'; // range helpers
-require_login();
+
+auth_require_login();
 
 $pdo = Database::pdo();
-$rng = compute_range();
-$page_title = 'Inventory Report — ' . $rng['label'];
+$user_id = $_SESSION['user_id'] ?? 1;
 
-/* ---------- helpers (local) ---------- */
-function available_boxes(PDO $pdo, int $tile_id): float {
-  $st = $pdo->prepare("SELECT COALESCE(SUM(boxes_in - damage_boxes),0) FROM inventory_items WHERE tile_id=?");
-  $st->execute([$tile_id]); $good = (float)$st->fetchColumn();
+// Check permissions
+$user_stmt = $pdo->prepare("SELECT * FROM users_simple WHERE id = ?");
+$user_stmt->execute([$user_id]);
+$user = $user_stmt->fetch(PDO::FETCH_ASSOC);
 
-  $st = $pdo->prepare("SELECT COALESCE(SUM(boxes_decimal),0) FROM invoice_items WHERE tile_id=?");
-  $st->execute([$tile_id]); $sold = (float)$st->fetchColumn();
-
-  $st = $pdo->prepare("SELECT COALESCE(SUM(boxes_decimal),0) FROM invoice_return_items WHERE tile_id=?");
-  $st->execute([$tile_id]); $ret = (float)$st->fetchColumn();
-
-  return max(0.0, $good - $sold + $ret);
-}
-function base_per_box(array $r, float $spb): float {
-  $base = (float)($r['per_box_value'] ?? 0);
-  if ($base <= 0 && (float)($r['per_sqft_value'] ?? 0) > 0) {
-    $base = (float)$r['per_sqft_value'] * $spb;
-  }
-  return $base;
-}
-function total_trans_per_box(array $r, float $spb): float {
-  $base = base_per_box($r, $spb);
-  $pct  = (float)($r['transport_pct'] ?? 0.0);
-  $from_pct = $base * ($pct/100.0);
-  $per_box  = (float)($r['transport_per_box'] ?? 0.0);
-
-  $in  = (float)($r['boxes_in'] ?? 0);
-  $dam = (float)($r['damage_boxes'] ?? 0);
-  $nb  = max(0.0, $in - $dam);
-  $tr_total   = (float)($r['transport_total'] ?? 0.0);
-  $from_total = ($tr_total > 0 && $nb > 0) ? ($tr_total / $nb) : 0.0;
-
-  return $from_pct + $per_box + $from_total;
-}
-function cost_box_incl(array $r, float $spb): float {
-  return base_per_box($r,$spb) + total_trans_per_box($r,$spb);
-}
-function net_units_row(array $r): float {
-  $in  = (float)($r['qty_in'] ?? 0);
-  $dam = (float)($r['damage_units'] ?? 0);
-  return max(0.0, $in - $dam);
-}
-function cost_unit_incl(array $r): float {
-  $base = (float)($r['cost_per_unit'] ?? 0);
-  $pct  = (float)($r['transport_pct'] ?? 0.0);
-  $from_pct   = $base * ($pct/100.0);
-  $per_unit   = (float)($r['transport_per_unit'] ?? 0.0);
-  $nu         = net_units_row($r);
-  $tr_total   = (float)($r['transport_total'] ?? 0.0);
-  $from_total = ($tr_total > 0 && $nu > 0) ? ($tr_total / $nu) : 0.0;
-  return $base + $from_pct + $per_unit + $from_total;
+$can_view_reports = ($user['can_view_reports'] ?? 0) == 1 || ($user['role'] ?? '') === 'admin';
+if (!$can_view_reports) {
+    $_SESSION['error'] = 'You do not have permission to access reports';
+    safe_redirect('reports_dashboard.php');
 }
 
-/* ---------- fetch rows ----------
-   NOTE: This report is a point-in-time snapshot.
-   If you want to filter by received date later, wire range_where(...) once
-   you confirm column names (e.g., ii.received_date, mi.received_date).
-*/
-$tiles = $pdo->query("
-  SELECT ii.*, t.name AS tile_name, ts.label AS size_label, ts.sqft_per_box AS spb, t.id AS tile_id
-  FROM inventory_items ii
-  JOIN tiles t       ON t.id = ii.tile_id
-  JOIN tile_sizes ts ON ts.id = t.size_id
-  ORDER BY t.name, ii.id DESC
-")->fetchAll(PDO::FETCH_ASSOC);
+// Handle filters
+$show_photos = isset($_GET['show_photos']) ? 1 : 0;
+$size_filter = $_GET['size_filter'] ?? '';
+$vendor_filter = $_GET['vendor_filter'] ?? '';
+$low_stock_only = isset($_GET['low_stock_only']) ? 1 : 0;
+$export = isset($_GET['export']) && $_GET['export'] === 'csv';
 
-$misc = $pdo->query("
-  SELECT mi.*, m.name AS item_name, m.unit_label
-  FROM misc_inventory_items mi
-  JOIN misc_items m ON m.id = mi.misc_item_id
-  ORDER BY m.name, mi.id DESC
-")->fetchAll(PDO::FETCH_ASSOC);
+// Get inventory data (tiles)
+$tiles_sql = "
+    SELECT t.id, t.name, ts.label as size_label, ts.sqft_per_box,
+           t.photo_path, t.current_cost, t.last_cost, t.average_cost,
+           cts.total_stock_boxes, cts.total_stock_sqft,
+           cts.total_value as stock_value,
+           '' as vendor_name
+    FROM tiles t
+    JOIN tile_sizes ts ON t.size_id = ts.id
+    LEFT JOIN current_tiles_stock cts ON t.id = cts.id
+    WHERE 1=1
+";
 
-/* ---------- compute (Tiles) ---------- */
-$tile_rows = [];
-$tile_total_value = 0.0;
+$params = [];
 
-foreach ($tiles as $r) {
-  $spb   = (float)($r['spb'] ?? 0);
-  $cpb   = cost_box_incl($r, $spb);
-  $avail = available_boxes($pdo, (int)$r['tile_id']);
-  $value = $avail * $cpb;
-  $tile_total_value += $value;
-
-  $tile_rows[] = [
-    'tile'   => $r['tile_name'],
-    'size'   => $r['size_label'],
-    'avail'  => $avail,
-    'cpb'    => $cpb,
-    'value'  => $value,
-  ];
+if ($size_filter) {
+    $tiles_sql .= " AND ts.id = ?";
+    $params[] = $size_filter;
 }
 
-/* ---------- compute (Other Items) ---------- */
-$misc_map = [];
-foreach ($misc as $r) {
-  $key = $r['item_name'].'|'.$r['unit_label'];
-  if (!isset($misc_map[$key])) {
-    $misc_map[$key] = ['item'=>$r['item_name'], 'unit'=>$r['unit_label'], 'net'=>0.0, 'cpu'=>0.0, 'value'=>0.0];
-  }
-  $nu  = net_units_row($r);
-  $cpu = cost_unit_incl($r);
-  $misc_map[$key]['net']   += $nu;
-  $misc_map[$key]['value'] += ($nu * $cpu);
-  $misc_map[$key]['cpu']    = $cpu; // latest
-}
-$misc_rows = array_values($misc_map);
-$misc_total_value = array_reduce($misc_rows, function($s,$x){ return $s + (float)$x['value']; }, 0.0);
-
-$grand_total = $tile_total_value + $misc_total_value;
-
-/* ---------- CSV export ---------- */
-if (isset($_GET['export']) && $_GET['export'] === 'csv') {
-  header('Content-Type: text/csv');
-  header('Content-Disposition: attachment; filename="inventory_report.csv"');
-  $out = fopen('php://output', 'w');
-  fputcsv($out, ['Section','Name','Size/Unit','Available','Cost (incl.)','Total Value']);
-  foreach ($tile_rows as $r) {
-    fputcsv($out, ['Tiles', $r['tile'], $r['size'], n3($r['avail']), n2($r['cpb']), n2($r['value'])]);
-  }
-  foreach ($misc_rows as $r) {
-    fputcsv($out, ['Misc', $r['item'], $r['unit'], n3($r['net']), n2($r['cpu']), n2($r['value'])]);
-  }
-  fputcsv($out, ['TOTAL','','','', '', n2($grand_total)]);
-  fclose($out);
-  exit;
+if ($low_stock_only) {
+    $tiles_sql .= " AND COALESCE(cts.total_stock_boxes, 0) < 10";
 }
 
-/* ---------- Render ---------- */
+$tiles_sql .= " ORDER BY t.name, ts.label";
+
+$tiles_stmt = $pdo->prepare($tiles_sql);
+$tiles_stmt->execute($params);
+$tiles_data = $tiles_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get misc items data
+$misc_sql = "
+    SELECT m.id, m.name, m.unit_label, m.photo_path, 
+           m.current_cost, m.last_cost, m.average_cost,
+           cms.total_stock_units, cms.total_value as stock_value,
+           '' as vendor_name
+    FROM misc_items m
+    LEFT JOIN current_misc_stock cms ON m.id = cms.id
+    WHERE 1=1
+";
+
+if ($low_stock_only) {
+    $misc_sql .= " AND COALESCE(cms.total_stock_units, 0) < 10";
+}
+
+$misc_sql .= " ORDER BY m.name";
+
+$misc_stmt = $pdo->query($misc_sql);
+$misc_data = $misc_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get size options for filter
+$sizes_stmt = $pdo->query("SELECT id, label FROM tile_sizes ORDER BY label");
+$sizes = $sizes_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Calculate summary
+$total_tile_value = array_sum(array_column($tiles_data, 'stock_value'));
+$total_misc_value = array_sum(array_column($misc_data, 'stock_value'));
+$total_inventory_value = $total_tile_value + $total_misc_value;
+
+$low_stock_tiles = count(array_filter($tiles_data, function($tile) {
+    return ($tile['total_stock_boxes'] ?? 0) < 10;
+}));
+
+$low_stock_misc = count(array_filter($misc_data, function($item) {
+    return ($item['total_stock_units'] ?? 0) < 10;
+}));
+
+// Handle CSV export
+if ($export) {
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="inventory_report_' . date('Y-m-d') . '.csv"');
+    
+    $output = fopen('php://output', 'w');
+    
+    // CSV headers
+    fputcsv($output, ['Type', 'Item Name', 'Size/Unit', 'Stock Quantity', 'Current Cost', 'Stock Value']);
+    
+    // Tiles data
+    foreach ($tiles_data as $tile) {
+        fputcsv($output, [
+            'Tile',
+            $tile['name'],
+            $tile['size_label'],
+            number_format($tile['total_stock_boxes'] ?? 0, 1) . ' boxes',
+            number_format($tile['current_cost'] ?? 0, 2),
+            number_format($tile['stock_value'] ?? 0, 2)
+        ]);
+    }
+    
+    // Misc items data
+    foreach ($misc_data as $item) {
+        fputcsv($output, [
+            'Misc Item',
+            $item['name'],
+            $item['unit_label'],
+            number_format($item['total_stock_units'] ?? 0, 1) . ' ' . $item['unit_label'],
+            number_format($item['current_cost'] ?? 0, 2),
+            number_format($item['stock_value'] ?? 0, 2)
+        ]);
+    }
+    
+    fclose($output);
+    exit;
+}
+
+$page_title = "Inventory Report";
 require_once __DIR__ . '/../includes/header.php';
 ?>
+
 <style>
-  .table-sm td, .table-sm th { padding:.55rem .75rem; }
-  .text-end { text-align:right; }
+.inventory-photo {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+.stock-badge {
+    font-size: 0.8rem;
+}
 </style>
 
-<?php render_range_controls(); ?>
-
-<div class="card p-3 mb-3">
-  <div class="d-flex justify-content-between align-items-center">
-    <h5 class="mb-0"><?= h($page_title) ?></h5>
-    <a class="btn btn-sm btn-outline-secondary" href="?export=csv">Export CSV</a>
-  </div>
-</div>
-
-<div class="card p-3 mb-3">
-  <h6 class="mb-2">Tiles</h6>
-  <div class="table-responsive">
-    <table class="table table-striped table-bordered table-sm align-middle">
-      <thead>
-        <tr>
-          <th>Tile</th>
-          <th>Size</th>
-          <th class="text-end">Available (boxes)</th>
-          <th class="text-end">Cost/Box (incl.)</th>
-          <th class="text-end">Stock Value</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($tile_rows as $r): ?>
-          <tr>
-            <td><?= h($r['tile']) ?></td>
-            <td><?= h($r['size']) ?></td>
-            <td class="text-end">
-              <?php if ($r['avail'] > 0): ?>
-                <?= n3($r['avail']) ?>
-              <?php else: ?>
-                <span class="text-danger">Not available</span>
-              <?php endif; ?>
-            </td>
-            <td class="text-end">₹ <?= n2($r['cpb']) ?></td>
-            <td class="text-end">₹ <?= n2($r['value']) ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-      <tfoot>
-        <tr>
-          <th colspan="4" class="text-end">Tiles Total</th>
-          <th class="text-end">₹ <?= n2($tile_total_value) ?></th>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
-
-<div class="card p-3 mb-3">
-  <h6 class="mb-2">Other Items</h6>
-  <div class="table-responsive">
-    <table class="table table-striped table-bordered table-sm align-middle">
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Unit</th>
-          <th class="text-end">Available</th>
-          <th class="text-end">Cost/Unit (incl.)</th>
-          <th class="text-end">Stock Value</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($misc_rows as $r): ?>
-          <tr>
-            <td><?= h($r['item']) ?></td>
-            <td><?= h($r['unit']) ?></td>
-            <td class="text-end">
-              <?php if ($r['net'] > 0): ?>
-                <?= n3($r['net']) ?>
-              <?php else: ?>
-                <span class="text-danger">Not available</span>
-              <?php endif; ?>
-            </td>
-            <td class="text-end">₹ <?= n2($r['cpu']) ?></td>
-            <td class="text-end">₹ <?= n2($r['value']) ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-      <tfoot>
-        <tr>
-          <th colspan="4" class="text-end">Other Items Total</th>
-          <th class="text-end">₹ <?= n2($misc_total_value) ?></th>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
-
-<div class="card p-3">
-  <div class="row">
-    <div class="col-md-6">
-      <div class="p-2 bg-light rounded">
-        <div class="small text-muted">Grand Inventory Value</div>
-        <div class="fs-5">₹ <?= n2($grand_total) ?></div>
-      </div>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-boxes"></i> Inventory Report</h2>
+        <div>
+            <a href="reports_dashboard.php" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+            <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-success">
+                <i class="bi bi-download"></i> Export CSV
+            </a>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
     </div>
-  </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h4><?= count($tiles_data) ?></h4>
+                    <small>Tile Types</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h4><?= count($misc_data) ?></h4>
+                    <small>Misc Items</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h4>₹<?= number_format($total_inventory_value, 0) ?></h4>
+                    <small>Total Value</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h4><?= $low_stock_tiles + $low_stock_misc ?></h4>
+                    <small>Low Stock Items</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="show_photos" id="showPhotos" 
+                               <?= $show_photos ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="showPhotos">Show Photos</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Filter by Size</label>
+                    <select class="form-select" name="size_filter">
+                        <option value="">All Sizes</option>
+                        <?php foreach ($sizes as $size): ?>
+                            <option value="<?= $size['id'] ?>" <?= $size_filter == $size['id'] ? 'selected' : '' ?>>
+                                <?= h($size['label']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" name="low_stock_only" id="lowStock" 
+                               <?= $low_stock_only ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="lowStock">Low Stock Only</label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary d-block">
+                        <i class="bi bi-funnel"></i> Apply Filters
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tiles Inventory -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="bi bi-grid-3x3"></i> Tiles Inventory</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <?php if ($show_photos): ?><th>Photo</th><?php endif; ?>
+                            <th>Tile Name</th>
+                            <th>Size</th>
+                            <th>Stock (Boxes)</th>
+                            <th>Stock (Sq.Ft)</th>
+                            <th>Current Cost</th>
+                            <th>Stock Value</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($tiles_data)): ?>
+                            <tr>
+                                <td colspan="<?= $show_photos ? '8' : '7' ?>" class="text-center text-muted">
+                                    No tiles found with current filters
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($tiles_data as $tile): ?>
+                                <?php 
+                                $stock_boxes = $tile['total_stock_boxes'] ?? 0;
+                                $is_low_stock = $stock_boxes < 10;
+                                ?>
+                                <tr class="<?= $is_low_stock ? 'table-warning' : '' ?>">
+                                    <?php if ($show_photos): ?>
+                                        <td>
+                                            <?php if ($tile['photo_path']): ?>
+                                                <img src="<?= h($tile['photo_path']) ?>" class="inventory-photo" alt="Photo">
+                                            <?php else: ?>
+                                                <div class="inventory-photo bg-light d-flex align-items-center justify-content-center">
+                                                    <i class="bi bi-image text-muted"></i>
+                                                </div>
+                                            <?php endif; ?>
+                                        </td>
+                                    <?php endif; ?>
+                                    <td><strong><?= h($tile['name']) ?></strong></td>
+                                    <td><?= h($tile['size_label']) ?></td>
+                                    <td><?= number_format($stock_boxes, 1) ?></td>
+                                    <td><?= number_format($tile['total_stock_sqft'] ?? 0, 1) ?></td>
+                                    <td>₹<?= number_format($tile['current_cost'] ?? 0, 2) ?></td>
+                                    <td>₹<?= number_format($tile['stock_value'] ?? 0, 2) ?></td>
+                                    <td>
+                                        <?php if ($is_low_stock): ?>
+                                            <span class="badge bg-warning stock-badge">Low Stock</span>
+                                        <?php elseif ($stock_boxes > 50): ?>
+                                            <span class="badge bg-success stock-badge">Good Stock</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-info stock-badge">Medium Stock</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Misc Items Inventory -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="bi bi-box"></i> Other Items Inventory</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <?php if ($show_photos): ?><th>Photo</th><?php endif; ?>
+                            <th>Item Name</th>
+                            <th>Unit</th>
+                            <th>Stock Quantity</th>
+                            <th>Current Cost</th>
+                            <th>Stock Value</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($misc_data)): ?>
+                            <tr>
+                                <td colspan="<?= $show_photos ? '7' : '6' ?>" class="text-center text-muted">
+                                    No misc items found with current filters
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($misc_data as $item): ?>
+                                <?php 
+                                $stock_units = $item['total_stock_units'] ?? 0;
+                                $is_low_stock = $stock_units < 10;
+                                ?>
+                                <tr class="<?= $is_low_stock ? 'table-warning' : '' ?>">
+                                    <?php if ($show_photos): ?>
+                                        <td>
+                                            <?php if ($item['photo_path']): ?>
+                                                <img src="<?= h($item['photo_path']) ?>" class="inventory-photo" alt="Photo">
+                                            <?php else: ?>
+                                                <div class="inventory-photo bg-light d-flex align-items-center justify-content-center">
+                                                    <i class="bi bi-image text-muted"></i>
+                                                </div>
+                                            <?php endif; ?>
+                                        </td>
+                                    <?php endif; ?>
+                                    <td><strong><?= h($item['name']) ?></strong></td>
+                                    <td><?= h($item['unit_label']) ?></td>
+                                    <td><?= number_format($stock_units, 1) ?> <?= h($item['unit_label']) ?></td>
+                                    <td>₹<?= number_format($item['current_cost'] ?? 0, 2) ?></td>
+                                    <td>₹<?= number_format($item['stock_value'] ?? 0, 2) ?></td>
+                                    <td>
+                                        <?php if ($is_low_stock): ?>
+                                            <span class="badge bg-warning stock-badge">Low Stock</span>
+                                        <?php elseif ($stock_units > 50): ?>
+                                            <span class="badge bg-success stock-badge">Good Stock</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-info stock-badge">Medium Stock</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
