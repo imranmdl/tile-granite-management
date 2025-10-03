@@ -487,16 +487,14 @@ class FastAPISystemTester:
 
 def main():
     """Main test execution"""
-    tester = InvoiceSystemTester()
+    tester = FastAPISystemTester()
     success = tester.run_all_tests()
     
     if success:
-        print("\n🎉 All tests passed! Invoice System with discount functionality is working correctly.")
-        print("✅ No 'undefined array key discount_amount' errors found.")
+        print("\n🎉 All tests passed! FastAPI Backend System is working correctly.")
         sys.exit(0)
     else:
         print("\n⚠️  Some tests failed. Please review the issues above.")
-        print("🔍 Check for 'undefined array key' errors in the failed tests.")
         sys.exit(1)
 
 if __name__ == "__main__":
