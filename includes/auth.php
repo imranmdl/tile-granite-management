@@ -36,3 +36,59 @@ function auth_logout(){
   $_SESSION = [];
   if (session_id()) session_destroy();
 }
+
+// Enhanced permission functions for compatibility
+function auth_has_permission(string $permission, int $user_id = null): bool {
+  // If enhanced auth system is available, use it
+  if (class_exists('AuthSystem')) {
+    return AuthSystem::hasPermission($permission, $user_id);
+  }
+  
+  // Fallback to basic role-based permissions
+  $user = auth_user();
+  if (!$user) return false;
+  
+  $role = $user['role'];
+  
+  // Admin has all permissions
+  if ($role === 'admin') return true;
+  
+  // Basic role-based permissions for compatibility
+  $basic_permissions = [
+    'admin' => [
+      'users.view', 'users.create', 'users.edit', 'users.delete',
+      'inventory.view', 'inventory.create', 'inventory.edit', 'inventory.delete', 'inventory.view_costs',
+      'quotes.view', 'quotes.create', 'quotes.edit', 'quotes.delete',
+      'invoices.view', 'invoices.create', 'invoices.edit', 'invoices.delete',
+      'reports.view', 'reports.profit_loss',
+      'commission.view', 'commission.manage',
+      'settings.view', 'settings.edit'
+    ],
+    'manager' => [
+      'users.view',
+      'inventory.view', 'inventory.create', 'inventory.edit', 'inventory.view_costs',
+      'quotes.view', 'quotes.create', 'quotes.edit',
+      'invoices.view', 'invoices.create', 'invoices.edit',
+      'reports.view', 'reports.profit_loss',
+      'commission.view'
+    ],
+    'sales' => [
+      'inventory.view',
+      'quotes.view', 'quotes.create', 'quotes.edit',
+      'invoices.view', 'invoices.create', 'invoices.edit',
+      'reports.view',
+      'commission.view'
+    ]
+  ];
+  
+  $role_permissions = $basic_permissions[$role] ?? [];
+  return in_array($permission, $role_permissions);
+}
+
+function auth_get_user(): ?array {
+  return auth_user();
+}
+
+function auth_require_login() {
+  require_login();
+}
