@@ -321,7 +321,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <small class="text-muted">ID: <?= $item['id'] ?></small>
                         </td>
                         <td><?= h($item['unit_label']) ?></td>
-                        <td>
+                        <td class="col-photo">
                             <?php if ($item['photo_path']): ?>
                                 <img src="<?= h($item['photo_path']) ?>" class="photo-thumb" 
                                      onclick="viewPhoto('<?= h($item['photo_path']) ?>', '<?= h($item['name']) ?>')">
@@ -337,13 +337,44 @@ require_once __DIR__ . '/../includes/header.php';
                                 <?= number_format($stock_quantity, 1) ?>
                             </span>
                         </td>
-                        <td>$<?= number_format($item['avg_cost_per_unit'] ?? 0, 2) ?></td>
-                        <td>
-                            <?php if ($item['min_cost_per_unit'] && $item['max_cost_per_unit']): ?>
-                                $<?= number_format($item['min_cost_per_unit'], 2) ?> - 
-                                $<?= number_format($item['max_cost_per_unit'], 2) ?>
+                        <td class="col-cost">₹<?= number_format($item['avg_cost_per_unit'] ?? 0, 2) ?></td>
+                        <td class="col-cost">
+                            <span class="fw-bold text-primary">₹<?= number_format($item['avg_cost_per_unit_with_transport'] ?? 0, 2) ?></span>
+                        </td>
+                        <td class="col-cost">₹<?= number_format($item['total_quantity_cost'] ?? 0, 2) ?></td>
+                        <td class="col-sales">
+                            <?php if ($item['total_sold_quantity_quotes'] > 0): ?>
+                                <span class="badge bg-warning"><?= number_format($item['total_sold_quantity_quotes'], 1) ?></span>
                             <?php else: ?>
-                                <span class="text-muted">N/A</span>
+                                <span class="text-muted">0</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="col-sales">₹<?= number_format($item['total_sold_cost_quotes'] ?? 0, 2) ?></td>
+                        <td class="col-sales">
+                            <?php 
+                            // Get quotations for this item
+                            $quote_stmt = $pdo->prepare("
+                                SELECT DISTINCT q.quote_no, q.id 
+                                FROM quotations q 
+                                JOIN quotation_misc_items qmi ON q.id = qmi.quotation_id 
+                                WHERE qmi.misc_item_id = ? 
+                                ORDER BY q.quote_dt DESC 
+                                LIMIT 3
+                            ");
+                            $quote_stmt->execute([$item['id']]);
+                            $quotes = $quote_stmt->fetchAll(PDO::FETCH_ASSOC);
+                            
+                            if ($quotes): 
+                                foreach ($quotes as $quote): ?>
+                                    <a href="quotation_view.php?id=<?= $quote['id'] ?>" class="badge bg-success text-decoration-none me-1" target="_blank">
+                                        <?= h($quote['quote_no']) ?>
+                                    </a>
+                                <?php endforeach;
+                                if (count($quotes) == 3): ?>
+                                    <small class="text-muted">+more</small>
+                                <?php endif;
+                            else: ?>
+                                <span class="text-muted">No sales</span>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -353,18 +384,18 @@ require_once __DIR__ . '/../includes/header.php';
                                 <span class="text-muted">No purchases</span>
                             <?php endif; ?>
                         </td>
-                        <td>
+                        <td class="col-qr">
                             <?php if ($item['qr_code_path']): ?>
                                 <img src="<?= h($item['qr_code_path']) ?>" class="qr-thumb" 
                                      onclick="viewQR('<?= h($item['qr_code_path']) ?>', '<?= h($item['name']) ?>')">
                             <?php else: ?>
                                 <button type="button" class="btn btn-sm btn-outline-primary" 
-                                        onclick="generateQR(<?= $item['id'] ?>)">
+                                        onclick="generateQR(<?= $item['id'] ?>, '<?= h($item['name']) ?>')">
                                     <i class="bi bi-qr-code"></i>
                                 </button>
                             <?php endif; ?>
                         </td>
-                        <td>
+                        <td class="col-actions">
                             <div class="btn-group btn-group-sm">
                                 <a href="other_purchase.php?item_id=<?= $item['id'] ?>" class="btn btn-success" title="Add Purchase">
                                     <i class="bi bi-plus-circle"></i>
