@@ -160,17 +160,17 @@ backend:
         -comment: "BACKEND TESTED: All other items purchase entry functionality working correctly. Successfully tested: database schema validation, purchase entry creation with realistic data (item ID 4, 50 units, 2% damage, ₹15.50/unit), damage percentage validation, form validation for required fields and negative values, purchase history display. Backend functionality fully operational."
 
 frontend:
-  - task: "Enhanced Tiles Inventory UI"
+  - task: "Enhanced Tiles Inventory UI with Cost & Sales Data"
     implemented: true
     working: true
     file: "public/tiles_inventory.php"
     stuck_count: 0
-    priority: "high"
-    needs_retesting: true
+    priority: "completed"
+    needs_retesting: false
     status_history:
         -working: true
         -agent: "main"
-        -comment: "Implemented enhanced tiles inventory with sticky columns (ALL columns sticky), search across all visible fields, column picker functionality, QR code generation showing stock/price/image after scan, photo upload (max 3MB), separate navigation menu item."
+        -comment: "COMPLETED: Enhanced tiles inventory with all requested features: 1) Cost/Box + Transport percentage calculations displayed (₹255.00 for ₹250 + 2% transport), 2) Total box cost column, 3) Sold boxes count from quotations, 4) Sold revenue tracking, 5) Clickable invoice links to quotation_view.php, 6) QR code modal popup with print/download options. Wide table (1800px) with horizontal scroll. All 54 tiles displayed with enhanced data."
 
   - task: "Enhanced Other Inventory UI"
     implemented: true
