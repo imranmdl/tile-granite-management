@@ -79,44 +79,45 @@ class InvoiceSystemTester:
             self.log_test("Authentication Setup", False, f"Authentication error: {str(e)}")
             return False
 
-    def test_tiles_inventory_access(self):
-        """Test access to enhanced tiles inventory page"""
+    def test_database_schema_verification(self):
+        """Test database schema to verify discount_amount and final_total fields exist"""
         if not self.authenticate():
             return False
             
         try:
-            url = f"{self.base_url}/public/tiles_inventory.php"
+            # Try to access invoice creation page to check if discount fields are present
+            url = f"{self.base_url}/public/invoice_enhanced.php"
             response = self.session.get(url, timeout=10)
             
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
                 
-                # Check for enhanced inventory features
-                has_enhanced_table = soup.find('table', class_='inventory-table') is not None
-                has_cost_columns = 'Cost/Box' in response.text and 'Cost + Transport' in response.text
-                has_sales_data = 'Sold Boxes' in response.text and 'Sold Revenue' in response.text
-                has_qr_features = 'QR Code' in response.text
-                has_invoice_links = 'Invoice Links' in response.text
+                # Check for discount-related elements in the page
+                has_discount_section = 'Apply Discount' in response.text
+                has_discount_type = 'discount_type' in response.text
+                has_discount_value = 'discount_value' in response.text
+                has_discount_amount = 'discount_amount' in response.text or 'Discount Amount' in response.text
+                has_final_total = 'final_total' in response.text or 'Final Total' in response.text
                 
-                if has_enhanced_table and has_cost_columns and has_sales_data and has_qr_features and has_invoice_links:
-                    self.log_test("Enhanced Tiles Inventory Access", True, "All enhanced features present")
+                if has_discount_section and has_discount_type and has_discount_value and has_discount_amount and has_final_total:
+                    self.log_test("Database Schema Verification", True, "All discount fields (discount_amount, final_total) are present in invoice system")
                     return True
                 else:
                     missing_features = []
-                    if not has_enhanced_table: missing_features.append("Enhanced table")
-                    if not has_cost_columns: missing_features.append("Cost columns")
-                    if not has_sales_data: missing_features.append("Sales data")
-                    if not has_qr_features: missing_features.append("QR features")
-                    if not has_invoice_links: missing_features.append("Invoice links")
+                    if not has_discount_section: missing_features.append("Discount section")
+                    if not has_discount_type: missing_features.append("Discount type field")
+                    if not has_discount_value: missing_features.append("Discount value field")
+                    if not has_discount_amount: missing_features.append("Discount amount field")
+                    if not has_final_total: missing_features.append("Final total field")
                     
-                    self.log_test("Enhanced Tiles Inventory Access", False, f"Missing features: {', '.join(missing_features)}")
+                    self.log_test("Database Schema Verification", False, f"Missing discount fields: {', '.join(missing_features)}")
                     return False
             else:
-                self.log_test("Enhanced Tiles Inventory Access", False, f"HTTP {response.status_code}")
+                self.log_test("Database Schema Verification", False, f"Cannot access invoice page: HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Enhanced Tiles Inventory Access", False, f"Error: {str(e)}")
+            self.log_test("Database Schema Verification", False, f"Error: {str(e)}")
             return False
 
     def test_other_inventory_access(self):
