@@ -43,25 +43,38 @@ class EnhancedInventoryTester:
             print(f"    Details: {details}")
         print()
         
-    def test_login_page_access(self):
-        """Test if login page is accessible"""
-        try:
-            url = f"{self.base_url}/public/login_clean.php"
-            response = self.session.get(url, timeout=10)
+    def authenticate(self):
+        """Authenticate with admin credentials"""
+        if self.authenticated:
+            return True
             
-            if response.status_code == 200:
-                if "Tile Suite" in response.text and "Username" in response.text:
-                    self.log_test("Login Page Access", True, "Login page loads successfully")
-                    return True
-                else:
-                    self.log_test("Login Page Access", False, "Login page content missing", response.text[:500])
-                    return False
+        try:
+            # Get login page first
+            login_url = f"{self.base_url}/public/login_clean.php"
+            response = self.session.get(login_url, timeout=10)
+            
+            if response.status_code != 200:
+                self.log_test("Authentication Setup", False, f"Cannot access login page: HTTP {response.status_code}")
+                return False
+            
+            # Submit login form
+            login_data = {
+                'username': 'admin',
+                'password': 'admin123'
+            }
+            
+            response = self.session.post(login_url, data=login_data, allow_redirects=True)
+            
+            if response.status_code == 200 and ('dashboard' in response.url.lower() or 'index.php' in response.url):
+                self.authenticated = True
+                self.log_test("Authentication Setup", True, "Successfully authenticated as admin")
+                return True
             else:
-                self.log_test("Login Page Access", False, f"HTTP {response.status_code}", response.text[:200])
+                self.log_test("Authentication Setup", False, f"Login failed: {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Login Page Access", False, f"Connection error: {str(e)}")
+            self.log_test("Authentication Setup", False, f"Authentication error: {str(e)}")
             return False
     
     def test_login_with_credentials(self, username, password, expected_success=True):
