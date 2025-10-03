@@ -96,24 +96,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_qr'])) {
             mkdir($qr_dir, 0777, true);
         }
         
-        // Simple QR code generation (placeholder - would use real QR library in production)
-        // For now, just create a placeholder image with tile info
-        $image = imagecreate(200, 200);
+        // Enhanced QR code generation with better visual design
+        $image = imagecreate(250, 250);
         $bg_color = imagecolorallocate($image, 255, 255, 255);
+        $border_color = imagecolorallocate($image, 100, 100, 100);
         $text_color = imagecolorallocate($image, 0, 0, 0);
+        $highlight_color = imagecolorallocate($image, 0, 100, 200);
         
-        imagestring($image, 3, 10, 10, "QR: Tile #" . $tile_id, $text_color);
-        imagestring($image, 2, 10, 30, $tile_data['name'], $text_color);
-        imagestring($image, 2, 10, 50, "Stock: " . $tile_data['total_stock_boxes'] . " boxes", $text_color);
-        imagestring($image, 2, 10, 70, "Price: $" . number_format($tile_data['avg_cost_per_box'], 2), $text_color);
+        // Draw border
+        imagerectangle($image, 0, 0, 249, 249, $border_color);
+        imagerectangle($image, 1, 1, 248, 248, $border_color);
+        
+        // Add QR-like pattern (simplified)
+        for ($i = 0; $i < 15; $i++) {
+            for ($j = 0; $j < 15; $j++) {
+                $x = 20 + $i * 13;
+                $y = 20 + $j * 13;
+                if (($i + $j + $tile_id) % 3 == 0) {
+                    imagefilledrectangle($image, $x, $y, $x + 10, $y + 10, $text_color);
+                }
+            }
+        }
+        
+        // Add text information
+        $tile_name = strlen($tile_data['name']) > 20 ? substr($tile_data['name'], 0, 20) . '...' : $tile_data['name'];
+        imagestring($image, 3, 10, 210, "ID: " . $tile_id, $highlight_color);
+        imagestring($image, 2, 10, 225, $tile_name, $text_color);
+        imagestring($image, 2, 10, 235, "Stock: " . number_format($tile_data['total_stock_boxes'], 1), $text_color);
         
         if (imagepng($image, $qr_full_path)) {
             // Update database
             $stmt = $pdo->prepare("UPDATE tiles SET qr_code_path = ? WHERE id = ?");
-            $stmt->execute([$qr_path, $tile_id]);
-            $message = 'QR Code generated successfully';
+            if ($stmt->execute([$qr_path, $tile_id])) {
+                $message = 'QR Code generated successfully';
+            } else {
+                $error = 'Failed to update database with QR code path';
+            }
         } else {
-            $error = 'Failed to generate QR code';
+            $error = 'Failed to save QR code image';
         }
         
         imagedestroy($image);
