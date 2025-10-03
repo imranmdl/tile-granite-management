@@ -458,7 +458,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </div>
             <div>
-                <span class="badge bg-success fs-6">₹<?= number_format($invoice['final_total'] ?? $invoice['total'], 2) ?></span>
+                <span class="badge bg-success fs-6">₹<?= number_format($invoice['final_total'] ?? $invoice['total'] ?? 0, 2) ?></span>
             </div>
         </div>
     </div>
