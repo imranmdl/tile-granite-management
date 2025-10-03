@@ -409,6 +409,32 @@ $paid=(float)$pdo->query("SELECT COALESCE(SUM(amount),0) FROM invoice_payments W
     <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary" name="update_totals">Update Totals</button></div>
   </form>
   <div class="mt-2"><strong>Subtotal:</strong> ₹ <?= n2($sub) ?> &nbsp; <strong>Total:</strong> ₹ <?= n2($total) ?> &nbsp; <strong>Paid:</strong> ₹ <?= n2($paid) ?> &nbsp; <strong>Balance:</strong> ₹ <?= n2($bal) ?></div>
+  
+  <?php
+  // Show commission information
+  require_once __DIR__ . '/../includes/commission.php';
+  $commission_st = $pdo->prepare("SELECT * FROM commission_ledger WHERE invoice_id = ?");
+  $commission_st->execute([$id]);
+  $commission = $commission_st->fetch(PDO::FETCH_ASSOC);
+  
+  if ($commission):
+  ?>
+  <div class="mt-2 p-2 bg-light rounded">
+    <small class="text-muted"><strong>Commission Info:</strong></small><br>
+    <small>
+      <strong>Base Amount:</strong> ₹ <?= n2($commission['base_amount']) ?> &nbsp;
+      <strong>Commission %:</strong> <?= n2($commission['pct']) ?>% &nbsp;
+      <strong>Commission Amount:</strong> ₹ <?= n2($commission['amount']) ?> &nbsp;
+      <strong>Status:</strong> 
+      <span class="badge <?= 
+          $commission['status'] === 'PAID' ? 'text-bg-success' : 
+          ($commission['status'] === 'APPROVED' ? 'text-bg-info' : 'text-bg-warning') 
+      ?>">
+          <?= h($commission['status']) ?>
+      </span>
+    </small>
+  </div>
+  <?php endif; ?>
 </div>
 
 <div class="card p-3">
