@@ -256,23 +256,36 @@ require_once __DIR__ . '/../includes/header.php';
                             </div>
 
                             <!-- Cost Details -->
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label">Cost per Box *</label>
                                 <div class="input-group">
-                                    <span class="input-group-text">$</span>
+                                    <span class="input-group-text">₹</span>
                                     <input type="number" class="form-control" name="cost_per_box" 
                                            value="<?= $_POST['cost_per_box'] ?? '' ?>" 
                                            step="0.01" min="0.01" required oninput="calculateCosts()">
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Transport Cost</label>
+                            <div class="col-md-4">
+                                <label class="form-label">Transport %</label>
                                 <div class="input-group">
-                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="transport_percentage" 
+                                           value="<?= $_POST['transport_percentage'] ?? 0 ?>" 
+                                           step="0.1" min="0" max="200" oninput="calculateCosts()" 
+                                           placeholder="e.g., 30 for 30%">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <div class="form-text">Cost/Box × (1 + Transport%)</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Fixed Transport Cost</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
                                     <input type="number" class="form-control" name="transport_cost" 
                                            value="<?= $_POST['transport_cost'] ?? 0 ?>" 
-                                           step="0.01" min="0" oninput="calculateCosts()">
+                                           step="0.01" min="0" oninput="calculateCosts()" 
+                                           placeholder="Optional">
                                 </div>
+                                <div class="form-text">Used if Transport % is 0</div>
                             </div>
 
                             <!-- Notes -->
