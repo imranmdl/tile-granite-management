@@ -43,25 +43,67 @@ class CommissionReportingSystemTester:
             print(f"    Details: {details}")
         print()
 
-    def test_api_connectivity(self):
-        """Test basic API connectivity"""
+    def test_database_schema_validation(self):
+        """Test that all required database tables and columns exist"""
         try:
-            response = self.session.get(f"{self.api_url}/", timeout=10)
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('message') == 'Hello World':
-                    self.log_test("API Connectivity", True, "FastAPI backend is responding correctly")
-                    return True
-                else:
-                    self.log_test("API Connectivity", False, f"Unexpected response: {data}")
-                    return False
-            else:
-                self.log_test("API Connectivity", False, f"HTTP {response.status_code}")
+            # Check required tables
+            required_tables = [
+                'commission_records', 'users_simple', 'user_report_preferences', 
+                'report_cache', 'cost_history', 'commission_ledger', 'commission_rates'
+            ]
+            
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            existing_tables = [row[0] for row in cursor.fetchall()]
+            
+            missing_tables = []
+            for table in required_tables:
+                if table not in existing_tables:
+                    missing_tables.append(table)
+            
+            if missing_tables:
+                self.log_test("Database Schema Validation", False, f"Missing tables: {missing_tables}")
+                conn.close()
                 return False
-                
+            
+            # Check users_simple has permission columns
+            cursor.execute("PRAGMA table_info(users_simple)")
+            columns = [col[1] for col in cursor.fetchall()]
+            required_columns = ['can_view_pl', 'can_view_reports', 'can_export_data']
+            
+            missing_columns = []
+            for col in required_columns:
+                if col not in columns:
+                    missing_columns.append(col)
+            
+            if missing_columns:
+                self.log_test("Database Schema Validation", False, f"Missing columns in users_simple: {missing_columns}")
+                conn.close()
+                return False
+            
+            # Check commission_records structure
+            cursor.execute("PRAGMA table_info(commission_records)")
+            commission_columns = [col[1] for col in cursor.fetchall()]
+            required_commission_cols = ['document_type', 'document_id', 'user_id', 'base_amount', 'commission_percentage', 'commission_amount', 'status']
+            
+            missing_commission_cols = []
+            for col in required_commission_cols:
+                if col not in commission_columns:
+                    missing_commission_cols.append(col)
+            
+            if missing_commission_cols:
+                self.log_test("Database Schema Validation", False, f"Missing columns in commission_records: {missing_commission_cols}")
+                conn.close()
+                return False
+            
+            conn.close()
+            self.log_test("Database Schema Validation", True, "All required tables and columns exist")
+            return True
+            
         except Exception as e:
-            self.log_test("API Connectivity", False, f"Error: {str(e)}")
+            self.log_test("Database Schema Validation", False, f"Error: {str(e)}")
             return False
 
     def test_status_endpoint(self):
