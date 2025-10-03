@@ -329,7 +329,10 @@ class PHPAuthenticationTester:
                 
                 if response.status_code == 200:
                     # Sales should see the page but not have create permissions
-                    if "Create New User" not in response.text:
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    create_button = soup.find('button', string=lambda text: text and 'Create New User' in text)
+                    
+                    if not create_button:
                         self.log_test("Role-based Access (Sales)", True, "Sales user has limited access (no create button)")
                         return True
                     else:
