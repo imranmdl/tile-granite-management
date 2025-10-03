@@ -347,7 +347,7 @@ $company_name = 'Tile Suite Business';
         });
         
         // Session timeout warning (placeholder)
-        let sessionTimeout = <?= AuthSystem::getSetting('session_timeout_minutes', 300) * 60 * 1000 ?>;
+        let sessionTimeout = 300 * 60 * 1000; // 5 hours
         let warningTime = sessionTimeout - (5 * 60 * 1000); // 5 minutes before timeout
         
         // Add form validation
