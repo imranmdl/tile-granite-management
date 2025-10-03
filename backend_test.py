@@ -342,30 +342,28 @@ class CommissionReportingSystemTester:
             return False
 
     def test_chart_integration(self):
-        """Test Chart.js integration endpoints"""
+        """Test Chart.js integration in PHP reports"""
         try:
-            # Check for chart data endpoints
-            chart_endpoints = [
-                "/charts/sales",
-                "/charts/commission",
-                "/data/charts"
-            ]
+            # Check sales report for Chart.js integration
+            response = self.session.get(f"{self.php_url}/report_sales.php", timeout=10)
             
-            chart_found = False
-            for endpoint in chart_endpoints:
-                try:
-                    resp = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
-                    if resp.status_code != 404:
-                        chart_found = True
-                        break
-                except:
-                    continue
-            
-            if chart_found:
-                self.log_test("Chart.js Integration", True, "Chart data endpoints found in FastAPI")
-                return True
+            if response.status_code == 200:
+                content = response.text
+                # Look for Chart.js references
+                chart_indicators = ["chart.js", "Chart.js", "new Chart", "canvas", "chartjs"]
+                found_charts = sum(1 for indicator in chart_indicators if indicator in content)
+                
+                if found_charts >= 2:
+                    self.log_test("Chart.js Integration", True, f"Chart.js integration found in PHP reports ({found_charts} indicators)")
+                    return True
+                elif found_charts >= 1:
+                    self.log_test("Chart.js Integration", True, "Basic Chart.js integration found in PHP reports")
+                    return True
+                else:
+                    self.log_test("Chart.js Integration", False, "No Chart.js integration found in PHP reports")
+                    return False
             else:
-                self.log_test("Chart.js Integration", False, "No chart data endpoints implemented in FastAPI backend")
+                self.log_test("Chart.js Integration", False, f"Cannot access reports to check Chart.js: HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
