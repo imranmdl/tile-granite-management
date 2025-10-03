@@ -83,6 +83,24 @@ if (!function_exists('nav_active_any')) {
           </ul>
         </li>
         <?php endif; ?>
+        <?php if (auth_has_permission('settings.view') || auth_has_permission('users.view')): ?>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Admin</a>
+          <ul class="dropdown-menu">
+            <?php if (auth_has_permission('settings.view')): ?>
+            <li><a class="dropdown-item" href="<?= $base ?>/admin_control_panel.php">Control Panel</a></li>
+            <?php endif; ?>
+            <?php if (auth_has_permission('users.view')): ?>
+            <li><a class="dropdown-item" href="<?= $base ?>/users_management.php">User Management</a></li>
+            <?php endif; ?>
+            <?php if (auth_has_permission('settings.view')): ?>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="<?= $base ?>/system_settings.php">System Settings</a></li>
+            <li><a class="dropdown-item" href="<?= $base ?>/backup_restore.php">Backup & Restore</a></li>
+            <?php endif; ?>
+          </ul>
+        </li>
+        <?php endif; ?>
     
 <li class="nav-item">
           <a class="nav-link <?= nav_active('index.php',$path) ?>" href="<?= $base ?>/index.php">Dashboard</a>
