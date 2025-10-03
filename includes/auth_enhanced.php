@@ -1,6 +1,8 @@
 <?php
 // includes/auth_enhanced.php - Enhanced Authentication System
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 class AuthSystem {
     private static $pdo = null;
