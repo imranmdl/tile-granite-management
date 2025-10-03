@@ -22,7 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_purchase'])) {
     $total_quantity = (float)$_POST['total_quantity'];
     $damage_percentage = (float)$_POST['damage_percentage'];
     $cost_per_unit = (float)$_POST['cost_per_unit'];
-    $transport_cost = (float)$_POST['transport_cost'];
+    $transport_cost = (float)($_POST['transport_cost'] ?? 0);
+    $transport_percentage = (float)($_POST['transport_percentage'] ?? 0);
     $notes = trim($_POST['notes'] ?? '');
     
     // Validation
@@ -30,17 +31,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_purchase'])) {
         $error = 'Please fill in all required fields with valid values';
     } elseif ($damage_percentage < 0 || $damage_percentage > 100) {
         $error = 'Damage percentage must be between 0 and 100';
+    } elseif ($transport_percentage < 0 || $transport_percentage > 200) {
+        $error = 'Transport percentage must be between 0 and 200';
     } else {
         try {
             $stmt = $pdo->prepare("
                 INSERT INTO purchase_entries_misc 
                 (misc_item_id, purchase_date, supplier_name, invoice_number, total_quantity, 
-                 damage_percentage, cost_per_unit, transport_cost, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 damage_percentage, cost_per_unit, transport_cost, transport_percentage, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             if ($stmt->execute([$item_id, $purchase_date, $supplier_name, $invoice_number, 
-                               $total_quantity, $damage_percentage, $cost_per_unit, $transport_cost, $notes])) {
+                               $total_quantity, $damage_percentage, $cost_per_unit, $transport_cost, $transport_percentage, $notes])) {
                 $message = 'Purchase entry added successfully';
                 // Reset form
                 $_POST = [];
