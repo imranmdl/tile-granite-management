@@ -639,31 +639,16 @@ function generateQR(tileId, tileName) {
     button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
     button.disabled = true;
     
-    // Generate QR code via AJAX
-    fetch(window.location.href, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `generate_qr=1&tile_id=${tileId}`
-    })
-    .then(response => response.text())
-    .then(data => {
-        // Check if generation was successful
-        if (data.includes('QR Code generated successfully')) {
-            // Reload the page to get the new QR code path, then show modal
-            window.location.reload();
-        } else {
-            alert('Failed to generate QR code');
-            button.innerHTML = originalHtml;
-            button.disabled = false;
-        }
-    })
-    .catch(error => {
-        alert('Error generating QR code');
-        button.innerHTML = originalHtml;
-        button.disabled = false;
-    });
+    // Use form submission instead of AJAX for better compatibility
+    const form = document.getElementById('qrGenerationForm');
+    const tileIdInput = document.getElementById('qrTileId');
+    tileIdInput.value = tileId;
+    
+    // Store info for modal
+    window.qrGenerationInfo = { tileId, tileName };
+    
+    // Submit form
+    form.submit();
 }
 
 function viewQR(qrPath, tileName) {
