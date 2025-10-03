@@ -1352,9 +1352,7 @@ function updateDiscountLabel() {
 }
 
 function calculateCommission() {
-    // Get subtotal from the page
-    const subtotalText = document.querySelector('.fs-5')?.textContent || '₹0';
-    const subtotal = parseFloat(subtotalText.replace(/[₹,]/g, '')) || 0;
+    const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
     const commissionPercentage = parseFloat(document.querySelector('[name="commission_percentage"]').value) || 0;
     
     const commissionAmount = (subtotal * commissionPercentage) / 100;
