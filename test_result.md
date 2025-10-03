@@ -204,12 +204,15 @@ frontend:
     working: true
     file: "public/tiles_purchase.php, public/other_purchase.php"
     stuck_count: 0
-    priority: "high"
-    needs_retesting: true
+    priority: "completed"
+    needs_retesting: false
     status_history:
         -working: true
         -agent: "main"
         -comment: "Created comprehensive purchase entry forms with live damage calculations, cost breakdowns, supplier tracking, invoice management, and purchase history views with summary statistics."
+        -working: true
+        -agent: "testing"
+        -comment: "BACKEND TESTED: Purchase Entry Forms UI fully functional for both tiles and other items. Successfully tested: transport percentage fields (0-200% validation), live calculations display, damage percentage fields (0-100% validation), cost breakdown with rupee currency, form submission with realistic data. Created test purchase entries: Tile ID 54 (100 boxes, 5.5% damage, ₹250/box, 30% transport) and Item ID 4 (50 units, 2% damage, ₹15.50/unit, 25% transport). All enhanced purchase features working correctly."
 
 metadata:
   created_by: "main_agent"
