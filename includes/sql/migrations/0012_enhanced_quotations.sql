@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     user_id INTEGER NOT NULL,
     preference_key TEXT NOT NULL,
     preference_value TEXT NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
     UNIQUE(user_id, preference_key)
 );
 
