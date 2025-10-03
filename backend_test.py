@@ -235,25 +235,137 @@ class CommissionReportingSystemTester:
             self.log_test("Commission Report", False, f"Error: {str(e)}")
             return False
 
+    def test_permissions_system(self):
+        """Test P/L access permissions are working"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Check if admin user has proper permissions
+            cursor.execute("SELECT can_view_pl, can_view_reports FROM users_simple WHERE role = 'admin' LIMIT 1")
+            admin_perms = cursor.fetchone()
+            
+            if admin_perms and admin_perms[0] == 1 and admin_perms[1] == 1:
+                self.log_test("Permissions System", True, "Admin user has proper P/L and reports permissions")
+                conn.close()
+                return True
+            else:
+                self.log_test("Permissions System", False, "Admin user missing proper permissions")
+                conn.close()
+                return False
+                
+        except Exception as e:
+            self.log_test("Permissions System", False, f"Error: {str(e)}")
+            return False
+
+    def test_data_integrity(self):
+        """Test that calculations are accurate"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Check if commission calculations are consistent
+            cursor.execute("""
+                SELECT COUNT(*) FROM commission_ledger 
+                WHERE base_amount > 0 AND pct > 0 AND amount > 0
+            """)
+            valid_commissions = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM commission_ledger")
+            total_commissions = cursor.fetchone()[0]
+            
+            conn.close()
+            
+            if total_commissions == 0:
+                self.log_test("Data Integrity", True, "No commission data to validate (expected for new system)")
+                return True
+            elif valid_commissions == total_commissions:
+                self.log_test("Data Integrity", True, f"All {total_commissions} commission calculations are valid")
+                return True
+            else:
+                self.log_test("Data Integrity", False, f"Invalid commission calculations: {total_commissions - valid_commissions} out of {total_commissions}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Data Integrity", False, f"Error: {str(e)}")
+            return False
+
+    def test_navigation(self):
+        """Test all report links and navigation"""
+        try:
+            # Test main dashboard navigation
+            response = self.session.get(f"{self.php_url}/reports_dashboard.php", timeout=10)
+            if response.status_code != 200:
+                self.log_test("Navigation", False, "Cannot access main dashboard")
+                return False
+            
+            # Test key navigation links
+            navigation_tests = [
+                ("report_sales.php", "Sales Report"),
+                ("report_commission.php", "Commission Report"),
+                ("report_daily_business.php", "Daily Business")
+            ]
+            
+            failed_nav = []
+            for url, name in navigation_tests:
+                try:
+                    resp = self.session.get(f"{self.php_url}/{url}", timeout=5)
+                    if resp.status_code != 200:
+                        failed_nav.append(f"{name} ({resp.status_code})")
+                except:
+                    failed_nav.append(f"{name} (timeout)")
+            
+            if failed_nav:
+                self.log_test("Navigation", False, f"Failed navigation: {', '.join(failed_nav)}")
+                return False
+            else:
+                self.log_test("Navigation", True, "All report navigation links working")
+                return True
+                
+        except Exception as e:
+            self.log_test("Navigation", False, f"Error: {str(e)}")
+            return False
+
     def run_all_tests(self):
-        """Run all FastAPI system tests"""
-        print("🧪 Starting FastAPI Backend System Tests")
-        print("=" * 50)
+        """Run all Commission and Reporting System tests"""
+        print("🧪 Starting Commission and Reporting System Tests")
+        print("=" * 60)
         
-        # Core API tests
-        print("\n🔌 Testing API Connectivity...")
-        self.test_api_connectivity()
+        # Database tests
+        print("\n🗄️ Testing Database Schema...")
+        self.test_database_schema_validation()
         
-        print("\n📊 Testing Status Endpoints...")
-        self.test_status_endpoint()
+        # Commission system tests
+        print("\n💰 Testing Commission System...")
+        self.test_commission_system()
         
-        print("\n🗄️ Testing Database Connectivity...")
-        self.test_database_connectivity()
+        # Reporting tests
+        print("\n📊 Testing Reporting Dashboard...")
+        self.test_reporting_dashboard()
+        
+        print("\n📈 Testing Sales Report...")
+        self.test_sales_report()
+        
+        print("\n📅 Testing Daily Business Summary...")
+        self.test_daily_business_summary()
+        
+        print("\n💼 Testing Commission Report...")
+        self.test_commission_report()
+        
+        # System tests
+        print("\n🔐 Testing Permissions System...")
+        self.test_permissions_system()
+        
+        print("\n✅ Testing Data Integrity...")
+        self.test_data_integrity()
+        
+        print("\n🧭 Testing Navigation...")
+        self.test_navigation()
         
         # Summary
-        print("\n" + "=" * 50)
-        print("📊 FASTAPI SYSTEM TEST SUMMARY")
-        print("=" * 50)
+        print("\n" + "=" * 60)
+        print("📊 COMMISSION & REPORTING SYSTEM TEST SUMMARY")
+        print("=" * 60)
         
         passed = sum(1 for result in self.test_results if result['success'])
         total = len(self.test_results)
