@@ -1,17 +1,17 @@
 -- 0010_enhanced_inventory.sql (SQLite)
 -- Enhanced inventory features for tiles and other items
 
--- Add photo support to tiles table
-ALTER TABLE tiles ADD COLUMN photo_path TEXT NULL;
-ALTER TABLE tiles ADD COLUMN photo_size INTEGER DEFAULT 0;
+-- Add photo support to tiles table (if not exists)
+-- ALTER TABLE tiles ADD COLUMN photo_path TEXT NULL; -- Already exists
+-- ALTER TABLE tiles ADD COLUMN photo_size INTEGER DEFAULT 0;
 
--- Add photo support to misc_items table  
-ALTER TABLE misc_items ADD COLUMN photo_path TEXT NULL;
-ALTER TABLE misc_items ADD COLUMN photo_size INTEGER DEFAULT 0;
+-- Add photo support to misc_items table (check if exists)  
+-- ALTER TABLE misc_items ADD COLUMN photo_path TEXT NULL;
+-- ALTER TABLE misc_items ADD COLUMN photo_size INTEGER DEFAULT 0;
 
--- Add QR code support
-ALTER TABLE tiles ADD COLUMN qr_code_path TEXT NULL;
-ALTER TABLE misc_items ADD COLUMN qr_code_path TEXT NULL;
+-- Add QR code support (check if exists)
+-- ALTER TABLE tiles ADD COLUMN qr_code_path TEXT NULL;
+-- ALTER TABLE misc_items ADD COLUMN qr_code_path TEXT NULL;
 
 -- Enhanced purchase entries tracking
 CREATE TABLE IF NOT EXISTS purchase_entries_tiles (
