@@ -9,6 +9,53 @@ $pdo = Database::pdo();
 $message = '';
 $error = '';
 
+// Handle item editing
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_item'])) {
+    $item_id = (int)$_POST['item_id'];
+    $item_name = trim($_POST['item_name']);
+    $unit_label = trim($_POST['unit_label']);
+    
+    if ($item_name && $unit_label) {
+        try {
+            $stmt = $pdo->prepare("UPDATE misc_items SET name = ?, unit_label = ? WHERE id = ?");
+            if ($stmt->execute([$item_name, $unit_label, $item_id])) {
+                $message = 'Item updated successfully';
+            } else {
+                $error = 'Failed to update item';
+            }
+        } catch (Exception $e) {
+            $error = 'Database error: ' . $e->getMessage();
+        }
+    } else {
+        $error = 'Please provide item name and unit';
+    }
+}
+
+// Handle item deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_item'])) {
+    $item_id = (int)$_POST['item_id'];
+    
+    try {
+        // Check if item has purchase entries
+        $check_stmt = $pdo->prepare("SELECT COUNT(*) FROM purchase_entries_misc WHERE misc_item_id = ?");
+        $check_stmt->execute([$item_id]);
+        $purchase_count = $check_stmt->fetchColumn();
+        
+        if ($purchase_count > 0) {
+            $error = 'Cannot delete item with existing purchase entries. Delete purchase entries first.';
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM misc_items WHERE id = ?");
+            if ($stmt->execute([$item_id])) {
+                $message = 'Item deleted successfully';
+            } else {
+                $error = 'Failed to delete item';
+            }
+        }
+    } catch (Exception $e) {
+        $error = 'Database error: ' . $e->getMessage();
+    }
+}
+
 // Handle photo upload for misc items
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_photo'])) {
     $item_id = (int)$_POST['item_id'];
