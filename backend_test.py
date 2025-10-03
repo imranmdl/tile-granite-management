@@ -372,7 +372,8 @@ class CommissionReportingSystemTester:
 
     def run_all_tests(self):
         """Run all Commission and Reporting System tests"""
-        print("🧪 Starting FastAPI Backend Tests for Commission and Reporting System")
+        print("🧪 Starting Commission and Reporting System Tests")
+        print("Testing both FastAPI (port 8001) and PHP (port 8080) systems")
         print("=" * 70)
         
         # Database tests
