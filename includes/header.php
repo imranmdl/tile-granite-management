@@ -90,13 +90,15 @@ if (!function_exists('nav_active_any')) {
 
         <!-- Inventory -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle <?= nav_active_any(['tiles.php','misc_items.php','inventory.php','inventory_manage.php'],$path) ?>"
+          <a class="nav-link dropdown-toggle <?= nav_active_any(['tiles.php','misc_items.php','inventory.php','inventory_manage.php','inventory_advanced.php'],$path) ?>"
              href="#" data-bs-toggle="dropdown">Inventory</a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item <?= nav_active('tiles.php',$path) ?>" href="<?= $base ?>/tiles.php">Tiles &amp; Sizes</a></li>
             <li><a class="dropdown-item <?= nav_active('misc_items.php',$path) ?>" href="<?= $base ?>/misc_items.php">Other Items</a></li>
-            <li><a class="dropdown-item <?= nav_active('inventory.php',$path) ?>" href="<?= $base ?>/inventory.php">Inventory</a></li>
-            <li><a class="dropdown-item <?= nav_active('inventory_manage.php',$path) ?>" href="<?= $base ?>/inventory_manage.php">Inventory Edit</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item <?= nav_active('inventory.php',$path) ?>" href="<?= $base ?>/inventory.php">Add Inventory</a></li>
+            <li><a class="dropdown-item <?= nav_active('inventory_manage.php',$path) ?>" href="<?= $base ?>/inventory_manage.php">Manage Inventory</a></li>
+            <li><a class="dropdown-item <?= nav_active('inventory_advanced.php',$path) ?>" href="<?= $base ?>/inventory_advanced.php">Advanced Inventory</a></li>
           </ul>
         </li>
 
