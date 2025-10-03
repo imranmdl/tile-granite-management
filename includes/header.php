@@ -116,6 +116,7 @@ if (!function_exists('nav_active_any')) {
         <li class="nav-item dropdown">
           <?php
             $commissionFiles = [
+              'commission_ledger.php',
               'commission_settings.php',
               'commission_override.php',
               'sales_commission.php',
@@ -126,6 +127,10 @@ if (!function_exists('nav_active_any')) {
           <a class="nav-link dropdown-toggle <?= nav_active_any($commissionFiles, $path) ?>"
              href="#" data-bs-toggle="dropdown">Commission &amp; Earnings</a>
           <ul class="dropdown-menu">
+            <?php if (auth_is_admin()): ?>
+            <li><a class="dropdown-item <?= nav_active('commission_ledger.php', $path) ?>" href="<?= $base ?>/commission_ledger.php">Commission Ledger</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <?php endif; ?>
             <li><a class="dropdown-item <?= nav_active('commission_settings.php', $path) ?>" href="<?= $base ?>/commission_settings.php">Commission Settings</a></li>
             <li><a class="dropdown-item <?= nav_active('commission_override.php', $path) ?>" href="<?= $base ?>/commission_override.php">Commission Override</a></li>
             <li><a class="dropdown-item <?= nav_active('sales_commission.php', $path) ?>" href="<?= $base ?>/sales_commission.php">Sales Commission</a></li>
