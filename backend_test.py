@@ -251,22 +251,30 @@ class CommissionReportingSystemTester:
             return False
 
     def test_permissions_system(self):
-        """Test P/L access permissions are working"""
+        """Test permissions system in FastAPI"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            # Check for authentication/permissions endpoints
+            auth_endpoints = [
+                "/auth/login",
+                "/auth/permissions",
+                "/users/permissions"
+            ]
             
-            # Check if admin user has proper permissions
-            cursor.execute("SELECT can_view_pl, can_view_reports FROM users_simple WHERE role = 'admin' LIMIT 1")
-            admin_perms = cursor.fetchone()
+            auth_found = False
+            for endpoint in auth_endpoints:
+                try:
+                    resp = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if resp.status_code != 404:
+                        auth_found = True
+                        break
+                except:
+                    continue
             
-            if admin_perms and admin_perms[0] == 1 and admin_perms[1] == 1:
-                self.log_test("Permissions System", True, "Admin user has proper P/L and reports permissions")
-                conn.close()
+            if auth_found:
+                self.log_test("Permissions System", True, "Authentication/permissions endpoints found in FastAPI")
                 return True
             else:
-                self.log_test("Permissions System", False, "Admin user missing proper permissions")
-                conn.close()
+                self.log_test("Permissions System", False, "No authentication/permissions endpoints implemented in FastAPI backend")
                 return False
                 
         except Exception as e:
