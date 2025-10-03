@@ -269,10 +269,17 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Invoice System Frontend"
+    - "Authentication System Frontend"
+    - "Invoice Creation UI"
+    - "Edit Invoice Item Modal"
+    - "Mark as Paid Button"
+    - "View/Print Button"
+    - "Discount System UI"
   stuck_tasks: []
-  test_all: true
-  test_priority: "completed"
+  test_all: false
+  test_priority: "high_first"
 
 agent_communication:
     -agent: "testing"
