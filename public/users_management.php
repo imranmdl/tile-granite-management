@@ -110,7 +110,7 @@ $stats = [
     'total_users' => count($users),
     'active_users' => count(array_filter($users, fn($u) => $u['active'])),
     'admin_users' => count(array_filter($users, fn($u) => $u['role'] === 'admin')),
-    'locked_users' => count(array_filter($users, fn($u) => $u['locked_until'] && $u['locked_until'] > date('Y-m-d H:i:s')))
+    'inactive_users' => count(array_filter($users, fn($u) => !$u['active']))
 ];
 
 $page_title = "User Management";
