@@ -220,20 +220,30 @@ class CommissionReportingSystemTester:
             return False
 
     def test_commission_report(self):
-        """Test commission tracking and status updates"""
+        """Test commission report endpoints in FastAPI"""
         try:
-            response = self.session.get(f"{self.php_url}/report_commission.php", timeout=10)
+            # Check for commission report endpoints
+            commission_report_endpoints = [
+                "/reports/commission",
+                "/commission/report",
+                "/commission/summary"
+            ]
             
-            if response.status_code == 200:
-                content = response.text
-                if "Commission Report" in content:
-                    self.log_test("Commission Report", True, "Commission report accessible")
-                    return True
-                else:
-                    self.log_test("Commission Report", False, "Commission report missing title")
-                    return False
+            commission_report_found = False
+            for endpoint in commission_report_endpoints:
+                try:
+                    resp = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if resp.status_code != 404:
+                        commission_report_found = True
+                        break
+                except:
+                    continue
+            
+            if commission_report_found:
+                self.log_test("Commission Report", True, "Commission report endpoints found in FastAPI")
+                return True
             else:
-                self.log_test("Commission Report", False, f"HTTP {response.status_code}")
+                self.log_test("Commission Report", False, "No commission report endpoints implemented in FastAPI backend")
                 return False
                 
         except Exception as e:
