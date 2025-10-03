@@ -383,8 +383,12 @@ require_once __DIR__ . '/../includes/header.php';
                 <th style="min-width: 100px;" class="col-vendor">Vendor</th>
                 <th style="min-width: 100px;">Stock (Boxes)</th>
                 <th style="min-width: 100px;">Stock (Sq.Ft)</th>
-                <th style="min-width: 120px;" class="col-cost">Avg Cost/Box</th>
-                <th style="min-width: 100px;" class="col-cost">Cost Range</th>
+                <th style="min-width: 120px;" class="col-cost">Cost/Box</th>
+                <th style="min-width: 120px;" class="col-cost">Cost + Transport</th>
+                <th style="min-width: 120px;" class="col-cost">Total Box Cost</th>
+                <th style="min-width: 100px;" class="col-sales">Sold Boxes</th>
+                <th style="min-width: 120px;" class="col-sales">Sold Revenue</th>
+                <th style="min-width: 120px;" class="col-sales">Invoice Links</th>
                 <th style="min-width: 100px;">Purchases</th>
                 <th style="min-width: 80px;" class="col-qr">QR Code</th>
                 <th style="min-width: 200px;" class="col-actions">Actions</th>
