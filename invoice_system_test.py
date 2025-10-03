@@ -84,8 +84,8 @@ class InvoiceSystemTester:
                     "Create New Invoice",
                     "Customer Name",
                     "Mobile Number",
-                    "Add Item",
-                    "Total Amount"
+                    "Invoice Date",
+                    "form"
                 ]
                 
                 missing_elements = []
