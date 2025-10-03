@@ -86,8 +86,13 @@ if ($tile_id) {
 $purchase_history = [];
 if ($tile_id) {
     $stmt = $pdo->prepare("
-        SELECT pe.*, (pe.total_boxes * (1 - pe.damage_percentage/100)) as calculated_usable_boxes,
-               (pe.total_boxes * pe.cost_per_box + pe.transport_cost) as calculated_total_cost
+        SELECT pe.*, 
+               (pe.total_boxes * (1 - pe.damage_percentage/100)) as calculated_usable_boxes,
+               CASE 
+                   WHEN pe.transport_percentage > 0 THEN pe.cost_per_box * (1 + pe.transport_percentage/100)
+                   ELSE pe.cost_per_box + (COALESCE(pe.transport_cost, 0) / pe.total_boxes)
+               END as cost_per_box_with_transport,
+               (pe.total_boxes * pe.cost_per_box + COALESCE(pe.transport_cost, 0)) as calculated_total_cost
         FROM purchase_entries_tiles pe
         WHERE pe.tile_id = ?
         ORDER BY pe.purchase_date DESC, pe.created_at DESC
