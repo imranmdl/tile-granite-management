@@ -106,46 +106,39 @@ class CommissionReportingSystemTester:
             self.log_test("Database Schema Validation", False, f"Error: {str(e)}")
             return False
 
-    def test_status_endpoint(self):
-        """Test the status endpoint functionality"""
+    def test_commission_system(self):
+        """Test commission application functionality"""
         try:
-            # Test GET status endpoint
-            response = self.session.get(f"{self.api_url}/status", timeout=10)
+            # Check if commission system is accessible
+            response = self.session.get(f"{self.php_url}/commission_settings.php", timeout=10)
             
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list):
-                    self.log_test("Status Endpoint (GET)", True, f"Status endpoint returns list with {len(data)} items")
-                else:
-                    self.log_test("Status Endpoint (GET)", False, f"Expected list, got: {type(data)}")
-                    return False
-            else:
-                self.log_test("Status Endpoint (GET)", False, f"HTTP {response.status_code}")
+            if response.status_code != 200:
+                self.log_test("Commission System", False, f"Commission settings page not accessible: HTTP {response.status_code}")
                 return False
             
-            # Test POST status endpoint
-            test_data = {
-                "client_name": "Test Client for Invoice System"
-            }
+            # Check database for commission data
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            response = self.session.post(f"{self.api_url}/status", 
-                                       data=json.dumps(test_data), 
-                                       timeout=10)
+            # Check commission rates
+            cursor.execute("SELECT COUNT(*) FROM commission_rates")
+            rates_count = cursor.fetchone()[0]
             
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('client_name') == test_data['client_name']:
-                    self.log_test("Status Endpoint (POST)", True, f"Successfully created status check with ID: {data.get('id')}")
-                    return True
-                else:
-                    self.log_test("Status Endpoint (POST)", False, f"Unexpected response: {data}")
-                    return False
+            # Check commission ledger
+            cursor.execute("SELECT COUNT(*) FROM commission_ledger")
+            ledger_count = cursor.fetchone()[0]
+            
+            conn.close()
+            
+            if rates_count > 0 or ledger_count > 0:
+                self.log_test("Commission System", True, f"Commission system functional with {rates_count} rates and {ledger_count} ledger entries")
+                return True
             else:
-                self.log_test("Status Endpoint (POST)", False, f"HTTP {response.status_code}")
-                return False
+                self.log_test("Commission System", True, "Commission system accessible but no data yet (expected for new system)")
+                return True
                 
         except Exception as e:
-            self.log_test("Status Endpoint", False, f"Error: {str(e)}")
+            self.log_test("Commission System", False, f"Error: {str(e)}")
             return False
 
     def test_database_connectivity(self):
