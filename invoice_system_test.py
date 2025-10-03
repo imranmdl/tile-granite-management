@@ -369,8 +369,8 @@ class InvoiceSystemTester:
             # Test with invalid data
             invalid_data = {
                 'customer_name': '',  # Empty required field
-                'mobile_number': '123',  # Invalid mobile number
-                'action': 'create_invoice'
+                'phone': '123',  # Invalid mobile number
+                'create_invoice': '1'
             }
             
             response = self.session.post(f"{self.base_url}/invoice_enhanced.php", data=invalid_data)
