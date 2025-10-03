@@ -370,6 +370,7 @@ require_once __DIR__ . '/../includes/header.php';
             <label class="form-label">Vendor</label>
             <select class="form-select" name="vendor">
                 <option value="">All Vendors</option>
+                <option value="0" <?= $vendor_filter === 0 ? 'selected' : '' ?>>No Vendor</option>
                 <?php foreach ($vendors as $vendor): ?>
                     <option value="<?= $vendor['id'] ?>" <?= $vendor_filter == $vendor['id'] ? 'selected' : '' ?>>
                         <?= h($vendor['name']) ?>
