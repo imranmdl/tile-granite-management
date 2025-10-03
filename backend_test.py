@@ -693,43 +693,88 @@ class InvoiceSystemTester:
             self.log_test("Form Validation", False, f"Error: {str(e)}")
             return False
 
+    def test_error_detection(self):
+        """Test for specific undefined array key errors that were reported"""
+        if not self.authenticate():
+            return False
+            
+        try:
+            # Test various invoice-related pages for undefined array key errors
+            test_urls = [
+                f"{self.base_url}/public/invoice_enhanced.php",
+                f"{self.base_url}/public/quotation_enhanced.php",
+            ]
+            
+            if self.test_invoice_id:
+                test_urls.append(f"{self.base_url}/public/invoice_enhanced.php?id={self.test_invoice_id}")
+            
+            if self.test_quotation_id:
+                test_urls.append(f"{self.base_url}/public/quotation_enhanced.php?id={self.test_quotation_id}")
+            
+            errors_found = []
+            
+            for url in test_urls:
+                try:
+                    response = self.session.get(url, timeout=10)
+                    if response.status_code == 200:
+                        # Check for undefined array key errors
+                        if 'undefined array key' in response.text.lower():
+                            if 'discount_amount' in response.text.lower():
+                                errors_found.append(f"Undefined array key 'discount_amount' in {url}")
+                            elif 'final_total' in response.text.lower():
+                                errors_found.append(f"Undefined array key 'final_total' in {url}")
+                            else:
+                                errors_found.append(f"Undefined array key error in {url}")
+                except Exception as e:
+                    errors_found.append(f"Error accessing {url}: {str(e)}")
+            
+            if errors_found:
+                self.log_test("Error Detection", False, f"Found {len(errors_found)} undefined array key errors", "; ".join(errors_found))
+                return False
+            else:
+                self.log_test("Error Detection", True, "No undefined array key errors found in invoice system")
+                return True
+                
+        except Exception as e:
+            self.log_test("Error Detection", False, f"Error during error detection: {str(e)}")
+            return False
+
     def run_all_tests(self):
-        """Run all enhanced inventory system tests"""
-        print("🧪 Starting Enhanced Inventory System Tests")
-        print("=" * 60)
+        """Run all invoice system tests focusing on discount functionality"""
+        print("🧪 Starting Invoice System Tests - Discount Functionality Focus")
+        print("=" * 70)
         
         # Authentication test
         if not self.authenticate():
             print("❌ Cannot authenticate - aborting further tests")
             return False
         
-        # Enhanced inventory access tests
-        self.test_tiles_inventory_access()
-        self.test_other_inventory_access()
+        # Core invoice system tests
+        print("\n📋 Testing Database Schema and Core Functionality...")
+        self.test_database_schema_verification()
         
-        # Purchase entry system tests
-        self.test_tiles_purchase_entry_access()
-        self.test_other_purchase_entry_access()
+        print("\n📝 Testing Invoice Creation...")
+        self.test_invoice_creation()
         
-        # Purchase entry functionality tests
-        self.test_tiles_purchase_entry_submission()
-        self.test_other_purchase_entry_submission()
+        print("\n📄 Testing Quotation Creation...")
+        self.test_quotation_creation()
         
-        # Purchase history tests
-        self.test_purchase_history_access()
+        print("\n🔄 Testing Quotation to Invoice Conversion...")
+        self.test_quotation_to_invoice_conversion()
         
-        # Enhanced features tests
-        self.test_qr_code_generation()
-        self.test_cost_calculations()
-        self.test_sales_data_integration()
+        print("\n💰 Testing Discount Application...")
+        self.test_discount_application()
         
-        # Validation tests
-        self.test_form_validation()
+        print("\n📊 Testing Invoice Display and Totals...")
+        self.test_invoice_display_totals()
+        
+        print("\n🔍 Testing for Undefined Array Key Errors...")
+        self.test_error_detection()
         
         # Summary
-        print("\n" + "=" * 60)
-        print("📊 TEST SUMMARY")
-        print("=" * 60)
+        print("\n" + "=" * 70)
+        print("📊 INVOICE SYSTEM TEST SUMMARY")
+        print("=" * 70)
         
         passed = sum(1 for result in self.test_results if result['success'])
         total = len(self.test_results)
@@ -739,11 +784,20 @@ class InvoiceSystemTester:
         print(f"Failed: {total - passed}")
         print(f"Success Rate: {(passed/total)*100:.1f}%")
         
-        # List failed tests
+        # List failed tests with details
         failed_tests = [result for result in self.test_results if not result['success']]
         if failed_tests:
             print("\n❌ FAILED TESTS:")
             for test in failed_tests:
+                print(f"  • {test['test']}: {test['message']}")
+                if test['details']:
+                    print(f"    Details: {test['details'][:200]}...")
+        
+        # List passed tests
+        passed_tests = [result for result in self.test_results if result['success']]
+        if passed_tests:
+            print("\n✅ PASSED TESTS:")
+            for test in passed_tests:
                 print(f"  • {test['test']}: {test['message']}")
         
         return passed == total
