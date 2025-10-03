@@ -187,6 +187,41 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_ite
     }
 }
 
+// Handle commission application
+if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_commission'])) {
+    $commission_user_id = (int)($_POST['commission_user_id'] ?? 0);
+    $commission_percentage = (float)($_POST['commission_percentage'] ?? 0);
+    
+    // Get current quotation total
+    $total_stmt = $pdo->prepare("
+        SELECT 
+            COALESCE(SUM(qi.line_total), 0) + COALESCE(SUM(qmi.line_total), 0) as subtotal
+        FROM quotations q
+        LEFT JOIN quotation_items qi ON q.id = qi.quotation_id
+        LEFT JOIN quotation_misc_items qmi ON q.id = qmi.quotation_id
+        WHERE q.id = ?
+    ");
+    $total_stmt->execute([$id]);
+    $subtotal = (float)$total_stmt->fetchColumn();
+    
+    // Calculate commission amount
+    $commission_amount = ($subtotal * $commission_percentage) / 100;
+    
+    // Update quotation with commission
+    $stmt = $pdo->prepare("
+        UPDATE quotations 
+        SET commission_user_id = ?, commission_percentage = ?, commission_amount = ?, updated_at = datetime('now')
+        WHERE id = ?
+    ");
+    
+    if ($stmt->execute([$commission_user_id, $commission_percentage, $commission_amount, $id])) {
+        $message = 'Commission applied successfully';
+        safe_redirect('quotation_enhanced.php?id=' . $id);
+    } else {
+        $error = 'Failed to apply commission';
+    }
+}
+
 // Handle discount application
 if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_discount'])) {
     $discount_type = $_POST['discount_type'] ?? 'percentage';
