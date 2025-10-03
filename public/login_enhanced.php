@@ -1,35 +1,34 @@
 <?php
-// public/login_enhanced.php - Enhanced Login System
-require_once __DIR__ . '/../includes/Database.php';
-require_once __DIR__ . '/../includes/auth_enhanced.php';
-
-// Initialize auth system
-AuthSystem::init();
-
-// If already logged in, redirect to dashboard
-if (AuthSystem::isLoggedIn()) {
-    header('Location: index.php');
-    exit;
-}
+// public/login_enhanced.php - Enhanced Login System (Fixed)
+require_once __DIR__ . '/../includes/simple_auth.php';
 
 $error_message = '';
 $success_message = '';
+
+// Handle logout message
+if (isset($_GET['message'])) {
+    $success_message = $_GET['message'];
+}
+
+// If already logged in, redirect to dashboard
+if (auth_is_logged_in()) {
+    $redirect = $_GET['redirect'] ?? 'index.php';
+    header('Location: ' . $redirect);
+    exit;
+}
 
 // Handle login
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
-    $otp = trim($_POST['otp'] ?? '');
     
     if ($username && $password) {
-        $result = AuthSystem::authenticate($username, $password, $otp);
-        
-        if ($result['success']) {
+        if (auth_login($username, $password)) {
             $redirect = $_GET['redirect'] ?? 'index.php';
             header('Location: ' . $redirect);
             exit;
         } else {
-            $error_message = $result['message'];
+            $error_message = 'Invalid username or password';
         }
     } else {
         $error_message = 'Please enter username and password';
