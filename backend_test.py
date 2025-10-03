@@ -234,44 +234,52 @@ class InvoiceSystemTester:
             self.log_test("Quotation Creation", False, f"Error: {str(e)}")
             return False
 
-    def test_other_purchase_entry_access(self):
-        """Test access to other items purchase entry system"""
+    def test_quotation_to_invoice_conversion(self):
+        """Test converting quotation to invoice"""
         if not self.authenticate():
             return False
             
+        # First ensure we have a quotation to convert
+        if not self.test_quotation_id:
+            if not self.test_quotation_creation():
+                self.log_test("Quotation to Invoice Conversion", False, "Cannot create test quotation for conversion")
+                return False
+            
         try:
-            url = f"{self.base_url}/public/other_purchase.php"
-            response = self.session.get(url, timeout=10)
+            # Test conversion by accessing invoice creation with from_quote parameter
+            url = f"{self.base_url}/public/invoice_enhanced.php?from_quote={self.test_quotation_id}"
+            response = self.session.get(url, timeout=10, allow_redirects=True)
             
             if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Check for enhanced purchase entry features
-                has_transport_percentage = 'Transport %' in response.text
-                has_live_calculations = 'Live Calculations' in response.text
-                has_damage_percentage = 'Damage %' in response.text
-                has_cost_breakdown = 'Cost + Transport' in response.text
-                has_rupee_currency = '₹' in response.text
-                
-                if has_transport_percentage and has_live_calculations and has_damage_percentage and has_cost_breakdown and has_rupee_currency:
-                    self.log_test("Other Items Purchase Entry Access", True, "All enhanced purchase features present")
-                    return True
-                else:
-                    missing_features = []
-                    if not has_transport_percentage: missing_features.append("Transport percentage")
-                    if not has_live_calculations: missing_features.append("Live calculations")
-                    if not has_damage_percentage: missing_features.append("Damage percentage")
-                    if not has_cost_breakdown: missing_features.append("Cost breakdown")
-                    if not has_rupee_currency: missing_features.append("Rupee currency")
+                # Check if conversion was successful
+                if 'Invoice' in response.text and ('created successfully' in response.text or 'invoice_enhanced.php?id=' in response.url):
+                    # Try to extract invoice ID if redirected
+                    if 'invoice_enhanced.php?id=' in response.url:
+                        import re
+                        match = re.search(r'id=(\d+)', response.url)
+                        if match:
+                            converted_invoice_id = int(match.group(1))
+                            self.test_invoice_id = converted_invoice_id
+                            self.log_test("Quotation to Invoice Conversion", True, f"Successfully converted quotation {self.test_quotation_id} to invoice {converted_invoice_id}")
+                            return True
                     
-                    self.log_test("Other Items Purchase Entry Access", False, f"Missing features: {', '.join(missing_features)}")
+                    self.log_test("Quotation to Invoice Conversion", True, f"Successfully converted quotation {self.test_quotation_id} to invoice")
+                    return True
+                elif 'Quotation not found' in response.text:
+                    self.log_test("Quotation to Invoice Conversion", False, f"Quotation {self.test_quotation_id} not found")
+                    return False
+                elif 'undefined array key' in response.text.lower() or 'discount_amount' in response.text:
+                    self.log_test("Quotation to Invoice Conversion", False, "Undefined array key error detected during conversion")
+                    return False
+                else:
+                    self.log_test("Quotation to Invoice Conversion", False, "Conversion failed - no success message", response.text[:500])
                     return False
             else:
-                self.log_test("Other Items Purchase Entry Access", False, f"HTTP {response.status_code}")
+                self.log_test("Quotation to Invoice Conversion", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Other Items Purchase Entry Access", False, f"Error: {str(e)}")
+            self.log_test("Quotation to Invoice Conversion", False, f"Error: {str(e)}")
             return False
 
     def test_tiles_purchase_entry_submission(self):
