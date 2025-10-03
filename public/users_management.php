@@ -114,8 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Get all users
 $users_stmt = $pdo->query("
     SELECT u.*, creator.username as created_by_username
-    FROM users_enhanced u
-    LEFT JOIN users_enhanced creator ON creator.id = u.created_by
+    FROM users_simple u
+    LEFT JOIN users_simple creator ON creator.id = u.created_by
     ORDER BY u.created_at DESC
 ");
 $users = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
