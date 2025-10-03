@@ -52,8 +52,7 @@ function auth_login_password(string $username, string $password): bool {
 }
 
 function auth_logout(){
-  $_SESSION = [];
-  if (session_id()) session_destroy();
+  safe_session_destroy();
 }
 
 // Enhanced permission functions for compatibility
