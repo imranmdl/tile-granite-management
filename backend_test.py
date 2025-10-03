@@ -19,6 +19,7 @@ class CommissionReportingSystemTester:
     def __init__(self, base_url="https://tilecrm-app.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
+        self.php_url = "http://localhost:8080"  # PHP system runs on port 8080
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -27,6 +28,7 @@ class CommissionReportingSystemTester:
         self.test_results = []
         self.mongo_url = "mongodb://localhost:27017"
         self.db_name = "test_database"
+        self.db_path = '/app/data/app.sqlite'  # SQLite database for PHP system
         
     def log_test(self, test_name, success, message="", details=""):
         """Log test results"""
