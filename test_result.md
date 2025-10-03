@@ -102,62 +102,68 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Enhanced Inventory system with cost breakdowns, sales data, QR code generation, and invoice linking. Specific requirements: 1) Cost/Box + transport percentage calculation (200 + 30% = 260 rs), 2) Total box cost, 3) Total sold boxes, 4) Total sold box cost, 5) Invoice links, 6) QR codes with modal popup display. Apply to both Tiles and Other Inventory modules."
+user_problem_statement: "Enhanced Quotation and Invoice system with all new improvements including database schema testing, enhanced quotation creation, calculation toggle testing, stock availability testing, image display toggle testing, enhanced quotation list testing, form validation testing, integration testing, user preferences testing, and advanced features testing."
 
 backend:
-  - task: "Authentication System Stabilization"
+  - task: "Authentication System"
     implemented: true
     working: true
-    file: "public/users_management.php"
+    file: "public/login_clean.php"
     stuck_count: 0
     priority: "completed"
     needs_retesting: false
     status_history:
         -working: true
         -agent: "testing"
-        -comment: "COMPLETED: Authentication system fully functional and tested with 100% success rate."
+        -comment: "COMPLETED: Authentication system fully functional and tested with 100% success rate. Admin login (admin/admin123) working correctly."
 
-  - task: "Enhanced Inventory Database Schema with Cost Calculations"
+  - task: "Enhanced Quotation Database Schema"
     implemented: true
     working: true
-    file: "includes/sql/migrations/0010_enhanced_inventory.sql, 0011_inventory_enhancements.sql"
+    file: "public/quotation_enhanced.php, public/quotation_list_enhanced.php"
     stuck_count: 0
     priority: "completed"
     needs_retesting: false
     status_history:
         -working: true
-        -agent: "main"
-        -comment: "COMPLETED: Enhanced database schema with transport percentage calculations, sales data integration, and cost breakdown views. Added columns: transport_percentage to support Cost/Box * (1 + Transport%) calculation model. Updated views to include sales data from quotation tables and enhanced cost calculations."
+        -agent: "testing"
+        -comment: "COMPLETED: Enhanced database schema with quotation tables including new fields (firm_name, customer_gst, mobile_required, created_by), quotation_items with calculation_mode, direct_boxes, show_image fields, user_preferences table for image display settings, and enhanced views (enhanced_quotations_list, enhanced_invoices_list) all working correctly."
 
-  - task: "Purchase Entry System - Tiles"
+  - task: "Enhanced Quotation Creation System"
     implemented: true
     working: true
-    file: "public/tiles_purchase.php"
+    file: "public/quotation_enhanced.php"
     stuck_count: 0
-    priority: "high"
+    priority: "completed"
     needs_retesting: false
     status_history:
         -working: true
-        -agent: "main"
-        -comment: "Implemented purchase entry system with damage calculations (simple percentage deduction), live cost calculations, purchase history tracking, supplier/invoice management."
-        -working: true
         -agent: "testing"
-        -comment: "BACKEND TESTED: All purchase entry functionality working correctly. Successfully tested: database schema validation, purchase entry creation with realistic data (tile ID 54, 100 boxes, 5.5% damage, ₹250/box), damage percentage validation (0-100% range), form validation for required fields and negative values, purchase history display. All 11 backend tests passed with 100% success rate."
+        -comment: "COMPLETED: Enhanced quotation creation with all required features: customer name and mobile number validation (required fields), mobile number format validation (10 digits), firm name separation from customer name, optional GST number field, quotation creation with all enhanced fields. Successfully created test quotation ID: 12."
 
-  - task: "Purchase Entry System - Other Items"
+  - task: "Calculation Toggle System"
     implemented: true
     working: true
-    file: "public/other_purchase.php"
+    file: "public/quotation_enhanced.php"
     stuck_count: 0
-    priority: "high"
+    priority: "completed"
     needs_retesting: false
     status_history:
         -working: true
-        -agent: "main"
-        -comment: "Implemented purchase entry system for misc items with same damage calculation features, cost tracking, and history management."
+        -agent: "testing"
+        -comment: "COMPLETED: Calculation toggle functionality working perfectly: sqft→boxes calculation mode (area calculation), direct box entry mode (bypass area calculation), switching between modes within same quotation, live calculations for both modes, equivalency calculations (boxes ↔ sqft). Both calculation modes available with proper fields."
+
+  - task: "Stock Availability Integration"
+    implemented: true
+    working: true
+    file: "public/quotation_enhanced.php"
+    stuck_count: 0
+    priority: "completed"
+    needs_retesting: false
+    status_history:
         -working: true
         -agent: "testing"
-        -comment: "BACKEND TESTED: All other items purchase entry functionality working correctly. Successfully tested: database schema validation, purchase entry creation with realistic data (item ID 4, 50 units, 2% damage, ₹15.50/unit), damage percentage validation, form validation for required fields and negative values, purchase history display. Backend functionality fully operational."
+        -comment: "COMPLETED: Stock availability system fully functional: stock warnings when insufficient stock available, stock availability display for tiles and misc items, stock status indicators (available/warning), current stock integration from inventory system. Stock information displayed for both tiles and misc items."
 
 frontend:
   - task: "Enhanced Tiles Inventory UI with Cost & Sales Data"
