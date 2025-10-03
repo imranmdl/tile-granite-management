@@ -132,13 +132,24 @@ if (!function_exists('nav_active_any')) {
           </ul>
         </li>
 
+        <!-- Quotation -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle <?= nav_active_any(['quotation.php','quotation_enhanced.php','quotation_view.php','quotation_list_enhanced.php'],$path) ?>"
+             href="#" data-bs-toggle="dropdown">Quotation</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item <?= nav_active('quotation_enhanced.php',$path) ?>" href="<?= $base ?>/quotation_enhanced.php">Create Enhanced Quotation</a></li>
+            <li><a class="dropdown-item <?= nav_active('quotation_list_enhanced.php',$path) ?>" href="<?= $base ?>/quotation_list_enhanced.php">Enhanced Quotation List</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item <?= nav_active('quotation.php',$path) ?>" href="<?= $base ?>/quotation.php">Legacy Quotation</a></li>
+            <li><a class="dropdown-item <?= nav_active('quotation_view.php',$path) ?>" href="<?= $base ?>/quotation_view.php">Legacy List</a></li>
+          </ul>
+        </li>
+
         <!-- Sales -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle <?= nav_active_any(['quotation.php','quotation_view.php','invoice.php','invoice_list.php','returns.php'],$path) ?>"
+          <a class="nav-link dropdown-toggle <?= nav_active_any(['invoice.php','invoice_list.php','returns.php'],$path) ?>"
              href="#" data-bs-toggle="dropdown">Sales</a>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item <?= nav_active('quotation.php',$path) ?>" href="<?= $base ?>/quotation.php">New Quotation</a></li>
-            <li><a class="dropdown-item <?= nav_active('quotation_view.php',$path) ?>" href="<?= $base ?>/quotation_view.php">Quotation List</a></li>
             <li><a class="dropdown-item <?= nav_active('invoice.php',$path) ?>" href="<?= $base ?>/invoice.php">New Invoice</a></li>
             <li><a class="dropdown-item <?= nav_active('invoice_list.php',$path) ?>" href="<?= $base ?>/invoice_list.php">Invoice List</a></li>
             <li><a class="dropdown-item <?= nav_active('returns.php',$path) ?>" href="<?= $base ?>/returns.php">Returns</a></li>
