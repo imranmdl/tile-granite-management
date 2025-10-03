@@ -287,15 +287,19 @@ require_once __DIR__ . '/../includes/header.php';
     <table class="table table-hover inventory-table" id="inventoryTable">
         <thead>
             <tr>
-                <th style="min-width: 200px;">Item Name</th>
-                <th style="min-width: 100px;">Unit</th>
-                <th style="min-width: 80px;">Photo</th>
-                <th style="min-width: 120px;">Stock Quantity</th>
-                <th style="min-width: 120px;">Avg Cost/Unit</th>
-                <th style="min-width: 100px;">Cost Range</th>
+                <th style="min-width: 150px;">Item Name</th>
+                <th style="min-width: 80px;">Unit</th>
+                <th style="min-width: 80px;" class="col-photo">Photo</th>
+                <th style="min-width: 100px;">Stock Quantity</th>
+                <th style="min-width: 120px;" class="col-cost">Cost/Unit</th>
+                <th style="min-width: 120px;" class="col-cost">Cost + Transport</th>
+                <th style="min-width: 120px;" class="col-cost">Total Cost</th>
+                <th style="min-width: 100px;" class="col-sales">Sold Quantity</th>
+                <th style="min-width: 120px;" class="col-sales">Sold Revenue</th>
+                <th style="min-width: 120px;" class="col-sales">Quote Links</th>
                 <th style="min-width: 100px;">Purchases</th>
-                <th style="min-width: 80px;">QR Code</th>
-                <th style="min-width: 150px;">Actions</th>
+                <th style="min-width: 80px;" class="col-qr">QR Code</th>
+                <th style="min-width: 150px;" class="col-actions">Actions</th>
             </tr>
         </thead>
         <tbody>
