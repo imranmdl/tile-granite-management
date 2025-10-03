@@ -214,6 +214,11 @@ if ($id>0 && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_totals'
   $total=($gst_mode==='EXCLUDE')?($base+$gst_amt):$base;
   $pdo->prepare("UPDATE invoices SET discount_type=?,discount_value=?,subtotal=?,total=?,gst_mode=?,gst_percent=?,gst_amount=? WHERE id=?")
       ->execute([$disc_type,$disc_val,$sub,$total,$gst_mode,$gst_pct,$gst_amt,$id]);
+      
+  // Auto-sync commission whenever totals are updated
+  require_once __DIR__ . '/../includes/commission.php';
+  Commission::sync_for_invoice($pdo, $id);
+      
   header('Location: invoice.php?id='.$id); exit;
 }
 
