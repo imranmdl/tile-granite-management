@@ -74,7 +74,12 @@ class Commission {
   public static function sync_for_invoice(PDO $pdo, int $invoice_id): array {
     $st=$pdo->prepare("SELECT * FROM invoices WHERE id=?"); $st->execute([$invoice_id]); $inv=$st->fetch(PDO::FETCH_ASSOC); if(!$inv) return ['ok'=>false,'msg'=>'Invoice not found'];
     $sales_user_id=self::resolve_sales_user_id($pdo,$inv); if(!$sales_user_id) return ['ok'=>false,'msg'=>'Sales user not mapped to a valid login user'];
-    $base=self::compute_invoice_cost_base($pdo,$invoice_id); $pct=self::get_commission_pct($pdo,$invoice_id,null,$sales_user_id); $amount=round($base*($pct/100.0),2);
+    
+    // Use final invoice value (after discount) instead of cost base
+    $base=self::compute_invoice_final_value($pdo,$invoice_id); 
+    $pct=self::get_commission_pct($pdo,$invoice_id,null,$sales_user_id); 
+    $amount=round($base*($pct/100.0),2);
+    
     $exists=$pdo->prepare("SELECT id,status FROM commission_ledger WHERE invoice_id=?"); $exists->execute([$invoice_id]);
     if ($row=$exists->fetch(PDO::FETCH_ASSOC)) {
       if (($row['status'] ?? '')==='PAID') { $pdo->prepare("UPDATE commission_ledger SET base_amount=?, pct=?, amount=?, updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$base,$pct,$amount,$row['id']]); }
@@ -82,7 +87,7 @@ class Commission {
     } else {
       $pdo->prepare("INSERT INTO commission_ledger(invoice_id, salesperson_user_id, base_amount, pct, amount, status, created_at, updated_at) VALUES(?,?,?,?,?,'PENDING',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$invoice_id,$sales_user_id,$base,$pct,$amount]);
     }
-    return ['ok'=>true,'msg'=>'Commission synced','base'=>$base,'pct'=>$pct,'amount'=>$amount];
+    return ['ok'=>true,'msg'=>'Commission synced (based on final invoice value)','base'=>$base,'pct'=>$pct,'amount'=>$amount];
   }
   public static function set_status(PDO $pdo, int $id, string $status, string $reference='', string $notes=''): bool {
     if ($status==='PAID') { $st=$pdo->prepare("UPDATE commission_ledger SET status='PAID', paid_on=CURRENT_TIMESTAMP, reference=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?"); return $st->execute([$reference,$notes,$id]); }
