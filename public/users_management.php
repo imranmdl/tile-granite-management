@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get all users
 $users_stmt = $pdo->query("
-    SELECT u.*, creator.username as created_by_username
+    SELECT u.*, COALESCE(creator.username, 'System') as created_by_username
     FROM users_simple u
     LEFT JOIN users_simple creator ON creator.id = u.created_by
     ORDER BY u.created_at DESC
