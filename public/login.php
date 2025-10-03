@@ -45,6 +45,18 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
   <div class="mb-3"><label class="form-label">Username</label><input class="form-control" name="username" required></div>
   <div class="mb-3"><label class="form-label">Password</label><input class="form-control" name="password" type="password" required></div>
   <button class="btn btn-primary w-100">Login</button>
-  <p class="text-muted small mt-3">Default admin: <code>admin / admin123</code></p>
+  <div class="mt-3">
+    <p class="text-muted small">Test Accounts:</p>
+    <small class="text-muted">
+      Admin: <code>admin / admin123</code><br>
+      Manager: <code>manager1 / manager123</code><br>
+      Sales: <code>sales1 / sales123</code>
+    </small>
+    <?php if (class_exists('AuthSystem')): ?>
+        <p class="text-success small mt-2">✅ Enhanced Auth System Active</p>
+    <?php else: ?>
+        <p class="text-warning small mt-2">⚠️ Basic Auth System</p>
+    <?php endif; ?>
+  </div>
 </form>
 </div></div></div></div></div></body></html>
