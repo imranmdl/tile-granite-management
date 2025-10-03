@@ -98,9 +98,22 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['create_invoice'])) {
   $no='INV'.date('ymdHis'); $dt=$_POST['invoice_dt']??date('Y-m-d');
   $name=trim($_POST['customer_name']??''); $phone=trim($_POST['phone']??''); $notes=trim($_POST['notes']??'');
   $sales_user = auth_username();
+  
+  // Get current user ID for salesperson assignment
+  $current_user_st = $pdo->prepare("SELECT id FROM users WHERE username = ? AND active = 1");
+  $current_user_st->execute([$sales_user]);
+  $current_user_id = $current_user_st->fetchColumn();
+  
   $stmt=$pdo->prepare("INSERT INTO invoices(invoice_no,invoice_dt,customer_name,phone,notes,sales_user, salesperson_user_id) VALUES(?,?,?,?,?,?, ?)");
-  $stmt->execute([$no,$dt,$name,$phone,$notes,$sales_user]);
-  header('Location: invoice.php?id='.$pdo->lastInsertId()); exit;
+  $stmt->execute([$no,$dt,$name,$phone,$notes,$sales_user, $current_user_id]);
+  
+  $new_invoice_id = $pdo->lastInsertId();
+  
+  // Initialize commission record (will be calculated when totals are set)
+  require_once __DIR__ . '/../includes/commission.php';
+  Commission::sync_for_invoice($pdo, $new_invoice_id);
+  
+  header('Location: invoice.php?id='.$new_invoice_id); exit;
 }
 
 $id=(int)($_GET['id']??0);
