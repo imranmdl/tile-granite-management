@@ -471,9 +471,9 @@ require_once __DIR__ . '/../includes/header.php';
                                 <button type="button" class="btn btn-info" onclick="viewHistory(<?= $item['id'] ?>)" title="View History">
                                     <i class="bi bi-clock-history"></i>
                                 </button>
-                                <a href="misc_items.php#item<?= $item['id'] ?>" class="btn btn-warning" title="Edit Item">
+                                <button type="button" class="btn btn-warning" onclick="editItem(<?= $item['id'] ?>, '<?= h($item['name']) ?>', '<?= h($item['unit_label']) ?>')" title="Edit Item">
                                     <i class="bi bi-pencil"></i>
-                                </a>
+                                </button>
                             </div>
                         </td>
                     </tr>
