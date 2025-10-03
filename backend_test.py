@@ -349,13 +349,44 @@ class CommissionReportingSystemTester:
             self.log_test("Navigation", False, f"Error: {str(e)}")
             return False
 
+    def test_chart_integration(self):
+        """Test Chart.js integration endpoints"""
+        try:
+            # Check for chart data endpoints
+            chart_endpoints = [
+                "/charts/sales",
+                "/charts/commission",
+                "/data/charts"
+            ]
+            
+            chart_found = False
+            for endpoint in chart_endpoints:
+                try:
+                    resp = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if resp.status_code != 404:
+                        chart_found = True
+                        break
+                except:
+                    continue
+            
+            if chart_found:
+                self.log_test("Chart.js Integration", True, "Chart data endpoints found in FastAPI")
+                return True
+            else:
+                self.log_test("Chart.js Integration", False, "No chart data endpoints implemented in FastAPI backend")
+                return False
+                
+        except Exception as e:
+            self.log_test("Chart.js Integration", False, f"Error: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run all Commission and Reporting System tests"""
-        print("🧪 Starting Commission and Reporting System Tests")
-        print("=" * 60)
+        print("🧪 Starting FastAPI Backend Tests for Commission and Reporting System")
+        print("=" * 70)
         
         # Database tests
-        print("\n🗄️ Testing Database Schema...")
+        print("\n🗄️ Testing Database Connection...")
         self.test_database_schema_validation()
         
         # Commission system tests
@@ -384,6 +415,9 @@ class CommissionReportingSystemTester:
         
         print("\n🧭 Testing Navigation...")
         self.test_navigation()
+        
+        print("\n📊 Testing Chart.js Integration...")
+        self.test_chart_integration()
         
         # Summary
         print("\n" + "=" * 60)
