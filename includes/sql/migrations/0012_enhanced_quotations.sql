@@ -13,7 +13,7 @@ ALTER TABLE invoices ADD COLUMN firm_name TEXT NULL;
 ALTER TABLE invoices ADD COLUMN customer_gst TEXT NULL;
 ALTER TABLE invoices ADD COLUMN mobile_required INTEGER DEFAULT 1;
 ALTER TABLE invoices ADD COLUMN created_by INTEGER NULL;
-ALTER TABLE invoices ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE invoices ADD COLUMN updated_at TEXT NULL;
 
 -- Add calculation mode field to quotation_items (sqft_mode or direct_box_mode)
 ALTER TABLE quotation_items ADD COLUMN calculation_mode TEXT DEFAULT 'sqft_mode';
