@@ -89,11 +89,18 @@ class PHPAuthenticationTester:
                     return False
             else:
                 # For invalid credentials, should stay on login page with error
-                if response.status_code == 200 and "Invalid username or password" in response.text:
-                    self.log_test(f"Invalid Login Test ({username})", True, "Correctly rejected invalid credentials")
-                    return True
+                if response.status_code == 200:
+                    if "Invalid username or password" in response.text:
+                        self.log_test(f"Invalid Login Test ({username})", True, "Correctly rejected invalid credentials")
+                        return True
+                    else:
+                        self.log_test(f"Invalid Login Test ({username})", False, "No error message for invalid credentials")
+                        return False
+                elif response.status_code in [302, 301]:
+                    self.log_test(f"Invalid Login Test ({username})", False, "Should not redirect on invalid credentials")
+                    return False
                 else:
-                    self.log_test(f"Invalid Login Test ({username})", False, "Should have rejected invalid credentials")
+                    self.log_test(f"Invalid Login Test ({username})", False, f"Unexpected status: {response.status_code}")
                     return False
                     
         except Exception as e:
