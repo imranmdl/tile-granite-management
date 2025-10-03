@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Enhanced Quotation and Invoice system with all new improvements including database schema testing, enhanced quotation creation, calculation toggle testing, stock availability testing, image display toggle testing, enhanced quotation list testing, form validation testing, integration testing, user preferences testing, and advanced features testing."
+user_problem_statement: "Test the comprehensive Commission and Reporting system implementation including database schema validation, commission system functionality, reporting dashboard, sales reports, daily business summary, commission reports, permissions system, data integrity, navigation, and Chart.js integration."
 
 backend:
   - task: "Authentication System"
