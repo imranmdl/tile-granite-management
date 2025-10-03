@@ -393,7 +393,8 @@ require_once __DIR__ . '/../includes/header.php';
                         <th>Damage %</th>
                         <th>Usable Quantity</th>
                         <th>Cost/Unit</th>
-                        <th>Transport</th>
+                        <th>Cost + Transport</th>
+                        <th>Transport %</th>
                         <th>Total Cost</th>
                         <th>Notes</th>
                     </tr>
