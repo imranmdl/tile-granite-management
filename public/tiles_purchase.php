@@ -585,6 +585,21 @@ function filterByTile(tileId) {
 document.addEventListener('DOMContentLoaded', function() {
     updateCalculationDisplay();
 });
+
+// Auto-show QR modal if QR was just generated
+<?php if ($message && strpos($message, 'QR Code generated') !== false && isset($_POST['tile_id'])): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    // Find the generated QR code and show modal
+    setTimeout(() => {
+        const qrImages = document.querySelectorAll('.qr-thumb');
+        qrImages.forEach(img => {
+            if (img.onclick && img.onclick.toString().includes('<?= $_POST['tile_id'] ?>')) {
+                img.click();
+            }
+        });
+    }, 500);
+});
+<?php endif; ?>
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
