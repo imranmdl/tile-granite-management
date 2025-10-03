@@ -8,6 +8,13 @@ if (auth_user()) {
 }
 
 $msg = null;
+$success_msg = null;
+
+// Handle logout message
+if (isset($_GET['message'])) {
+    $success_msg = $_GET['message'];
+}
+
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     $u = trim($_POST['username'] ?? '');
     $p = $_POST['password'] ?? '';
