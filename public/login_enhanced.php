@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
     $success_message = 'Password reset instructions sent (Feature coming soon)';
 }
 
-$company_name = AuthSystem::getSetting('company_name', 'Tile Suite Business');
+$company_name = 'Tile Suite Business';
 ?>
 <!DOCTYPE html>
 <html lang="en">
