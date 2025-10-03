@@ -177,44 +177,61 @@ class InvoiceSystemTester:
             self.log_test("Invoice Creation", False, f"Error: {str(e)}")
             return False
 
-    def test_tiles_purchase_entry_access(self):
-        """Test access to tiles purchase entry system"""
+    def test_quotation_creation(self):
+        """Test creating a quotation for later conversion to invoice"""
         if not self.authenticate():
             return False
             
         try:
-            url = f"{self.base_url}/public/tiles_purchase.php"
+            # First get the quotation creation form
+            url = f"{self.base_url}/public/quotation_enhanced.php"
             response = self.session.get(url, timeout=10)
             
+            if response.status_code != 200:
+                self.log_test("Quotation Creation", False, f"Cannot access quotation creation page: HTTP {response.status_code}")
+                return False
+            
+            # Submit quotation creation form with realistic data
+            quotation_data = {
+                'create_quote': '1',
+                'quote_dt': datetime.now().strftime('%Y-%m-%d'),
+                'customer_name': 'Priya Sharma',
+                'firm_name': 'Sharma Construction',
+                'phone': '9123456789',
+                'customer_gst': '29XYZAB5678C1D2',
+                'notes': 'Test quotation for invoice conversion testing'
+            }
+            
+            response = self.session.post(url, data=quotation_data, allow_redirects=True)
+            
             if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Check for enhanced purchase entry features
-                has_transport_percentage = 'Transport %' in response.text
-                has_live_calculations = 'Live Calculations' in response.text
-                has_damage_percentage = 'Damage %' in response.text
-                has_cost_breakdown = 'Cost + Transport' in response.text
-                has_rupee_currency = '₹' in response.text
-                
-                if has_transport_percentage and has_live_calculations and has_damage_percentage and has_cost_breakdown and has_rupee_currency:
-                    self.log_test("Tiles Purchase Entry Access", True, "All enhanced purchase features present")
+                # Check if we were redirected to a quotation edit page (successful creation)
+                if 'quotation_enhanced.php?id=' in response.url:
+                    # Extract quotation ID from URL
+                    import re
+                    match = re.search(r'id=(\d+)', response.url)
+                    if match:
+                        self.test_quotation_id = int(match.group(1))
+                        self.log_test("Quotation Creation", True, f"Successfully created quotation with ID: {self.test_quotation_id}")
+                        return True
+                    else:
+                        self.log_test("Quotation Creation", False, "Quotation created but could not extract ID")
+                        return False
+                elif "Quotation" in response.text and "created successfully" in response.text:
+                    self.log_test("Quotation Creation", True, "Quotation created successfully")
                     return True
+                elif "required" in response.text.lower():
+                    self.log_test("Quotation Creation", False, "Form validation error - missing required fields")
+                    return False
                 else:
-                    missing_features = []
-                    if not has_transport_percentage: missing_features.append("Transport percentage")
-                    if not has_live_calculations: missing_features.append("Live calculations")
-                    if not has_damage_percentage: missing_features.append("Damage percentage")
-                    if not has_cost_breakdown: missing_features.append("Cost breakdown")
-                    if not has_rupee_currency: missing_features.append("Rupee currency")
-                    
-                    self.log_test("Tiles Purchase Entry Access", False, f"Missing features: {', '.join(missing_features)}")
+                    self.log_test("Quotation Creation", False, "No success confirmation found", response.text[:500])
                     return False
             else:
-                self.log_test("Tiles Purchase Entry Access", False, f"HTTP {response.status_code}")
+                self.log_test("Quotation Creation", False, f"HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            self.log_test("Tiles Purchase Entry Access", False, f"Error: {str(e)}")
+            self.log_test("Quotation Creation", False, f"Error: {str(e)}")
             return False
 
     def test_other_purchase_entry_access(self):
