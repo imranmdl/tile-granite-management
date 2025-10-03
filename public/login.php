@@ -1,11 +1,37 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+
+// Check if user is already logged in
+if (auth_user()) {
+    header('Location: /public/index.php');
+    exit;
+}
+
 $msg = null;
 if ($_SERVER['REQUEST_METHOD']==='POST') {
-  $u = trim($_POST['username'] ?? '');
-  $p = $_POST['password'] ?? '';
-  if (auth_login_password($u, $p)) { header('Location: /public/index.php'); exit; }
-  $msg = "Invalid credentials or inactive account.";
+    $u = trim($_POST['username'] ?? '');
+    $p = $_POST['password'] ?? '';
+    
+    // Try enhanced authentication first, fallback to basic
+    $success = false;
+    
+    if (class_exists('AuthSystem')) {
+        $result = AuthSystem::authenticate($u, $p);
+        $success = $result['success'];
+        if (!$success) {
+            $msg = $result['message'];
+        }
+    } else {
+        $success = auth_login_password($u, $p);
+        if (!$success) {
+            $msg = "Invalid credentials or inactive account.";
+        }
+    }
+    
+    if ($success) {
+        header('Location: /public/index.php');
+        exit;
+    }
 }
 ?><!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Login</title>
