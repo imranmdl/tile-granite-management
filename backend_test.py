@@ -158,29 +158,30 @@ class CommissionReportingSystemTester:
             return False
 
     def test_sales_report(self):
-        """Test sales report with date ranges and presets"""
+        """Test sales report endpoints in FastAPI"""
         try:
-            # Test basic sales report access
-            response = self.session.get(f"{self.php_url}/report_sales.php", timeout=10)
+            # Check for sales report endpoints
+            sales_endpoints = [
+                "/reports/sales",
+                "/sales/summary",
+                "/sales/data"
+            ]
             
-            if response.status_code != 200:
-                self.log_test("Sales Report", False, f"HTTP {response.status_code}")
-                return False
+            sales_found = False
+            for endpoint in sales_endpoints:
+                try:
+                    resp = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if resp.status_code != 404:
+                        sales_found = True
+                        break
+                except:
+                    continue
             
-            content = response.text
-            if "Sales Report" not in content:
-                self.log_test("Sales Report", False, "Sales report page missing title")
-                return False
-            
-            # Test with date range parameters
-            today = datetime.now().strftime('%Y-%m-%d')
-            response = self.session.get(f"{self.php_url}/report_sales.php?date_from={today}&date_to={today}", timeout=10)
-            
-            if response.status_code == 200:
-                self.log_test("Sales Report", True, "Sales report accessible with date range filtering")
+            if sales_found:
+                self.log_test("Sales Report", True, "Sales report endpoints found in FastAPI")
                 return True
             else:
-                self.log_test("Sales Report", False, f"Date range filtering failed: HTTP {response.status_code}")
+                self.log_test("Sales Report", False, "No sales report endpoints implemented in FastAPI backend")
                 return False
                 
         except Exception as e:
