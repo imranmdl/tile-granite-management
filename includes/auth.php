@@ -3,6 +3,15 @@
 require_once __DIR__ . '/Database.php';
 session_start();
 
+// Try to load enhanced auth system if available
+if (file_exists(__DIR__ . '/auth_enhanced.php')) {
+  require_once __DIR__ . '/auth_enhanced.php';
+  // Initialize enhanced auth system
+  if (class_exists('AuthSystem')) {
+    AuthSystem::init();
+  }
+}
+
 function auth_user(): ?array { return $_SESSION['user'] ?? null; }
 function auth_user_id(): ?int { return $_SESSION['user']['id'] ?? null; }
 function auth_username(): string { return $_SESSION['user']['username'] ?? ''; }
