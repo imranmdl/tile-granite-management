@@ -498,17 +498,76 @@ function viewPhoto(photoPath, itemName) {
     new bootstrap.Modal(document.getElementById('photoViewModal')).show();
 }
 
-function generateQR(itemId) {
-    if (confirm('Generate QR code for this item?')) {
-        document.getElementById('qrItemId').value = itemId;
-        document.getElementById('qrGenerationForm').submit();
-    }
+function generateQR(itemId, itemName) {
+    // Show loading state
+    const button = event.target.closest('button');
+    const originalHtml = button.innerHTML;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    button.disabled = true;
+    
+    // Generate QR code via AJAX
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `generate_qr=1&item_id=${itemId}`
+    })
+    .then(response => response.text())
+    .then(data => {
+        // Check if generation was successful
+        if (data.includes('QR Code generated successfully')) {
+            // Reload the page to get the new QR code path, then show modal
+            window.location.reload();
+        } else {
+            alert('Failed to generate QR code');
+            button.innerHTML = originalHtml;
+            button.disabled = false;
+        }
+    })
+    .catch(error => {
+        alert('Error generating QR code');
+        button.innerHTML = originalHtml;
+        button.disabled = false;
+    });
 }
 
 function viewQR(qrPath, itemName) {
-    document.getElementById('photoViewTitle').textContent = itemName + ' - QR Code';
-    document.getElementById('photoViewImage').src = qrPath;
-    new bootstrap.Modal(document.getElementById('photoViewModal')).show();
+    document.getElementById('qrModalTitle').textContent = itemName + ' - QR Code';
+    document.getElementById('qrModalImage').src = qrPath;
+    
+    // Show QR code data
+    document.getElementById('qrCodeData').innerHTML = `
+        <strong>Scan this QR code to view:</strong><br>
+        • Stock levels and pricing<br>
+        • Item photos and details<br>
+        • Current availability
+    `;
+    
+    new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
+}
+
+function printQR() {
+    const qrImage = document.getElementById('qrModalImage').src;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head><title>QR Code Print</title></head>
+            <body style="text-align: center; padding: 20px;">
+                <h3>${document.getElementById('qrModalTitle').textContent}</h3>
+                <img src="${qrImage}" style="max-width: 300px;">
+            </body>
+        </html>
+    `);
+    printWindow.print();
+}
+
+function downloadQR() {
+    const qrImage = document.getElementById('qrModalImage').src;
+    const link = document.createElement('a');
+    link.download = 'qr-code-' + Date.now() + '.png';
+    link.href = qrImage;
+    link.click();
 }
 
 function viewHistory(itemId) {
