@@ -1335,22 +1335,6 @@ function convertToInvoice(quotationId) {
     }
 }
 
-function updateDiscountLabel() {
-    const discountType = document.querySelector('[name="discount_type"]').value;
-    const label = document.getElementById('discountLabel');
-    const input = document.querySelector('[name="discount_value"]');
-    
-    if (discountType === 'percentage') {
-        label.textContent = 'Discount Percentage';
-        input.placeholder = 'Enter percentage (e.g., 10 for 10%)';
-        input.max = '100';
-    } else {
-        label.textContent = 'Discount Amount';
-        input.placeholder = 'Enter fixed amount in ₹';
-        input.removeAttribute('max');
-    }
-}
-
 function calculateCommission() {
     const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
     const commissionPercentage = parseFloat(document.querySelector('[name="commission_percentage"]').value) || 0;
