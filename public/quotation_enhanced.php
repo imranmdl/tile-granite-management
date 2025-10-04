@@ -1407,10 +1407,10 @@ function calculateDiscount() {
     // Ensure discount doesn't exceed subtotal
     discountAmount = Math.min(discountAmount, subtotal);
     
+    const discountAmountField = document.querySelector('[name="discount_value"]');
     if (discountAmountField) {
         discountAmountField.value = '₹' + discountAmount.toFixed(2);
     }
-}
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
