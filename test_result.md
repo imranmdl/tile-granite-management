@@ -317,11 +317,11 @@ backend:
 
   - task: "Daily P&L Report"
     implemented: true
-    working: false
+    working: true
     file: "public/report_daily_pl.php"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: true
         -agent: "testing"
@@ -329,6 +329,9 @@ backend:
         -working: false
         -agent: "testing"
         -comment: "CRITICAL DATABASE SCHEMA ERROR: PHP Fatal error - SQLSTATE[HY000]: General error: 1 no such column: t.as_of_cost_per_box in /app/public/report_daily_pl.php:90. Database column mapping still uses legacy schema. Needs t.as_of_cost_per_box → t.current_cost fix."
+        -working: true
+        -agent: "testing"
+        -comment: "VERIFIED FIXED: Daily P&L report working correctly - t.as_of_cost_per_box → t.current_cost schema fix successfully implemented. All database queries execute without errors. Date filtering, revenue/cost calculations, and profit analysis fully functional."
 
   - task: "Enhanced Sales Report"
     implemented: true
