@@ -1,368 +1,461 @@
-<?php echo "<pre>calc_cost loaded from: ".__DIR__."/../includes/calc_cost.php</pre>"; ?>
-
 <?php
-// public/invoice_profit.php
-require_once __DIR__ . '/../includes/auth.php';
+// public/invoice_profit.php - Invoice-wise Profit/Loss Report
+require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
-require_once __DIR__ . '/../includes/calc_cost.php';
-require_once __DIR__ . '/../includes/report_range.php';
-require_login();
 
-$pdo  = Database::pdo();
-$rng  = compute_range();
-$page_title = pretty_report_name('Invoice P/L') . ' — ' . $rng['label'];
+auth_require_login();
 
-/* ----------------- UI: date-range controls ----------------- */
-require_once __DIR__ . '/../includes/header.php';
-render_range_controls();
+$pdo = Database::pdo();
+$user_id = $_SESSION['user_id'] ?? 1;
 
-/* ----------------- inputs ----------------- */
-$mode = (isset($_GET['mode']) && strtolower($_GET['mode']) === 'detailed') ? 'detailed' : 'simple';
-$id   = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+// Check permissions
+$user_stmt = $pdo->prepare("SELECT * FROM users_simple WHERE id = ?");
+$user_stmt->execute([$user_id]);
+$user = $user_stmt->fetch(PDO::FETCH_ASSOC);
 
-/* ======================================================================
-   LIST VIEW (no invoice selected)
-   ====================================================================== */
-if ($id <= 0) {
-  // keep chosen params across navigation
-  $keep = [
-    'range' => $_GET['range'] ?? '',
-    'from'  => $_GET['from']  ?? '',
-    'to'    => $_GET['to']    ?? '',
-    'mode'  => $mode,
-  ];
-  $qs_keep = http_build_query(array_filter($keep, fn($v)=>$v!=='' && $v!==null));
+$can_view_reports = ($user['can_view_reports'] ?? 0) == 1 || ($user['role'] ?? '') === 'admin';
+$can_view_pl = ($user['can_view_pl'] ?? 0) == 1 || ($user['role'] ?? '') === 'admin';
 
-  $sql = "
-    SELECT i.id,
-           i.invoice_no   AS code,
-           i.invoice_dt   AS dt,
-           i.customer_name,
-           i.total
+if (!$can_view_reports) {
+    $_SESSION['error'] = 'You do not have permission to access reports';
+    safe_redirect('index.php');
+}
+
+// Handle filters
+$date_from = $_GET['date_from'] ?? date('Y-m-01');
+$date_to = $_GET['date_to'] ?? date('Y-m-d');
+$customer_filter = $_GET['customer_filter'] ?? '';
+$min_profit = $_GET['min_profit'] ?? '';
+$sort_by = $_GET['sort_by'] ?? 'invoice_dt';
+$export = isset($_GET['export']) && $_GET['export'] === 'csv';
+
+// Get invoice-wise P/L data
+$invoice_sql = "
+    SELECT 
+        i.id,
+        i.invoice_no,
+        i.invoice_dt,
+        i.customer_name,
+        i.firm_name,
+        i.phone,
+        i.total as invoice_total,
+        i.final_total,
+        COALESCE(i.discount_amount, 0) as discount_amount,
+        COALESCE(i.commission_amount, 0) as commission_amount,
+        COALESCE(i.commission_percentage, 0) as commission_percentage,
+        u.username as sales_person,
+        
+        -- Tiles Revenue and Cost
+        COALESCE(SUM(ii.line_total), 0) as tiles_revenue,
+        COALESCE(SUM(ii.boxes_decimal * t.current_cost), 0) as tiles_cost,
+        COUNT(ii.id) as tiles_line_count,
+        
+        -- Misc Revenue and Cost
+        COALESCE(SUM(imi.line_total), 0) as misc_revenue,
+        COALESCE(SUM(imi.qty_units * m.current_cost), 0) as misc_cost,
+        COUNT(imi.id) as misc_line_count,
+        
+        -- Returns Impact
+        COALESCE(returns_data.total_returns, 0) as returns_amount,
+        COALESCE(returns_data.return_count, 0) as return_count
+        
     FROM invoices i
-    WHERE " . range_where('i.invoice_dt') . "
-    ORDER BY i.invoice_dt DESC, i.id DESC
-  ";
-  $st = $pdo->prepare($sql);
-  bind_range($st);
-  $st->execute();
-  $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-  ?>
-  <!-- Cost Mode selector -->
-  <div class="card p-3 mb-3">
-    <form class="row g-2" method="get">
-      <?php if (!empty($keep['range'])): ?><input type="hidden" name="range" value="<?= h($keep['range']) ?>"><?php endif; ?>
-      <?php if (!empty($keep['from'])):  ?><input type="hidden" name="from"  value="<?= h($keep['from'])  ?>"><?php endif; ?>
-      <?php if (!empty($keep['to'])):    ?><input type="hidden" name="to"    value="<?= h($keep['to'])    ?>"><?php endif; ?>
+    LEFT JOIN invoice_items ii ON i.id = ii.invoice_id
+    LEFT JOIN tiles t ON ii.tile_id = t.id
+    LEFT JOIN invoice_misc_items imi ON i.id = imi.invoice_id
+    LEFT JOIN misc_items m ON imi.misc_item_id = m.id
+    LEFT JOIN users_simple u ON i.commission_user_id = u.id
+    LEFT JOIN (
+        SELECT 
+            invoice_id, 
+            SUM(refund_amount) as total_returns,
+            COUNT(*) as return_count
+        FROM individual_returns
+        GROUP BY invoice_id
+    ) returns_data ON i.id = returns_data.invoice_id
+    
+    WHERE DATE(i.invoice_dt) BETWEEN ? AND ?
+";
 
-      <div class="col-md-3">
-        <label class="form-label">Cost Mode</label>
-        <select class="form-select" name="mode" onchange="this.form.submit()">
-          <option value="simple"   <?= $mode==='simple'   ? 'selected' : '' ?>>Simple (Base + %)</option>
-          <option value="detailed" <?= $mode==='detailed' ? 'selected' : '' ?>>Detailed (Base + % + adders + allocation)</option>
-        </select>
-      </div>
-    </form>
-  </div>
+$params = [$date_from, $date_to];
 
-  <div class="card p-3">
-    <div class="table-responsive">
-      <table class="table table-striped table-sm align-middle">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Invoice</th>
-            <th>Customer</th>
-            <th class="text-end">Total</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($rows as $r): ?>
-            <tr>
-              <td><?= h($r['dt']) ?></td>
-              <td><?= h($r['code']) ?></td>
-              <td><?= h($r['customer_name']) ?></td>
-              <td class="text-end">₹ <?= n2($r['total']) ?></td>
-              <td>
-                <a class="btn btn-sm btn-outline-primary"
-                   href="invoice_profit.php?<?= $qs_keep ?>&id=<?= (int)$r['id'] ?>">
-                  View P/L
-                </a>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-          <?php if (empty($rows)): ?>
-            <tr><td colspan="5" class="text-center text-muted">No invoices in this range.</td></tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <?php
-  require_once __DIR__ . '/../includes/footer.php';
-  exit;
+if ($customer_filter) {
+    $invoice_sql .= " AND (i.customer_name LIKE ? OR i.firm_name LIKE ?)";
+    $params[] = "%$customer_filter%";
+    $params[] = "%$customer_filter%";
 }
 
-/* ======================================================================
-   DETAIL VIEW (invoice selected)
-   ====================================================================== */
-// header
-$st = $pdo->prepare("SELECT * FROM invoices WHERE id=? LIMIT 1");
-$st->execute([$id]);
-$h = $st->fetch(PDO::FETCH_ASSOC);
+$invoice_sql .= " GROUP BY i.id";
 
-if (!$h) {
-  echo '<div class="alert alert-danger">Invoice not found.</div>';
-  require_once __DIR__ . '/../includes/footer.php';
-  exit;
-}
-$as_of = $h['invoice_dt'] ?: date('Y-m-d');
-
-// tile lines
-$st = $pdo->prepare("
-  SELECT x.*, t.name AS tile_name, ts.label AS size_label
-  FROM invoice_items x
-  JOIN tiles t       ON t.id = x.tile_id
-  JOIN tile_sizes ts ON ts.id = t.size_id
-  WHERE x.invoice_id = ?
-  ORDER BY x.id ASC
-");
-$st->execute([$id]);
-$tile_lines = $st->fetchAll(PDO::FETCH_ASSOC);
-
-// misc lines (if table exists)
-$misc_lines = table_exists($pdo,'invoice_misc_items')
-  ? (function(PDO $pdo,$id){
-      $st = $pdo->prepare("
-        SELECT m.*, mi.name AS item_name, mi.unit_label
-        FROM invoice_misc_items m
-        JOIN misc_items mi ON mi.id = m.misc_item_id
-        WHERE m.invoice_id = ?
-        ORDER BY m.id ASC
-      ");
-      $st->execute([$id]);
-      return $st->fetchAll(PDO::FETCH_ASSOC);
-    })($pdo,$id)
-  : [];
-
-$total_rev = 0.0;
-$total_cost = 0.0;
-$rows = [];
-$dbg  = [];
-
-/* --- tiles --- */
-foreach ($tile_lines as $r) {
-  $bd    = cost_tile_per_box_asof($pdo, (int)$r['tile_id'], $as_of, $mode);
-  $qty   = (float)$r['boxes_decimal'];
-  $rev   = (float)$r['rate_per_box'] * $qty;
-  $cost  = (float)$bd['cp'] * $qty;
-  $profit= $rev - $cost;
-
-  $margin_raw = $rev > 0 ? ($profit * 100.0 / $rev) : 0.0;
-  $margin     = max(0.0, $margin_raw - 15.0);
-
-  $rows[] = [
-    'name'   => $r['tile_name'].' ('.$r['size_label'].')',
-    'qty'    => n2($qty).' boxes',
-    'rate'   => (float)$r['rate_per_box'],
-    'rev'    => $rev,
-    'cp'     => (float)$bd['cp'],
-    'cost'   => $cost,
-    'profit' => $profit,
-    'margin' => $margin,
-  ];
-  $dbg[] = [
-    'name'   => $r['tile_name'].' ('.$r['size_label'].')',
-    'base'   => (float)$bd['base'],
-    'pct'    => (float)$bd['pct'],
-    'pct_amt'=> (float)$bd['pct_amt'],
-    'adder'  => (float)$bd['adder'],
-    'alloc'  => (float)$bd['alloc'],
-    'cp'     => (float)$bd['cp'],
-    'why'    => $bd['why'] ?? '',
-  ];
-  $total_rev  += $rev;
-  $total_cost += $cost;
+if ($min_profit !== '') {
+    $invoice_sql .= " HAVING (tiles_revenue + misc_revenue - tiles_cost - misc_cost - returns_amount - commission_amount) >= ?";
+    $params[] = (float)$min_profit;
 }
 
-/* --- misc items --- */
-foreach ($misc_lines as $r) {
-  $bd    = cost_misc_per_unit_asof($pdo, (int)$r['misc_item_id'], $as_of, $mode);
-  $qty   = (float)$r['qty_units'];
-  $rev   = (float)$r['rate_per_unit'] * $qty;
-  $cost  = (float)$bd['cp'] * $qty;
-  $profit= $rev - $cost;
-
-  $margin_raw = $rev > 0 ? ($profit * 100.0 / $rev) : 0.0;
-  $margin     = max(0.0, $margin_raw - 15.0);
-
-  $rows[] = [
-    'name'   => $r['item_name'].' ('.$r['unit_label'].')',
-    'qty'    => n2($qty).' units',
-    'rate'   => (float)$r['rate_per_unit'],
-    'rev'    => $rev,
-    'cp'     => (float)$bd['cp'],
-    'cost'   => $cost,
-    'profit' => $profit,
-    'margin' => $margin,
-  ];
-  $dbg[] = [
-    'name'   => $r['item_name'].' ('.$r['unit_label'].')',
-    'base'   => (float)$bd['base'],
-    'pct'    => (float)$bd['pct'],
-    'pct_amt'=> (float)$bd['pct_amt'],
-    'adder'  => (float)$bd['adder'],
-    'alloc'  => (float)$bd['alloc'],
-    'cp'     => (float)$bd['cp'],
-    'why'    => $bd['why'] ?? '',
-  ];
-  $total_rev  += $rev;
-  $total_cost += $cost;
+// Add sorting
+switch ($sort_by) {
+    case 'customer_name':
+        $invoice_sql .= " ORDER BY i.customer_name, i.invoice_dt DESC";
+        break;
+    case 'invoice_total':
+        $invoice_sql .= " ORDER BY i.final_total DESC";
+        break;
+    case 'profit':
+        $invoice_sql .= " ORDER BY (tiles_revenue + misc_revenue - tiles_cost - misc_cost - returns_amount - commission_amount) DESC";
+        break;
+    default: // invoice_dt
+        $invoice_sql .= " ORDER BY i.invoice_dt DESC, i.id DESC";
 }
 
-$gross       = $total_rev - $total_cost;
-$margin_raw  = $total_rev > 0 ? ($gross * 100.0 / $total_rev) : 0.0;
-$margin      = max(0.0, $margin_raw - 15.0);
+$stmt = $pdo->prepare($invoice_sql);
+$stmt->execute($params);
+$invoice_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Show a heads-up if any cost lines are zero
-$zero_cost_lines = array_filter($dbg, fn($d)=> ($d['cp'] ?? 0) <= 0.0);
+// Calculate derived metrics
+foreach ($invoice_data as &$invoice) {
+    $gross_revenue = $invoice['tiles_revenue'] + $invoice['misc_revenue'];
+    $total_cost = $invoice['tiles_cost'] + $invoice['misc_cost'];
+    
+    $invoice['gross_revenue'] = $gross_revenue;
+    $invoice['total_cost'] = $total_cost;
+    $invoice['gross_profit'] = $gross_revenue - $total_cost;
+    $invoice['net_profit'] = $invoice['gross_profit'] - $invoice['returns_amount'] - $invoice['commission_amount'];
+    $invoice['profit_margin'] = $gross_revenue > 0 ? (($invoice['net_profit'] / $gross_revenue) * 100) : 0;
+    $invoice['total_line_items'] = $invoice['tiles_line_count'] + $invoice['misc_line_count'];
+    $invoice['avg_profit_per_line'] = $invoice['total_line_items'] > 0 ? ($invoice['net_profit'] / $invoice['total_line_items']) : 0;
+}
+
+// Calculate summary
+$summary = [
+    'total_invoices' => count($invoice_data),
+    'total_revenue' => array_sum(array_column($invoice_data, 'gross_revenue')),
+    'total_cost' => array_sum(array_column($invoice_data, 'total_cost')),
+    'total_gross_profit' => array_sum(array_column($invoice_data, 'gross_profit')),
+    'total_returns' => array_sum(array_column($invoice_data, 'returns_amount')),
+    'total_commission' => array_sum(array_column($invoice_data, 'commission_amount')),
+    'total_net_profit' => array_sum(array_column($invoice_data, 'net_profit')),
+    'avg_invoice_value' => count($invoice_data) > 0 ? (array_sum(array_column($invoice_data, 'final_total')) / count($invoice_data)) : 0
+];
+
+$summary['overall_margin'] = $summary['total_revenue'] > 0 ? 
+    (($summary['total_net_profit'] / $summary['total_revenue']) * 100) : 0;
+
+// Handle CSV export
+if ($export) {
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="invoice_profit_report_' . $date_from . '_to_' . $date_to . '.csv"');
+    
+    $output = fopen('php://output', 'w');
+    
+    fputcsv($output, [
+        'Invoice No', 'Date', 'Customer', 'Firm', 'Invoice Total', 'Gross Revenue', 
+        'Total Cost', 'Gross Profit', 'Returns', 'Commission', 'Net Profit', 'Profit Margin %',
+        'Sales Person', 'Line Items'
+    ]);
+    
+    foreach ($invoice_data as $invoice) {
+        fputcsv($output, [
+            $invoice['invoice_no'],
+            $invoice['invoice_dt'],
+            $invoice['customer_name'],
+            $invoice['firm_name'] ?? '',
+            number_format($invoice['final_total'], 2),
+            number_format($invoice['gross_revenue'], 2),
+            number_format($invoice['total_cost'], 2),
+            number_format($invoice['gross_profit'], 2),
+            number_format($invoice['returns_amount'], 2),
+            number_format($invoice['commission_amount'], 2),
+            number_format($invoice['net_profit'], 2),
+            number_format($invoice['profit_margin'], 1),
+            $invoice['sales_person'] ?? '',
+            $invoice['total_line_items']
+        ]);
+    }
+    
+    fclose($output);
+    exit;
+}
+
+$page_title = "Invoice-wise Profit Analysis";
+require_once __DIR__ . '/../includes/header.php';
 ?>
-<div class="card p-3 mb-3">
-  <div class="row g-2">
-    <div class="col-md-3"><strong>No:</strong> <?= h($h['invoice_no']) ?></div>
-    <div class="col-md-3"><strong>Date:</strong> <?= h($h['invoice_dt']) ?></div>
-    <div class="col-md-6"><strong>Customer:</strong> <?= h($h['customer_name']) ?></div>
-  </div>
-  <div class="mt-2">
-    <form method="get" class="row g-2">
-      <input type="hidden" name="id" value="<?= (int)$id ?>">
-      <?php if (!empty($_GET['range'])): ?><input type="hidden" name="range" value="<?= h($_GET['range']) ?>"><?php endif; ?>
-      <?php if (!empty($_GET['from'])):  ?><input type="hidden" name="from"  value="<?= h($_GET['from'])  ?>"><?php endif; ?>
-      <?php if (!empty($_GET['to'])):    ?><input type="hidden" name="to"    value="<?= h($_GET['to'])    ?>"><?php endif; ?>
-      <div class="col-md-3">
-        <label class="form-label">Cost Mode</label>
-        <select class="form-select" name="mode">
-          <option value="simple"   <?= $mode==='simple'   ? 'selected' : '' ?>>Simple (Base + %)</option>
-          <option value="detailed" <?= $mode==='detailed' ? 'selected' : '' ?>>Detailed (Base + % + adders + allocation)</option>
-        </select>
-      </div>
-      <div class="col-md-2 d-flex align-items-end">
-        <button class="btn btn-secondary">Recalculate</button>
-      </div>
-    </form>
-  </div>
-  <?php if ($zero_cost_lines): ?>
-    <div class="alert alert-warning mt-2">
-      Some lines have zero cost.
-      <?php
-        $reasons = array_unique(array_map(fn($d)=>$d['why'] ?: 'unknown', $zero_cost_lines));
-        echo 'Reasons: ' . h(implode(', ', $reasons));
-      ?>
-    </div>
-  <?php endif; ?>
-</div>
 
-<div class="card p-3 mb-3">
-  <h5>P/L Lines</h5>
-  <div class="table-responsive">
-    <table class="table table-striped table-sm align-middle">
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Qty</th>
-          <th>Rate</th>
-          <th>Revenue</th>
-          <th>Cost/Box or Unit (incl. transport)</th>
-          <th>Cost</th>
-          <th>Profit</th>
-          <th>Margin % (−15 adj)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($rows as $r): ?>
-          <tr>
-            <td><?= h($r['name']) ?></td>
-            <td><?= h($r['qty']) ?></td>
-            <td>₹ <?= n2($r['rate']) ?></td>
-            <td>₹ <?= n2($r['rev']) ?></td>
-            <td>₹ <?= n2($r['cp']) ?></td>
-            <td>₹ <?= n2($r['cost']) ?></td>
-            <td class="<?= $r['profit'] >= 0 ? 'text-success' : 'text-danger' ?>">₹ <?= n2($r['profit']) ?></td>
-            <td><input type="text" class="form-control form-control-sm" value="<?= n2($r['margin']) ?>%" readonly></td>
-          </tr>
-        <?php endforeach; ?>
-        <?php if (empty($rows)): ?>
-          <tr><td colspan="8" class="text-center text-muted">No lines.</td></tr>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </div>
-</div>
+<style>
+.profit-positive { color: #28a745; font-weight: bold; }
+.profit-negative { color: #dc3545; font-weight: bold; }
+.margin-excellent { background-color: #d4edda; }
+.margin-good { background-color: #d1ecf1; }
+.margin-poor { background-color: #f8d7da; }
+.metric-card { border-radius: 10px; padding: 1rem; text-align: center; margin-bottom: 1rem; }
+</style>
 
-<div class="card p-3 mb-3">
-  <details>
-    <summary class="mb-2"><strong>Show cost breakdown (debug)</strong></summary>
-    <div class="table-responsive">
-      <table class="table table-sm">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Base</th>
-            <th>Transport %</th>
-            <th>Transport % Amt</th>
-            <th>Per-box / Per-unit Adder</th>
-            <th>Allocated from Total</th>
-            <th>Cost (cp)</th>
-            <th>Why</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($dbg as $d): ?>
-            <tr>
-              <td><?= h($d['name']) ?></td>
-              <td>₹ <?= n2($d['base']) ?></td>
-              <td><?= n2($d['pct']) ?>%</td>
-              <td>₹ <?= n2($d['pct_amt']) ?></td>
-              <td>₹ <?= n2($d['adder']) ?></td>
-              <td>₹ <?= n2($d['alloc']) ?></td>
-              <td>₹ <?= n2($d['cp']) ?></td>
-              <td><?= h($d['why']) ?></td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-receipt-cutoff"></i> Invoice-wise Profit Analysis</h2>
+        <div>
+            <a href="reports_dashboard.php" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+            <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-success">
+                <i class="bi bi-download"></i> Export CSV
+            </a>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer"></i> Print Report
+            </button>
+        </div>
     </div>
-  </details>
-</div>
 
-<div class="card p-3">
-  <div class="row text-center">
-    <div class="col">
-      <div class="p-2 bg-light rounded">
-        <div class="small text-muted">Total Revenue</div>
-        <div class="fs-5">₹ <?= n2($total_rev) ?></div>
-      </div>
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card bg-primary text-white metric-card">
+                <h4><?= $summary['total_invoices'] ?></h4>
+                <small>Total Invoices</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-info text-white metric-card">
+                <h4>₹<?= number_format($summary['total_revenue'], 0) ?></h4>
+                <small>Total Revenue</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-warning text-white metric-card">
+                <h4>₹<?= number_format($summary['total_cost'], 0) ?></h4>
+                <small>Total Cost</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-<?= $summary['total_net_profit'] >= 0 ? 'success' : 'danger' ?> text-white metric-card">
+                <h4>₹<?= number_format($summary['total_net_profit'], 0) ?></h4>
+                <small>Net Profit</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-secondary text-white metric-card">
+                <h4>₹<?= number_format($summary['avg_invoice_value'], 0) ?></h4>
+                <small>Avg Invoice</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card bg-dark text-white metric-card">
+                <h4><?= number_format($summary['overall_margin'], 1) ?>%</h4>
+                <small>Overall Margin</small>
+            </div>
+        </div>
     </div>
-    <div class="col">
-      <div class="p-2 bg-light rounded">
-        <div class="small text-muted">Total Cost</div>
-        <div class="fs-5">₹ <?= n2($total_cost) ?></div>
-      </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">From Date</label>
+                    <input type="date" class="form-control" name="date_from" value="<?= h($date_from) ?>">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">To Date</label>
+                    <input type="date" class="form-control" name="date_to" value="<?= h($date_to) ?>">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Customer</label>
+                    <input type="text" class="form-control" name="customer_filter" value="<?= h($customer_filter) ?>" placeholder="Customer name">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Profit (₹)</label>
+                    <input type="number" class="form-control" name="min_profit" value="<?= h($min_profit) ?>" step="0.01">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Sort By</label>
+                    <select class="form-select" name="sort_by">
+                        <option value="invoice_dt" <?= $sort_by === 'invoice_dt' ? 'selected' : '' ?>>Date</option>
+                        <option value="customer_name" <?= $sort_by === 'customer_name' ? 'selected' : '' ?>>Customer</option>
+                        <option value="invoice_total" <?= $sort_by === 'invoice_total' ? 'selected' : '' ?>>Invoice Total</option>
+                        <option value="profit" <?= $sort_by === 'profit' ? 'selected' : '' ?>>Net Profit</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary d-block">
+                        <i class="bi bi-funnel"></i> Apply Filters
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-    <div class="col">
-      <div class="p-2 bg-light rounded">
-        <div class="small text-muted">Gross Profit</div>
-        <div class="fs-5 <?= $gross >= 0 ? 'text-success' : 'text-danger' ?>">₹ <?= n2($gross) ?></div>
-      </div>
+
+    <!-- Invoice Profit Data Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="bi bi-table"></i> Invoice-wise Profit Breakdown (<?= $date_from ?> to <?= $date_to ?>)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Invoice Details</th>
+                            <th>Customer</th>
+                            <th>Invoice Total</th>
+                            <th>Revenue</th>
+                            <th>Cost</th>
+                            <th>Gross Profit</th>
+                            <th>Returns</th>
+                            <th>Commission</th>
+                            <th>Net Profit</th>
+                            <th>Margin %</th>
+                            <th>Items</th>
+                            <?php if ($can_view_pl): ?>
+                                <th>Avg Profit/Item</th>
+                            <?php endif; ?>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($invoice_data)): ?>
+                            <tr>
+                                <td colspan="<?= $can_view_pl ? '13' : '12' ?>" class="text-center text-muted">
+                                    No invoices found for the selected criteria
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($invoice_data as $invoice): ?>
+                                <?php 
+                                $margin = $invoice['profit_margin'];
+                                $row_class = '';
+                                if ($margin >= 25) $row_class = 'margin-excellent';
+                                elseif ($margin >= 15) $row_class = 'margin-good';
+                                elseif ($margin < 0) $row_class = 'margin-poor';
+                                ?>
+                                <tr class="<?= $row_class ?>">
+                                    <td>
+                                        <strong><?= h($invoice['invoice_no']) ?></strong>
+                                        <br><small class="text-muted"><?= date('M j, Y', strtotime($invoice['invoice_dt'])) ?></small>
+                                        <br><small class="text-muted">ID: <?= $invoice['id'] ?></small>
+                                    </td>
+                                    <td>
+                                        <strong><?= h($invoice['customer_name']) ?></strong>
+                                        <?php if ($invoice['firm_name']): ?>
+                                            <br><small class="text-muted"><?= h($invoice['firm_name']) ?></small>
+                                        <?php endif; ?>
+                                        <?php if ($invoice['sales_person']): ?>
+                                            <br><span class="badge bg-info"><?= h($invoice['sales_person']) ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>₹<?= number_format($invoice['final_total'], 2) ?></td>
+                                    <td>₹<?= number_format($invoice['gross_revenue'], 2) ?></td>
+                                    <td>₹<?= number_format($invoice['total_cost'], 2) ?></td>
+                                    <td class="<?= $invoice['gross_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                        ₹<?= number_format($invoice['gross_profit'], 2) ?>
+                                    </td>
+                                    <td class="text-danger">
+                                        ₹<?= number_format($invoice['returns_amount'], 2) ?>
+                                        <?php if ($invoice['return_count'] > 0): ?>
+                                            <br><small>(<?= $invoice['return_count'] ?> returns)</small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-warning">
+                                        ₹<?= number_format($invoice['commission_amount'], 2) ?>
+                                        <?php if ($invoice['commission_percentage'] > 0): ?>
+                                            <br><small>(<?= number_format($invoice['commission_percentage'], 1) ?>%)</small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="<?= $invoice['net_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                        <strong>₹<?= number_format($invoice['net_profit'], 2) ?></strong>
+                                    </td>
+                                    <td class="<?= $margin >= 15 ? 'profit-positive' : ($margin >= 0 ? 'text-warning' : 'profit-negative') ?>">
+                                        <strong><?= number_format($margin, 1) ?>%</strong>
+                                    </td>
+                                    <td>
+                                        <?= $invoice['total_line_items'] ?> items
+                                        <?php if ($invoice['tiles_line_count'] > 0 && $invoice['misc_line_count'] > 0): ?>
+                                            <br><small class="text-muted"><?= $invoice['tiles_line_count'] ?>T + <?= $invoice['misc_line_count'] ?>M</small>
+                                        <?php elseif ($invoice['tiles_line_count'] > 0): ?>
+                                            <br><small class="text-primary"><?= $invoice['tiles_line_count'] ?> Tiles</small>
+                                        <?php elseif ($invoice['misc_line_count'] > 0): ?>
+                                            <br><small class="text-info"><?= $invoice['misc_line_count'] ?> Misc</small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <?php if ($can_view_pl): ?>
+                                        <td class="text-secondary">
+                                            ₹<?= number_format($invoice['avg_profit_per_line'], 2) ?>
+                                        </td>
+                                    <?php endif; ?>
+                                    <td>
+                                        <a href="invoice_enhanced.php?id=<?= $invoice['id'] ?>" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <div class="col">
-      <div class="p-2 bg-light rounded">
-        <div class="small text-muted">Margin (−15 adj)</div>
-        <div class="fs-5"><?= n2($margin) ?>%</div>
-      </div>
+
+    <!-- Performance Analysis -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="bi bi-bar-chart"></i> Profit Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <?php 
+                    $profitable_invoices = array_filter($invoice_data, function($inv) { return $inv['net_profit'] > 0; });
+                    $loss_making_invoices = array_filter($invoice_data, function($inv) { return $inv['net_profit'] < 0; });
+                    $breakeven_invoices = array_filter($invoice_data, function($inv) { return $inv['net_profit'] == 0; });
+                    ?>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h5 class="text-success"><?= count($profitable_invoices) ?></h5>
+                            <small>Profitable</small>
+                        </div>
+                        <div class="col-4">
+                            <h5 class="text-warning"><?= count($breakeven_invoices) ?></h5>
+                            <small>Break-even</small>
+                        </div>
+                        <div class="col-4">
+                            <h5 class="text-danger"><?= count($loss_making_invoices) ?></h5>
+                            <small>Loss Making</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="bi bi-info-circle"></i> Key Metrics</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Success Rate:</strong><br>
+                            <?= count($invoice_data) > 0 ? number_format((count($profitable_invoices) / count($invoice_data)) * 100, 1) : 0 ?>% profitable
+                        </div>
+                        <div class="col-6">
+                            <strong>Returns Impact:</strong><br>
+                            ₹<?= number_format($summary['total_returns'], 0) ?> (<?= $summary['total_revenue'] > 0 ? number_format(($summary['total_returns'] / $summary['total_revenue']) * 100, 1) : 0 ?>%)
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Commission Impact:</strong><br>
+                            ₹<?= number_format($summary['total_commission'], 0) ?> (<?= $summary['total_revenue'] > 0 ? number_format(($summary['total_commission'] / $summary['total_revenue']) * 100, 1) : 0 ?>%)
+                        </div>
+                        <div class="col-6">
+                            <strong>Cost Ratio:</strong><br>
+                            <?= $summary['total_revenue'] > 0 ? number_format(($summary['total_cost'] / $summary['total_revenue']) * 100, 1) : 0 ?>% of revenue
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
