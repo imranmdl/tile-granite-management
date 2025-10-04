@@ -60,9 +60,6 @@ class PHPBusinessSystemTester:
             
             auth_response = self.session.post(f"{self.base_url}/login.php", data=login_data, timeout=10, allow_redirects=False)
             
-            # Debug: print response details
-            print(f"    DEBUG: Auth response status: {auth_response.status_code}")
-            
             # Check if login was successful (should redirect or show dashboard)
             if auth_response.status_code == 200 and ('dashboard' in auth_response.text.lower() or 'logout' in auth_response.text.lower()):
                 self.authenticated = True
@@ -71,9 +68,6 @@ class PHPBusinessSystemTester:
             elif auth_response.status_code == 302:
                 # Login successful, now check if we can access the dashboard
                 dashboard_response = self.session.get(f"{self.base_url}/", timeout=10)
-                print(f"    DEBUG: Dashboard response status: {dashboard_response.status_code}")
-                print(f"    DEBUG: Dashboard content contains 'dashboard': {'dashboard' in dashboard_response.text.lower()}")
-                print(f"    DEBUG: Dashboard content contains 'logout': {'logout' in dashboard_response.text.lower()}")
                 
                 if dashboard_response.status_code == 200 and ('dashboard' in dashboard_response.text.lower() or 'logout' in dashboard_response.text.lower()):
                     self.authenticated = True
