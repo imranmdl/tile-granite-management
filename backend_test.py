@@ -152,7 +152,7 @@ class CriticalErrorResolutionTester:
             try:
                 response = self.session.get(f"{self.base_url}{endpoint}", timeout=5)
                 # Check if we get actual PHP content, not React app
-                if response.status_code == 200 and 'react' not in response.text.lower():
+                if response.status_code == 200 and '<?php' in response.text and 'doctype html' not in response.text:
                     working_endpoints.append(endpoint)
             except:
                 pass
