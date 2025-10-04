@@ -8,10 +8,9 @@
  * - Robust transport math; date filter only when a date column exists
  */
 
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
-require_once __DIR__ . '/../includes/calc_cost.php';   // h(), n2(), n3(), table_exists(), column_exists()
-require_once __DIR__ . '/../includes/report_range.php'; // compute_range(), render_range_controls(), range_where(), bind_range()
+require_once __DIR__ . '/../includes/admin_functions.php';
 require_admin();
 
 $pdo = Database::pdo();
