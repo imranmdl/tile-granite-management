@@ -427,29 +427,44 @@ class CommissionReportingSystemTester:
             return False
 
     def test_chart_integration(self):
-        """Test Chart.js integration in PHP reports"""
+        """Test Chart.js integration readiness in FastAPI"""
         try:
-            # Check sales report for Chart.js integration
-            response = self.session.get(f"{self.php_url}/report_sales.php", timeout=10)
+            # Check if there are any chart/analytics endpoints
+            chart_endpoints = [
+                "/analytics",
+                "/charts",
+                "/charts/data",
+                "/analytics/data"
+            ]
             
-            if response.status_code == 200:
-                content = response.text
-                # Look for Chart.js references
-                chart_indicators = ["chart.js", "Chart.js", "new Chart", "canvas", "chartjs"]
-                found_charts = sum(1 for indicator in chart_indicators if indicator in content)
-                
-                if found_charts >= 2:
-                    self.log_test("Chart.js Integration", True, f"Chart.js integration found in PHP reports ({found_charts} indicators)")
-                    return True
-                elif found_charts >= 1:
-                    self.log_test("Chart.js Integration", True, "Basic Chart.js integration found in PHP reports")
-                    return True
-                else:
-                    self.log_test("Chart.js Integration", False, "No Chart.js integration found in PHP reports")
-                    return False
+            found_endpoints = []
+            for endpoint in chart_endpoints:
+                try:
+                    response = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if response.status_code != 404:
+                        found_endpoints.append(endpoint)
+                except:
+                    pass
+            
+            if found_endpoints:
+                self.log_test("Chart.js Integration", True, f"Chart/analytics endpoints found: {', '.join(found_endpoints)}")
+                return True
             else:
-                self.log_test("Chart.js Integration", False, f"Cannot access reports to check Chart.js: HTTP {response.status_code}")
-                return False
+                # Check if PHP files have Chart.js integration (even though not served)
+                try:
+                    with open('/app/public/report_sales.php', 'r') as f:
+                        content = f.read()
+                        chart_indicators = ["chart.js", "Chart.js", "new Chart", "canvas", "chartjs"]
+                        found_charts = sum(1 for indicator in chart_indicators if indicator.lower() in content.lower())
+                        
+                        if found_charts >= 1:
+                            self.log_test("Chart.js Integration", False, f"Chart.js integration exists in PHP files ({found_charts} indicators) but not implemented in FastAPI")
+                        else:
+                            self.log_test("Chart.js Integration", False, "No Chart.js integration implemented in FastAPI")
+                        return False
+                except Exception as file_error:
+                    self.log_test("Chart.js Integration", False, "No Chart.js integration implemented in FastAPI")
+                    return False
                 
         except Exception as e:
             self.log_test("Chart.js Integration", False, f"Error: {str(e)}")
