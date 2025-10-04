@@ -1,5 +1,5 @@
 <?php
-// public/report_daily_pl.php - Daily Profit & Loss Report
+// public/report_daily_pl_fixed.php - Daily Profit & Loss Report (Fixed for Latest DB Schema)
 require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/admin_functions.php';
@@ -74,11 +74,11 @@ $revenue_stmt = $pdo->prepare($revenue_sql);
 $revenue_stmt->execute([$date_from, $date_to]);
 $daily_revenue = $revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Cost calculation - tiles
+// Cost calculation - tiles (using current_cost from tiles table)
 $tile_cost_sql = "
     SELECT 
         DATE(i.invoice_dt) as sale_date,
-        SUM(ii.boxes_decimal * t.as_of_cost_per_box) as tile_cost
+        SUM(ii.boxes_decimal * t.current_cost) as tile_cost
     FROM invoices i
     JOIN invoice_items ii ON i.id = ii.invoice_id
     JOIN tiles t ON ii.tile_id = t.id
@@ -199,7 +199,7 @@ $totals['profit'] = $totals['revenue'] - $totals['cost'];
 $totals['net_profit'] = $totals['profit'] - $totals['commission'] - $totals['returns'];
 $totals['margin'] = $totals['revenue'] > 0 ? ($totals['net_profit'] / $totals['revenue'] * 100) : 0;
 
-$page_title = "Daily Profit & Loss Report";
+$page_title = "Daily Profit & Loss Report (Fixed)";
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
