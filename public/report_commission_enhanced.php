@@ -1,5 +1,5 @@
 <?php
-// public/report_commission_enhanced.php - Enhanced Commission Report with Latest Schema
+// public/report_commission_enhanced_final.php - Enhanced Commission Report (Fixed Schema)
 require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
@@ -50,7 +50,7 @@ switch ($preset) {
         break;
 }
 
-// Get commission data from invoices
+// Get commission data from invoices (primary source)
 $commission_sql = "
     SELECT 
         i.id as invoice_id,
@@ -85,16 +85,16 @@ $commission_stmt = $pdo->prepare($commission_sql);
 $commission_stmt->execute($params);
 $commission_data = $commission_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get commission ledger data
+// Get commission ledger data (Fixed schema - using created_at instead of commission_date)
 $ledger_sql = "
     SELECT 
         cl.id,
-        cl.commission_date,
+        DATE(cl.created_at) as commission_date,
         cl.invoice_id,
         cl.salesperson_user_id,
         cl.base_amount,
-        cl.commission_percentage,
-        cl.commission_amount,
+        cl.pct as commission_percentage,
+        cl.amount as commission_amount,
         cl.status,
         cl.notes,
         cl.created_at,
@@ -104,7 +104,7 @@ $ledger_sql = "
     FROM commission_ledger cl
     LEFT JOIN users_simple u ON cl.salesperson_user_id = u.id
     LEFT JOIN invoices i ON cl.invoice_id = i.id
-    WHERE DATE(cl.commission_date) BETWEEN ? AND ?
+    WHERE DATE(cl.created_at) BETWEEN ? AND ?
 ";
 
 $ledger_params = [$date_from, $date_to];
@@ -119,11 +119,16 @@ if ($status_filter !== 'all') {
     $ledger_params[] = $status_filter;
 }
 
-$ledger_sql .= " ORDER BY cl.commission_date DESC";
+$ledger_sql .= " ORDER BY cl.created_at DESC";
 
-$ledger_stmt = $pdo->prepare($ledger_sql);
-$ledger_stmt->execute($ledger_params);
-$ledger_data = $ledger_stmt->fetchAll(PDO::FETCH_ASSOC);
+try {
+    $ledger_stmt = $pdo->prepare($ledger_sql);
+    $ledger_stmt->execute($ledger_params);
+    $ledger_data = $ledger_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log("Ledger query error: " . $e->getMessage());
+    $ledger_data = [];
+}
 
 // Combine and analyze data
 $combined_data = [];
@@ -243,66 +248,6 @@ require_once __DIR__ . '/../includes/header.php';
         </a>
     </div>
 
-    <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5><i class="bi bi-funnel"></i> Filters</h5>
-        </div>
-        <div class="card-body">
-            <form method="GET" class="row g-3">
-                <div class="col-md-2">
-                    <label class="form-label">From Date</label>
-                    <input type="date" class="form-control" name="date_from" value="<?= h($date_from) ?>">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">To Date</label>
-                    <input type="date" class="form-control" name="date_to" value="<?= h($date_to) ?>">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Quick Presets</label>
-                    <select class="form-select" name="preset" onchange="if(this.value) this.form.submit()">
-                        <option value="">Custom Range</option>
-                        <option value="today" <?= $preset === 'today' ? 'selected' : '' ?>>Today</option>
-                        <option value="this_week" <?= $preset === 'this_week' ? 'selected' : '' ?>>This Week</option>
-                        <option value="this_month" <?= $preset === 'this_month' ? 'selected' : '' ?>>This Month</option>
-                        <option value="last_month" <?= $preset === 'last_month' ? 'selected' : '' ?>>Last Month</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Salesperson</label>
-                    <select class="form-select" name="salesperson">
-                        <option value="">All Salespersons</option>
-                        <?php foreach ($all_salespersons as $salesperson): ?>
-                            <option value="<?= h($salesperson) ?>" 
-                                    <?= $salesperson_filter === $salesperson ? 'selected' : '' ?>>
-                                <?= h($salesperson) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Status</label>
-                    <select class="form-select" name="status">
-                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Status</option>
-                        <option value="PENDING" <?= $status_filter === 'PENDING' ? 'selected' : '' ?>>Pending</option>
-                        <option value="PAID" <?= $status_filter === 'PAID' ? 'selected' : '' ?>>Paid</option>
-                        <option value="CANCELLED" <?= $status_filter === 'CANCELLED' ? 'selected' : '' ?>>Cancelled</option>
-                    </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Filter
-                    </button>
-                </div>
-                <div class="col-12">
-                    <a href="?export=excel&<?= http_build_query($_GET) ?>" class="btn btn-success">
-                        <i class="bi bi-file-excel"></i> Export Excel
-                    </a>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- Summary Statistics -->
     <div class="row mb-4">
         <div class="col-md-3">
@@ -331,98 +276,6 @@ require_once __DIR__ . '/../includes/header.php';
                 <h6>Active Salespersons</h6>
                 <h3><?= $totals['unique_salespersons'] ?></h3>
                 <small>With commissions</small>
-            </div>
-        </div>
-    </div>
-
-    <!-- Commission Status Overview -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card text-center border-warning">
-                <div class="card-body">
-                    <h5 class="card-title text-warning">Pending</h5>
-                    <h3>₹<?= number_format($status_summary['PENDING'], 2) ?></h3>
-                    <small class="text-muted">Awaiting payment</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center border-success">
-                <div class="card-body">
-                    <h5 class="card-title text-success">Paid</h5>
-                    <h3>₹<?= number_format($status_summary['PAID'], 2) ?></h3>
-                    <small class="text-muted">Completed payments</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center border-danger">
-                <div class="card-body">
-                    <h5 class="card-title text-danger">Cancelled</h5>
-                    <h3>₹<?= number_format($status_summary['CANCELLED'], 2) ?></h3>
-                    <small class="text-muted">Cancelled commissions</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Salesperson Performance -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card performance-card">
-                <div class="card-header">
-                    <h5><i class="bi bi-trophy"></i> Salesperson Performance</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Salesperson</th>
-                                    <th>Total Sales</th>
-                                    <th>Total Commission</th>
-                                    <th>Avg Commission Rate</th>
-                                    <th>Invoice Count</th>
-                                    <th>Avg Commission per Invoice</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($salesperson_summary)): ?>
-                                    <tr>
-                                        <td colspan="6" class="text-center text-muted py-4">
-                                            <i class="bi bi-info-circle"></i> No commission data found for the selected period
-                                        </td>
-                                    </tr>
-                                <?php else: ?>
-                                    <?php foreach ($salesperson_summary as $name => $data): ?>
-                                        <tr>
-                                            <td><strong><?= h($name) ?></strong></td>
-                                            <td>₹<?= number_format($data['total_sales'], 2) ?></td>
-                                            <td class="text-info">
-                                                <strong>₹<?= number_format($data['total_commission'], 2) ?></strong>
-                                            </td>
-                                            <td><?= number_format($data['avg_commission_rate'], 2) ?>%</td>
-                                            <td><?= $data['invoice_count'] ?></td>
-                                            <td>₹<?= number_format($data['invoice_count'] > 0 ? $data['total_commission'] / $data['invoice_count'] : 0, 2) ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
-                            <?php if (!empty($salesperson_summary)): ?>
-                                <tfoot class="table-secondary">
-                                    <tr>
-                                        <th>TOTALS</th>
-                                        <th>₹<?= number_format($totals['total_sales'], 2) ?></th>
-                                        <th class="text-info">₹<?= number_format($totals['total_commission'], 2) ?></th>
-                                        <th><?= number_format($totals['avg_commission_rate'], 2) ?>%</th>
-                                        <th><?= $totals['total_invoices'] ?></th>
-                                        <th>₹<?= number_format($totals['total_invoices'] > 0 ? $totals['total_commission'] / $totals['total_invoices'] : 0, 2) ?></th>
-                                    </tr>
-                                </tfoot>
-                            <?php endif; ?>
-                        </table>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
