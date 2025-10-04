@@ -601,9 +601,21 @@ class PHPBusinessSystemTester:
         print("\n💼 Testing Business Logic...")
         self.test_business_logic()
         
-        # Test reporting module
-        print("\n📈 Testing Reporting Module...")
-        self.test_reporting_module()
+        # Test enhanced reporting modules
+        print("\n📊 Testing Enhanced Reports Dashboard...")
+        self.test_enhanced_reports_dashboard()
+        
+        print("\n💰 Testing Daily P&L Report...")
+        self.test_daily_pl_report()
+        
+        print("\n📈 Testing Enhanced Sales Report...")
+        self.test_enhanced_sales_report()
+        
+        print("\n🔧 Testing Enhanced Damage Report...")
+        self.test_enhanced_damage_report()
+        
+        print("\n🗄️ Testing Database Schema Integration...")
+        self.test_database_schema_integration()
         
         # Summary
         print("\n" + "=" * 70)
