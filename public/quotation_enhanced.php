@@ -1025,6 +1025,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </form>
     </div>
+    <?php endif; ?>
 
     <!-- Discount Section -->
     <?php if (!empty($quotation_items) || !empty($quotation_misc_items)): ?>
