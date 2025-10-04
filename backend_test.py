@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 
 class CriticalErrorResolutionTester:
-    def __init__(self, base_url="https://tilecrm-app.preview.emergentagent.com"):
+    def __init__(self, base_url="https://tile-mgmt-system.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.session = requests.Session()
