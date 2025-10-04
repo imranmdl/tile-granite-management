@@ -94,7 +94,7 @@ $sales_sql = "
             WHERE ii.invoice_id = i.id
         ) as tiles_revenue,
         (
-            SELECT SUM(imi.quantity * imi.rate_per_unit) 
+            SELECT SUM(imi.qty_units * imi.rate_per_unit) 
             FROM invoice_misc_items imi 
             WHERE imi.invoice_id = i.id
         ) as misc_revenue
