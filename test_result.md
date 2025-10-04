@@ -513,14 +513,21 @@ metadata:
 
 test_plan:
   current_focus: 
-    - "Enhanced Reports Dashboard"
     - "Daily P&L Report"
     - "Enhanced Sales Report"
-    - "Enhanced Damage Report"
+    - "quotation_profit.php Function Validation"
+    - "Enhanced Inventory Report"
+    - "Enhanced Commission Report"
     - "Database Schema Integration"
-  stuck_tasks: []
+  stuck_tasks: 
+    - "Daily P&L Report"
+    - "Enhanced Sales Report"
+    - "quotation_profit.php Function Validation"
+    - "Enhanced Inventory Report"
+    - "Enhanced Commission Report"
+    - "Database Schema Integration"
   test_all: false
-  test_priority: "high_first"
+  test_priority: "stuck_first"
 
 agent_communication:
     -agent: "main"
