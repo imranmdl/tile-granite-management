@@ -59,7 +59,7 @@ $month_stats['revenue'] = $month_revenue_stmt->fetchColumn();
 $today_profit = 0;
 $profit_stmt = $pdo->prepare("
     SELECT 
-        SUM(ii.quantity * ii.rate_per_box) as tile_revenue,
+        SUM(ii.boxes_decimal * ii.rate_per_box) as tile_revenue,
         SUM(imi.quantity * imi.rate_per_unit) as misc_revenue
     FROM invoices i
     LEFT JOIN invoice_items ii ON i.id = ii.invoice_id
