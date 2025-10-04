@@ -368,15 +368,18 @@ backend:
 
   - task: "Enhanced Inventory Report"
     implemented: true
-    working: false
+    working: true
     file: "public/report_inventory_enhanced.php"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: false
         -agent: "testing"
         -comment: "CRITICAL DATABASE SCHEMA ERROR: PHP Fatal error - SQLSTATE[HY000]: General error: 1 no such column: ts.width in /app/public/report_inventory_enhanced.php:117. Database column mapping references non-existent columns in tile_sizes table."
+        -working: true
+        -agent: "testing"
+        -comment: "VERIFIED FIXED: Enhanced inventory report working correctly - ts.width||'x'||ts.length → ts.label schema fix successfully implemented. Inventory valuation, stock analysis, and enhanced features all functional."
 
   - task: "Enhanced Commission Report"
     implemented: true
