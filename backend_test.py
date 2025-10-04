@@ -58,7 +58,7 @@ class PHPBusinessSystemTester:
                 'password': 'admin123'
             }
             
-            auth_response = self.session.post(f"{self.base_url}/login.php", data=login_data, timeout=10)
+            auth_response = self.session.post(f"{self.base_url}/login.php", data=login_data, timeout=10, allow_redirects=False)
             
             # Debug: print response details
             print(f"    DEBUG: Auth response status: {auth_response.status_code}")
