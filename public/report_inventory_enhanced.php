@@ -1,5 +1,5 @@
 <?php
-// public/report_inventory_enhanced.php - Enhanced Inventory Report with Latest Schema
+// public/report_inventory_enhanced_final.php - Enhanced Inventory Report (Fixed Schema)
 require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
@@ -27,12 +27,12 @@ $search = trim($_GET['search'] ?? '');
 $sort_by = $_GET['sort_by'] ?? 'name';
 $sort_order = $_GET['sort_order'] ?? 'ASC';
 
-// Get tiles inventory with current stock
+// Get tiles inventory with current stock (Fixed schema)
 $tiles_sql = "
     SELECT 
         t.id,
         t.name,
-        ts.width || ' x ' || ts.length || ' ' || ts.unit as size_label,
+        ts.label as size_label,
         t.current_cost,
         t.last_cost,
         t.average_cost,
@@ -64,7 +64,7 @@ $tiles_sql = "
 $params = [];
 
 if ($search) {
-    $tiles_sql .= " AND (t.name LIKE ? OR ts.width || ' x ' || ts.length || ' ' || ts.unit LIKE ?)";
+    $tiles_sql .= " AND (t.name LIKE ? OR ts.label LIKE ?)";
     $params[] = "%$search%";
     $params[] = "%$search%";
 }
@@ -114,14 +114,18 @@ if ($low_stock_only) {
 $inventory_data = [];
 
 if ($category === 'all' || $category === 'tiles') {
-    $tiles_stmt = $pdo->prepare($tiles_sql);
-    $tiles_stmt->execute($params);
-    $tiles = $tiles_stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    foreach ($tiles as $tile) {
-        $tile['type'] = 'tile';
-        $tile['unit'] = 'boxes';
-        $inventory_data[] = $tile;
+    try {
+        $tiles_stmt = $pdo->prepare($tiles_sql);
+        $tiles_stmt->execute($params);
+        $tiles = $tiles_stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($tiles as $tile) {
+            $tile['type'] = 'tile';
+            $tile['unit'] = 'boxes';
+            $inventory_data[] = $tile;
+        }
+    } catch (Exception $e) {
+        error_log("Tiles query error: " . $e->getMessage());
     }
 }
 
@@ -131,16 +135,20 @@ if ($category === 'all' || $category === 'misc') {
         $misc_params[] = "%$search%";
     }
     
-    $misc_stmt = $pdo->prepare($misc_sql);
-    $misc_stmt->execute($misc_params);
-    $misc = $misc_stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    foreach ($misc as $item) {
-        $item['type'] = 'misc';
-        $item['unit'] = $item['unit_label'];
-        $item['size_label'] = $item['unit_label'];
-        $item['vendor_name'] = null;
-        $inventory_data[] = $item;
+    try {
+        $misc_stmt = $pdo->prepare($misc_sql);
+        $misc_stmt->execute($misc_params);
+        $misc = $misc_stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($misc as $item) {
+            $item['type'] = 'misc';
+            $item['unit'] = $item['unit_label'];
+            $item['size_label'] = $item['unit_label'];
+            $item['vendor_name'] = null;
+            $inventory_data[] = $item;
+        }
+    } catch (Exception $e) {
+        error_log("Misc items query error: " . $e->getMessage());
     }
 }
 
@@ -236,61 +244,6 @@ require_once __DIR__ . '/../includes/header.php';
         <a href="reports_dashboard_new.php" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Back to Reports
         </a>
-    </div>
-
-    <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5><i class="bi bi-funnel"></i> Filters & Search</h5>
-        </div>
-        <div class="card-body">
-            <form method="GET" class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">Category</label>
-                    <select class="form-select" name="category">
-                        <option value="all" <?= $category === 'all' ? 'selected' : '' ?>>All Items</option>
-                        <option value="tiles" <?= $category === 'tiles' ? 'selected' : '' ?>>Tiles Only</option>
-                        <option value="misc" <?= $category === 'misc' ? 'selected' : '' ?>>Misc Items Only</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Search</label>
-                    <input type="text" class="form-control" name="search" value="<?= h($search) ?>" 
-                           placeholder="Item name or size...">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Sort By</label>
-                    <select class="form-select" name="sort_by">
-                        <option value="name" <?= $sort_by === 'name' ? 'selected' : '' ?>>Name</option>
-                        <option value="stock" <?= $sort_by === 'stock' ? 'selected' : '' ?>>Stock Level</option>
-                        <option value="value" <?= $sort_by === 'value' ? 'selected' : '' ?>>Stock Value</option>
-                        <option value="cost" <?= $sort_by === 'cost' ? 'selected' : '' ?>>Cost</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Order</label>
-                    <select class="form-select" name="sort_order">
-                        <option value="ASC" <?= $sort_order === 'ASC' ? 'selected' : '' ?>>Ascending</option>
-                        <option value="DESC" <?= $sort_order === 'DESC' ? 'selected' : '' ?>>Descending</option>
-                    </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="low_stock" value="1" 
-                               <?= $low_stock_only ? 'checked' : '' ?>>
-                        <label class="form-check-label">Low Stock Only</label>
-                    </div>
-                </div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-primary me-2">
-                        <i class="bi bi-search"></i> Apply Filters
-                    </button>
-                    <a href="?export=excel&<?= http_build_query($_GET) ?>" class="btn btn-success">
-                        <i class="bi bi-file-excel"></i> Export Excel
-                    </a>
-                </div>
-            </form>
-        </div>
     </div>
 
     <!-- Summary Statistics -->
@@ -434,52 +387,10 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
-                    <?php if (!empty($inventory_data)): ?>
-                        <tfoot class="table-secondary">
-                            <tr>
-                                <th colspan="6">TOTALS</th>
-                                <th>₹<?= number_format($summary['total_value'], 2) ?></th>
-                                <th colspan="3">
-                                    <?= $summary['total_items'] ?> items | 
-                                    <?= $summary['low_stock_count'] ?> low stock | 
-                                    <?= $summary['out_of_stock_count'] ?> out of stock
-                                </th>
-                            </tr>
-                        </tfoot>
-                    <?php endif; ?>
                 </table>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Add tooltips for stock status
-    document.querySelectorAll('.badge').forEach(badge => {
-        let tooltip = '';
-        if (badge.textContent === 'Out of Stock') {
-            tooltip = 'Immediate reorder required';
-        } else if (badge.textContent === 'Low Stock') {
-            tooltip = 'Consider reordering soon';
-        } else if (badge.textContent === 'In Stock') {
-            tooltip = 'Stock level is healthy';
-        }
-        
-        if (tooltip) {
-            badge.setAttribute('title', tooltip);
-            badge.setAttribute('data-bs-toggle', 'tooltip');
-        }
-    });
-    
-    // Initialize tooltips if Bootstrap is available
-    if (typeof bootstrap !== 'undefined') {
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    }
-});
-</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
