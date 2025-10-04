@@ -66,11 +66,11 @@ class PHPBusinessSystemTester:
                 self.log_test("Authentication System", True, "Admin login successful - dashboard accessible")
                 return True
             elif auth_response.status_code == 302:
-                # Follow redirect
-                redirect_response = self.session.get(f"{self.base_url}/", timeout=10)
-                if redirect_response.status_code == 200 and ('dashboard' in redirect_response.text.lower() or 'logout' in redirect_response.text.lower()):
+                # Login successful, now check if we can access the dashboard
+                dashboard_response = self.session.get(f"{self.base_url}/", timeout=10)
+                if dashboard_response.status_code == 200 and ('dashboard' in dashboard_response.text.lower() or 'logout' in dashboard_response.text.lower()):
                     self.authenticated = True
-                    self.log_test("Authentication System", True, "Admin login successful - redirected to dashboard")
+                    self.log_test("Authentication System", True, "Admin login successful - dashboard accessible after redirect")
                     return True
             
             self.log_test("Authentication System", False, "Login failed - invalid credentials or system error")
