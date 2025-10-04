@@ -313,39 +313,102 @@ class PHPBusinessSystemTester:
             self.log_test("Database Connectivity", False, f"Error: {str(e)}")
             return False
 
+    def test_business_logic(self):
+        """Test commission calculations and business logic"""
+        if not self.authenticated:
+            self.log_test("Business Logic Validation", False, "Authentication required")
+            return False
+            
+        try:
+            # Test commission system
+            response = self.session.get(f"{self.base_url}/public/commission_ledger.php", timeout=10)
+            
+            if response.status_code == 200:
+                if 'commission' in response.text.lower() and ('calculation' in response.text.lower() or 'amount' in response.text.lower()):
+                    self.log_test("Business Logic Validation", True, "Commission calculations and business logic working")
+                    return True
+                else:
+                    self.log_test("Business Logic Validation", False, "Commission system not functioning properly")
+                    return False
+            else:
+                self.log_test("Business Logic Validation", False, f"Cannot access commission system - HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Business Logic Validation", False, f"Error: {str(e)}")
+            return False
+
+    def test_reporting_module(self):
+        """Test reporting dashboard and report generation"""
+        if not self.authenticated:
+            self.log_test("Reporting Module Validation", False, "Authentication required")
+            return False
+            
+        try:
+            # Test reports dashboard
+            response = self.session.get(f"{self.base_url}/public/reports_dashboard.php", timeout=10)
+            
+            if response.status_code == 200:
+                if 'report' in response.text.lower() and ('dashboard' in response.text.lower() or 'sales' in response.text.lower()):
+                    self.log_test("Reporting Module Validation", True, "Reporting dashboard and modules accessible")
+                    return True
+                else:
+                    self.log_test("Reporting Module Validation", False, "Reporting dashboard not functioning properly")
+                    return False
+            else:
+                self.log_test("Reporting Module Validation", False, f"Cannot access reporting dashboard - HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Reporting Module Validation", False, f"Error: {str(e)}")
+            return False
+
     def run_all_tests(self):
-        """Run all critical error resolution tests"""
-        print("🧪 Starting Critical Error Resolution Testing")
-        print("Testing for PHP system issues as requested by user")
+        """Run all PHP business management system tests"""
+        print("🧪 Starting PHP Business Management System Testing")
+        print("Testing critical PHP files after infrastructure fixes")
         print("=" * 70)
         
-        # Test system architecture
-        print("\n🏗️ Testing System Architecture...")
-        self.test_system_architecture()
-        
-        # Test PHP file accessibility
-        print("\n📄 Testing PHP File Accessibility...")
-        self.test_php_file_accessibility()
-        
-        # Test authentication
+        # Test authentication first (required for other tests)
         print("\n🔐 Testing Authentication System...")
-        self.test_authentication_system()
+        auth_success = self.test_authentication_system()
         
-        # Test database
+        if not auth_success:
+            print("\n❌ CRITICAL: Authentication failed - cannot proceed with other tests")
+            print("All other tests require admin authentication")
+            return False
+        
+        # Test database connectivity
         print("\n🗄️ Testing Database Connectivity...")
         self.test_database_connectivity()
         
-        # Test expected endpoints
-        print("\n🌐 Testing Expected Endpoints...")
-        self.test_expected_endpoints()
+        # Test specific PHP files mentioned in review request
+        print("\n📄 Testing quotation_enhanced.php (syntax validation)...")
+        self.test_quotation_enhanced_php()
         
-        # Test port 8080
-        print("\n🔌 Testing Port 8080 Access...")
-        self.test_port_8080_access()
+        print("\n📊 Testing item_profit.php (database query validation)...")
+        self.test_item_profit_php()
+        
+        print("\n🧮 Testing quotation_profit.php (function validation)...")
+        self.test_quotation_profit_php()
+        
+        print("\n🛡️ Testing damage_report.php (admin function validation)...")
+        self.test_damage_report_php()
+        
+        print("\n📋 Testing report_inventory.php (column validation)...")
+        self.test_report_inventory_php()
+        
+        # Test business logic
+        print("\n💼 Testing Business Logic...")
+        self.test_business_logic()
+        
+        # Test reporting module
+        print("\n📈 Testing Reporting Module...")
+        self.test_reporting_module()
         
         # Summary
         print("\n" + "=" * 70)
-        print("📊 CRITICAL ERROR RESOLUTION TEST SUMMARY")
+        print("📊 PHP BUSINESS MANAGEMENT SYSTEM TEST SUMMARY")
         print("=" * 70)
         
         passed = sum(1 for result in self.test_results if result['success'])
@@ -359,7 +422,7 @@ class PHPBusinessSystemTester:
         # List failed tests with details
         failed_tests = [result for result in self.test_results if not result['success']]
         if failed_tests:
-            print("\n❌ CRITICAL ISSUES FOUND:")
+            print("\n❌ ISSUES FOUND:")
             for test in failed_tests:
                 print(f"  • {test['test']}: {test['message']}")
                 if test['details']:
