@@ -170,7 +170,7 @@ class PHPBusinessSystemTester:
             return False
             
         try:
-            response = self.session.get(f"{self.base_url}/public/quotation_profit.php", timeout=10)
+            response = self.session.get(f"{self.base_url}/quotation_profit.php", timeout=10)
             
             if response.status_code == 200:
                 # Check for undefined function errors
