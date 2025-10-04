@@ -439,17 +439,15 @@ class PHPBusinessSystemTester:
 
 def main():
     """Main test execution"""
-    tester = CriticalErrorResolutionTester()
+    tester = PHPBusinessSystemTester()
     success = tester.run_all_tests()
     
     if success:
-        print("\n🎉 All tests passed! No critical errors found.")
+        print("\n🎉 All tests passed! PHP business management system is working correctly.")
         sys.exit(0)
     else:
-        print("\n⚠️  CRITICAL SYSTEM MISMATCH DETECTED!")
-        print("The user expects a PHP-based invoice management system,")
-        print("but the current system is FastAPI + React.")
-        print("PHP files exist but are not being served.")
+        print("\n⚠️  Some issues found in PHP business management system.")
+        print("Check the test results above for specific problems.")
         sys.exit(1)
 
 if __name__ == "__main__":
