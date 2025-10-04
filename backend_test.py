@@ -130,7 +130,7 @@ class PHPBusinessSystemTester:
             return False
             
         try:
-            response = self.session.get(f"{self.base_url}/public/item_profit.php", timeout=10)
+            response = self.session.get(f"{self.base_url}/item_profit.php", timeout=10)
             
             if response.status_code == 200:
                 # Check for database column errors
