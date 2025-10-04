@@ -383,15 +383,18 @@ backend:
 
   - task: "Enhanced Commission Report"
     implemented: true
-    working: false
+    working: true
     file: "public/report_commission_enhanced.php"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: false
         -agent: "testing"
         -comment: "CRITICAL DATABASE SCHEMA ERROR: PHP Fatal error - SQLSTATE[HY000]: General error: 1 no such column: cl.commission_date in /app/public/report_commission_enhanced.php:124. Database column mapping references non-existent columns in commission_ledger table."
+        -working: true
+        -agent: "testing"
+        -comment: "VERIFIED FIXED: Enhanced commission report working correctly - cl.commission_date → cl.created_at schema fix successfully implemented. Commission tracking, analysis, and calculations all functional."
 
   - task: "Invoice Profit Report (Rebuilt)"
     implemented: true
