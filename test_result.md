@@ -389,10 +389,20 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
-  stuck_tasks: []
-  test_all: true
-  test_priority: "completed"
+  current_focus: 
+    - "quotation_enhanced.php Syntax Validation"
+    - "item_profit.php Database Query Validation"
+    - "quotation_profit.php Function Validation"
+    - "damage_report.php Admin Function Validation"
+    - "report_inventory.php Column Validation"
+  stuck_tasks:
+    - "quotation_enhanced.php Syntax Validation"
+    - "item_profit.php Database Query Validation"
+    - "quotation_profit.php Function Validation"
+    - "damage_report.php Admin Function Validation"
+    - "report_inventory.php Column Validation"
+  test_all: false
+  test_priority: "high_first"
 
 agent_communication:
     -agent: "testing"
