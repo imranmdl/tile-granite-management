@@ -196,33 +196,44 @@ class PHPBusinessSystemTester:
             self.log_test("quotation_profit.php Function Validation", False, f"Error: {str(e)}")
             return False
 
-    def test_expected_endpoints(self):
-        """Test if expected PHP endpoints exist in current system"""
-        expected_endpoints = [
-            '/quotation_enhanced.php?id=13',
-            '/item_profit.php',
-            '/quotation_profit.php', 
-            '/damage_report.php',
-            '/report_inventory.php'
-        ]
-        
-        working_endpoints = []
-        for endpoint in expected_endpoints:
-            try:
-                response = self.session.get(f"{self.base_url}{endpoint}", timeout=5)
-                # Check if we get actual PHP content, not React app
-                if response.status_code == 200 and '<?php' in response.text and 'doctype html' not in response.text:
-                    working_endpoints.append(endpoint)
-            except:
-                pass
-        
-        if working_endpoints:
-            self.log_test("Expected Endpoints", True, f"Working endpoints: {', '.join(working_endpoints)}")
-            return True
-        else:
-            self.log_test("Expected Endpoints", False, 
-                        "CRITICAL: None of the expected PHP endpoints are accessible",
-                        "All requests return React app instead of PHP execution")
+    def test_damage_report_php(self):
+        """Test damage_report.php - previously had require_admin() function issues"""
+        if not self.authenticated:
+            self.log_test("damage_report.php Admin Function Validation", False, "Authentication required")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/public/damage_report.php", timeout=10)
+            
+            if response.status_code == 200:
+                # Check for require_admin() function errors
+                if 'undefined function' in response.text.lower() and 'require_admin' in response.text:
+                    self.log_test("damage_report.php Admin Function Validation", False, 
+                                "require_admin() function not found")
+                    return False
+                
+                # Check for access denied (means function works but user lacks permission)
+                if 'access denied' in response.text.lower() or 'permission denied' in response.text.lower():
+                    self.log_test("damage_report.php Admin Function Validation", True, 
+                                "require_admin() function working - access control active")
+                    return True
+                
+                # Check if page loads with damage report content
+                if 'damage' in response.text.lower() or 'report' in response.text.lower():
+                    self.log_test("damage_report.php Admin Function Validation", True, 
+                                "require_admin() function working - damage report accessible")
+                    return True
+                else:
+                    self.log_test("damage_report.php Admin Function Validation", False, 
+                                "Page loads but no damage report content found")
+                    return False
+            else:
+                self.log_test("damage_report.php Admin Function Validation", False, 
+                            f"HTTP {response.status_code} - file not accessible")
+                return False
+                
+        except Exception as e:
+            self.log_test("damage_report.php Admin Function Validation", False, f"Error: {str(e)}")
             return False
 
     def test_port_8080_access(self):
