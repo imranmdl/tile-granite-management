@@ -128,41 +128,50 @@ class CommissionReportingSystemTester:
             return False
 
     def test_commission_system(self):
-        """Test commission system in PHP backend"""
+        """Test commission system - Check if commission-related endpoints exist in FastAPI"""
         try:
-            # Test PHP commission system
-            response = self.session.get(f"{self.php_url}/commission_settings.php", timeout=10)
+            # Since this is a FastAPI system, check if commission endpoints are implemented
+            commission_endpoints = [
+                "/commission",
+                "/commission/rates", 
+                "/commission/ledger",
+                "/commission/calculate"
+            ]
             
-            if response.status_code == 200:
-                content = response.text
-                if "Commission Settings" in content or "commission" in content.lower():
-                    # Check database for commission data
-                    try:
-                        import sqlite3
-                        conn = sqlite3.connect(self.db_path)
-                        cursor = conn.cursor()
-                        
-                        # Check commission rates
-                        cursor.execute("SELECT COUNT(*) FROM commission_rates")
-                        rates_count = cursor.fetchone()[0]
-                        
-                        # Check commission ledger
-                        cursor.execute("SELECT COUNT(*) FROM commission_ledger")
-                        ledger_count = cursor.fetchone()[0]
-                        
-                        conn.close()
-                        
-                        self.log_test("Commission System", True, f"PHP commission system functional with {rates_count} rates and {ledger_count} ledger entries")
-                        return True
-                    except Exception as db_error:
-                        self.log_test("Commission System", True, f"PHP commission system accessible (DB check failed: {str(db_error)})")
-                        return True
-                else:
-                    self.log_test("Commission System", False, "Commission settings page accessible but missing content")
-                    return False
+            found_endpoints = []
+            for endpoint in commission_endpoints:
+                try:
+                    response = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if response.status_code != 404:  # Any response other than 404 means endpoint exists
+                        found_endpoints.append(endpoint)
+                except:
+                    pass
+            
+            if found_endpoints:
+                self.log_test("Commission System", True, f"Commission endpoints found: {', '.join(found_endpoints)}")
+                return True
             else:
-                self.log_test("Commission System", False, f"PHP commission system not accessible: HTTP {response.status_code}")
-                return False
+                # Check if SQLite database has commission data (PHP files exist but not served)
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(self.db_path)
+                    cursor = conn.cursor()
+                    
+                    # Check if commission tables exist
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%commission%'")
+                    commission_tables = cursor.fetchall()
+                    
+                    if commission_tables:
+                        table_names = [table[0] for table in commission_tables]
+                        self.log_test("Commission System", False, f"Commission system not implemented in FastAPI but database has tables: {', '.join(table_names)}")
+                    else:
+                        self.log_test("Commission System", False, "Commission system not implemented in FastAPI and no database tables found")
+                    
+                    conn.close()
+                    return False
+                except Exception as db_error:
+                    self.log_test("Commission System", False, f"Commission system not implemented in FastAPI: {str(db_error)}")
+                    return False
                 
         except Exception as e:
             self.log_test("Commission System", False, f"Error: {str(e)}")
