@@ -625,42 +625,46 @@ class PHPBusinessSystemTester:
             return False
 
     def test_quotation_profit_rebuilt(self):
-        """Test Quotation Profit Report (rebuilt with latest schema)"""
+        """Test Quotation Profit Report - Fixed qmi.quantity → qmi.qty_units"""
         if not self.authenticated:
-            self.log_test("Quotation Profit Report (Rebuilt)", False, "Authentication required")
+            self.log_test("Quotation Profit Report", False, "Authentication required")
             return False
             
         try:
             response = self.session.get(f"{self.base_url}/quotation_profit.php", timeout=10)
             
             if response.status_code == 200:
-                # Check for database schema errors (current_cost instead of as_of_cost_per_box)
-                if ('as_of_cost_per_box' in response.text and 'error' in response.text.lower()) or ('current_cost' in response.text and 'error' in response.text.lower()):
-                    self.log_test("Quotation Profit Report (Rebuilt)", False, "Database schema errors found")
+                # Check for specific database schema errors that should be fixed
+                if 'no such column: qmi.quantity' in response.text:
+                    self.log_test("Quotation Profit Report", False, "CRITICAL: qmi.quantity column error - should be qmi.qty_units")
+                    return False
+                
+                if 'qmi.quantity' in response.text and 'error' in response.text.lower():
+                    self.log_test("Quotation Profit Report", False, "CRITICAL: qmi.quantity column error still present")
+                    return False
+                
+                # Check for undefined function errors
+                if 'undefined function' in response.text.lower() and ('compute_range' in response.text or 'range_where' in response.text):
+                    self.log_test("Quotation Profit Report", False, "CRITICAL: Undefined function compute_range() or range_where()")
                     return False
                 
                 # Check for profit calculations
                 if 'profit' in response.text.lower() and 'quotation' in response.text.lower():
-                    # Check for latest schema integration
-                    if 'tiles' in response.text.lower() and ('quotation_items' in response.text.lower() or 'quotation_misc_items' in response.text.lower()):
-                        self.log_test("Quotation Profit Report (Rebuilt)", True, "Quotation profit report rebuilt with latest schema working correctly")
-                        return True
-                    else:
-                        self.log_test("Quotation Profit Report (Rebuilt)", True, "Quotation profit report working with profit calculations")
-                        return True
+                    self.log_test("Quotation Profit Report", True, "Quotation profit report working - qmi.qty_units schema fix successful")
+                    return True
                 else:
-                    self.log_test("Quotation Profit Report (Rebuilt)", False, "Quotation profit report loads but missing profit calculations")
+                    self.log_test("Quotation Profit Report", False, "Quotation profit report loads but missing profit calculations")
                     return False
             elif response.status_code == 500:
-                # Check if it's a minor runtime error but core functionality works
-                self.log_test("Quotation Profit Report (Rebuilt)", True, "Minor: HTTP 500 runtime error but quotation profit report functionality implemented")
-                return True
+                # Check error logs for specific schema issues
+                self.log_test("Quotation Profit Report", False, "HTTP 500 error - likely database schema issue with qmi.quantity")
+                return False
             else:
-                self.log_test("Quotation Profit Report (Rebuilt)", False, f"HTTP {response.status_code} - quotation profit report not accessible")
+                self.log_test("Quotation Profit Report", False, f"HTTP {response.status_code} - quotation profit report not accessible")
                 return False
                 
         except Exception as e:
-            self.log_test("Quotation Profit Report (Rebuilt)", False, f"Error: {str(e)}")
+            self.log_test("Quotation Profit Report", False, f"Error: {str(e)}")
             return False
 
     def test_invoice_profit_rebuilt(self):
