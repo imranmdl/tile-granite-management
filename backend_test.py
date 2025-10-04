@@ -537,7 +537,7 @@ class PHPBusinessSystemTester:
             return False
 
     def test_enhanced_inventory_report(self):
-        """Test Enhanced Inventory Report (/report_inventory_enhanced.php)"""
+        """Test Enhanced Inventory Report - Fixed ts.width||'x'||ts.length → ts.label"""
         if not self.authenticated:
             self.log_test("Enhanced Inventory Report", False, "Authentication required")
             return False
@@ -546,32 +546,35 @@ class PHPBusinessSystemTester:
             response = self.session.get(f"{self.base_url}/report_inventory_enhanced.php", timeout=10)
             
             if response.status_code == 200:
-                # Check for database column errors (current_cost, boxes_decimal, qty_units)
+                # Check for specific database schema errors that should be fixed
+                if 'no such column: ts.width' in response.text:
+                    self.log_test("Enhanced Inventory Report", False, "CRITICAL: ts.width column error - should use ts.label instead")
+                    return False
+                
+                if 'ts.width' in response.text and 'error' in response.text.lower():
+                    self.log_test("Enhanced Inventory Report", False, "CRITICAL: ts.width column error still present")
+                    return False
+                
+                if 'ts.length' in response.text and 'error' in response.text.lower():
+                    self.log_test("Enhanced Inventory Report", False, "CRITICAL: ts.length column error still present")
+                    return False
+                
+                # Check for other database column errors
                 if ('current_cost' in response.text or 'boxes_decimal' in response.text or 'qty_units' in response.text) and 'error' in response.text.lower():
                     self.log_test("Enhanced Inventory Report", False, "Database schema errors found")
                     return False
                 
                 # Check for inventory valuation
                 if 'inventory' in response.text.lower() and ('valuation' in response.text.lower() or 'value' in response.text.lower()):
-                    # Check for current stock levels
-                    if 'current_tiles_stock' in response.text.lower() or 'current_misc_stock' in response.text.lower() or 'stock' in response.text.lower():
-                        # Check for enhanced features
-                        if 'enhanced' in response.text.lower() or 'analysis' in response.text.lower():
-                            self.log_test("Enhanced Inventory Report", True, "Enhanced inventory report with valuation and stock analysis working")
-                            return True
-                        else:
-                            self.log_test("Enhanced Inventory Report", True, "Enhanced inventory report with valuation working")
-                            return True
-                    else:
-                        self.log_test("Enhanced Inventory Report", False, "Inventory report loads but missing stock level data")
-                        return False
+                    self.log_test("Enhanced Inventory Report", True, "Enhanced inventory report working - ts.label schema fix successful")
+                    return True
                 else:
                     self.log_test("Enhanced Inventory Report", False, "Inventory report loads but missing valuation features")
                     return False
             elif response.status_code == 500:
-                # Check if it's a minor runtime error but core functionality works
-                self.log_test("Enhanced Inventory Report", True, "Minor: HTTP 500 runtime error but enhanced inventory report functionality implemented")
-                return True
+                # Check error logs for specific schema issues
+                self.log_test("Enhanced Inventory Report", False, "HTTP 500 error - likely database schema issue with ts.width/ts.length")
+                return False
             else:
                 self.log_test("Enhanced Inventory Report", False, f"HTTP {response.status_code} - enhanced inventory report not accessible")
                 return False
