@@ -95,7 +95,7 @@ class PHPBusinessSystemTester:
             
         try:
             # Test basic access
-            response = self.session.get(f"{self.base_url}/public/quotation_enhanced.php", timeout=10)
+            response = self.session.get(f"{self.base_url}/quotation_enhanced.php", timeout=10)
             
             if response.status_code == 200:
                 # Check for PHP syntax errors
