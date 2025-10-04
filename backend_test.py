@@ -38,7 +38,7 @@ class CriticalErrorResolutionTester:
             print(f"    Details: {details}")
         print()
 
-    def authenticate_php_system(self):
+    def test_system_architecture(self):
         """Authenticate with the PHP system using admin/admin123"""
         try:
             # Get login page first to establish session
