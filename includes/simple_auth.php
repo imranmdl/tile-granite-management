@@ -40,7 +40,7 @@ function auth_is_logged_in() {
 
 function auth_require_login() {
     if (!auth_is_logged_in()) {
-        header('Location: /public/login.php?redirect=' . urlencode($_SERVER['REQUEST_URI'] ?? ''));
+        header('Location: /login.php?redirect=' . urlencode($_SERVER['REQUEST_URI'] ?? ''));
         exit;
     }
 }
