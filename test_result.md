@@ -329,15 +329,18 @@ backend:
 
   - task: "Enhanced Sales Report"
     implemented: true
-    working: true
+    working: false
     file: "public/report_sales_enhanced.php"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         -working: true
         -agent: "testing"
         -comment: "COMPLETED: Enhanced sales report with advanced filtering (customer, salesperson, product type, min amount), customer and salesperson performance analysis, product mix analytics (tiles vs misc items), revenue breakdowns with commission tracking working correctly."
+        -working: false
+        -agent: "testing"
+        -comment: "CRITICAL DATABASE SCHEMA ERROR: PHP Fatal error - SQLSTATE[HY000]: General error: 1 no such function: CONCAT in /app/public/report_sales_enhanced.php:216. SQLite doesn't support CONCAT function - needs to use || concatenation operator instead."
 
   - task: "Enhanced Damage Report"
     implemented: true
