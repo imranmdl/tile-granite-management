@@ -178,29 +178,31 @@ class CommissionReportingSystemTester:
             return False
 
     def test_reporting_dashboard(self):
-        """Test PHP reporting dashboard"""
+        """Test reporting dashboard - Check if reporting endpoints exist in FastAPI"""
         try:
-            response = self.session.get(f"{self.php_url}/reports_dashboard.php", timeout=10)
+            # Check for reporting endpoints in FastAPI
+            reporting_endpoints = [
+                "/reports",
+                "/reports/dashboard",
+                "/reports/sales",
+                "/reports/commission",
+                "/reports/profit-loss"
+            ]
             
-            if response.status_code == 200:
-                content = response.text
-                # Check for key dashboard elements
-                if "Reports Dashboard" in content or "reports" in content.lower():
-                    # Check for report links
-                    report_links = ["Sales Report", "Commission Report", "Daily Business"]
-                    found_links = sum(1 for link in report_links if link.lower() in content.lower())
-                    
-                    if found_links >= 2:
-                        self.log_test("Reporting Dashboard", True, f"PHP reports dashboard accessible with {found_links} report links")
-                        return True
-                    else:
-                        self.log_test("Reporting Dashboard", True, "PHP reports dashboard accessible but limited report links")
-                        return True
-                else:
-                    self.log_test("Reporting Dashboard", False, "Dashboard accessible but missing key elements")
-                    return False
+            found_endpoints = []
+            for endpoint in reporting_endpoints:
+                try:
+                    response = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if response.status_code != 404:
+                        found_endpoints.append(endpoint)
+                except:
+                    pass
+            
+            if found_endpoints:
+                self.log_test("Reporting Dashboard", True, f"Reporting endpoints found: {', '.join(found_endpoints)}")
+                return True
             else:
-                self.log_test("Reporting Dashboard", False, f"PHP reports dashboard not accessible: HTTP {response.status_code}")
+                self.log_test("Reporting Dashboard", False, "No reporting endpoints implemented in FastAPI backend")
                 return False
                 
         except Exception as e:
