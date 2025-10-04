@@ -81,7 +81,7 @@ $misc_sql = "
         
         -- Purchase/Cost Data
         COALESCE(m.current_cost, 0) as current_cost,
-        COALESCE(AVG(pem.rate_per_unit), 0) as avg_purchase_cost,
+        COALESCE(AVG(pem.as_of_cost_per_unit), 0) as avg_purchase_cost,
         
         -- Sales Data from Invoices
         COUNT(DISTINCT imi.invoice_id) as invoice_count,
