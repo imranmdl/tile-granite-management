@@ -1,10 +1,9 @@
 <?php
-// public/quotation_profit.php
-require_once __DIR__ . '/../includes/auth.php';
+// public/quotation_profit.php - Quotation-wise Profit/Loss Analysis
+require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
-require_once __DIR__ . '/../includes/calc_cost.php';
-require_once __DIR__ . '/../includes/report_range.php';
-require_login();
+
+auth_require_login();
 
 $pdo = Database::pdo();
 $rng = compute_range();
