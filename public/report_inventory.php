@@ -61,7 +61,8 @@ $tiles_data = $tiles_stmt->fetchAll(PDO::FETCH_ASSOC);
 $misc_sql = "
     SELECT m.id, m.name, m.unit_label, m.photo_path, 
            m.current_cost, m.last_cost, m.average_cost,
-           cms.total_stock_units, cms.total_value as stock_value,
+           COALESCE(cms.total_stock_units, 0) as total_stock_units, 
+           COALESCE(cms.total_stock_units * m.current_cost, 0) as stock_value,
            '' as vendor_name
     FROM misc_items m
     LEFT JOIN current_misc_stock cms ON m.id = cms.id
