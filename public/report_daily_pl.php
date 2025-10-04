@@ -98,7 +98,7 @@ while ($row = $tile_cost_stmt->fetch(PDO::FETCH_ASSOC)) {
 $misc_cost_sql = "
     SELECT 
         DATE(i.invoice_dt) as sale_date,
-        SUM(imi.quantity * m.current_cost) as misc_cost
+        SUM(imi.qty_units * m.current_cost) as misc_cost
     FROM invoices i
     JOIN invoice_misc_items imi ON i.id = imi.invoice_id
     JOIN misc_items m ON imi.misc_item_id = m.id
