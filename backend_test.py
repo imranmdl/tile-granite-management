@@ -353,7 +353,7 @@ class PHPBusinessSystemTester:
             
         try:
             # Test reports dashboard
-            response = self.session.get(f"{self.base_url}/public/reports_dashboard.php", timeout=10)
+            response = self.session.get(f"{self.base_url}/reports_dashboard.php", timeout=10)
             
             if response.status_code == 200:
                 if 'report' in response.text.lower() and ('dashboard' in response.text.lower() or 'sales' in response.text.lower()):
