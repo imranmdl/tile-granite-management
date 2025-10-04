@@ -183,7 +183,7 @@ if (!function_exists('nav_active_any')) {
         </li>
         <!-- Reports -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle <?= nav_active_any(['reports_dashboard.php','reports_dashboard_new.php','report_daily_pl.php','report_sales_enhanced.php','report_damage_enhanced.php','report_sales.php','report_daily_summary.php','report_commission.php','item_profit.php','invoice_profit.php','quotation_profit.php','damage_report.php','expenses.php','reports.php','report_inventory.php'],$path) ?>"
+          <a class="nav-link dropdown-toggle <?= nav_active_any(['reports_dashboard.php','reports_dashboard_new.php','report_daily_pl.php','report_sales_enhanced.php','report_inventory_enhanced.php','report_commission_enhanced.php','report_damage_enhanced.php','report_sales.php','report_daily_summary.php','report_commission.php','item_profit.php','invoice_profit.php','quotation_profit.php','damage_report.php','expenses.php','reports.php','report_inventory.php'],$path) ?>"
              href="#" data-bs-toggle="dropdown">Reports</a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item <?= nav_active('reports_dashboard_new.php',$path) ?>" href="<?= $base ?>/reports_dashboard_new.php"><i class="bi bi-speedometer2"></i> Enhanced Reports Dashboard</a></li>
