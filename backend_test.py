@@ -250,7 +250,7 @@ class PHPBusinessSystemTester:
             return False
             
         try:
-            response = self.session.get(f"{self.base_url}/public/report_inventory.php", timeout=10)
+            response = self.session.get(f"{self.base_url}/report_inventory.php", timeout=10)
             
             if response.status_code == 200:
                 # Check for total_stock_units column errors
