@@ -42,7 +42,7 @@ $quotation_sql = "
             WHERE qi.quotation_id = q.id
         ) as tiles_cost,
         (
-            SELECT SUM(qmi.quantity * m.current_cost)
+            SELECT SUM(qmi.qty_units * m.current_cost)
             FROM quotation_misc_items qmi
             JOIN misc_items m ON qmi.misc_item_id = m.id
             WHERE qmi.quotation_id = q.id
