@@ -137,11 +137,11 @@ backend:
 
   - task: "quotation_profit.php Function Validation"
     implemented: true
-    working: true
+    working: false
     file: "public/quotation_profit.php"
-    stuck_count: 0
+    stuck_count: 2
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         -working: false
         -agent: "testing"
@@ -149,6 +149,9 @@ backend:
         -working: true
         -agent: "testing"
         -comment: "RESOLVED: compute_range() function available - profit calculations working correctly. PHP server operational and function dependencies resolved."
+        -working: false
+        -agent: "testing"
+        -comment: "CRITICAL DATABASE SCHEMA ERROR: PHP Fatal error - SQLSTATE[HY000]: General error: 1 no such column: qmi.quantity in /app/public/quotation_profit.php:75. Database column mapping still uses legacy schema. Needs qmi.quantity → qmi.qty_units fix for quotation_misc_items table."
 
   - task: "damage_report.php Admin Function Validation"
     implemented: true
