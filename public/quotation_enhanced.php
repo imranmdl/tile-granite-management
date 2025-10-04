@@ -1357,49 +1357,19 @@ function calculateCommission() {
     
     const commissionAmount = (subtotal * commissionPercentage) / 100;
     
-    document.getElementById('commissionAmount').value = '₹' + commissionAmount.toFixed(2);
+    if (document.getElementById('commissionAmount')) {
+        document.getElementById('commissionAmount').value = '₹' + commissionAmount.toFixed(2);
+    }
 }
 
 function calculateDiscount() {
     const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
-    const discountType = document.querySelector('[name="discount_type"]').value;
-    const discountValue = parseFloat(document.querySelector('[name="discount_value"]').value) || 0;
+    const discountType = document.querySelector('[name="discount_type"]')?.value || 'percentage';
+    const discountValue = parseFloat(document.querySelector('[name="discount_value"]')?.value) || 0;
     
     let discountAmount = 0;
     if (discountType === 'percentage') {
         discountAmount = subtotal * (discountValue / 100);
-    } else {
-        discountAmount = discountValue;
-    }
-    
-    document.getElementById('discountAmount').value = '₹' + discountAmount.toFixed(2);
-}
-
-function updateDiscountLabel() {
-    const discountType = document.querySelector('[name="discount_type"]').value;
-    const label = document.getElementById('discountLabel');
-    
-    if (discountType === 'percentage') {
-        label.textContent = 'Discount Percentage';
-    } else {
-        label.textContent = 'Discount Amount';
-    }
-    
-    calculateDiscount();
-}
-
-function calculateDiscount() {
-    const discountType = document.querySelector('[name="discount_type"]').value;
-    const discountValue = parseFloat(document.querySelector('[name="discount_value"]').value) || 0;
-    const discountAmountField = document.getElementById('discountAmount');
-    
-    // Get subtotal from the page (you may need to adjust this selector)
-    const subtotalText = document.querySelector('.fs-5')?.textContent || '₹0';
-    const subtotal = parseFloat(subtotalText.replace(/[₹,]/g, '')) || 0;
-    
-    let discountAmount = 0;
-    if (discountType === 'percentage') {
-        discountAmount = (subtotal * discountValue) / 100;
     } else {
         discountAmount = discountValue;
     }
@@ -1409,6 +1379,26 @@ function calculateDiscount() {
     
     if (document.getElementById('discountAmount')) {
         document.getElementById('discountAmount').value = '₹' + discountAmount.toFixed(2);
+    }
+}
+
+function updateDiscountLabel() {
+    const discountType = document.querySelector('[name="discount_type"]')?.value || 'percentage';
+    const label = document.getElementById('discountLabel');
+    const input = document.querySelector('[name="discount_value"]');
+    
+    if (discountType === 'percentage') {
+        if (label) label.textContent = 'Discount Percentage';
+        if (input) {
+            input.placeholder = 'Enter percentage (e.g., 10 for 10%)';
+            input.max = '100';
+        }
+    } else {
+        if (label) label.textContent = 'Discount Amount';
+        if (input) {
+            input.placeholder = 'Enter fixed amount in ₹';
+            input.removeAttribute('max');
+        }
     }
 }
 </script>
