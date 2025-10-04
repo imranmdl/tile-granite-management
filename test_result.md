@@ -137,15 +137,18 @@ backend:
 
   - task: "quotation_profit.php Function Validation"
     implemented: true
-    working: false
+    working: true
     file: "public/quotation_profit.php"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
         -working: false
         -agent: "testing"
         -comment: "CRITICAL SYSTEM MISMATCH: PHP file exists but cannot be tested for undefined function compute_range() errors because no PHP server is running. File references compute_range() function but cannot be executed in current system."
+        -working: true
+        -agent: "testing"
+        -comment: "RESOLVED: compute_range() function available - profit calculations working correctly. PHP server operational and function dependencies resolved."
 
   - task: "damage_report.php Admin Function Validation"
     implemented: true
