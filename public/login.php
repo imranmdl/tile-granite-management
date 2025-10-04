@@ -3,7 +3,7 @@ require_once __DIR__ . '/../includes/auth.php';
 
 // Check if user is already logged in
 if (auth_user()) {
-    header('Location: /public/index.php');
+    header('Location: /index.php');
     exit;
 }
 
