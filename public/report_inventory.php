@@ -30,13 +30,13 @@ $export = isset($_GET['export']) && $_GET['export'] === 'csv';
 $tiles_sql = "
     SELECT t.id, t.name, ts.label as size_label, ts.sqft_per_box,
            t.photo_path, t.current_cost, t.last_cost, t.average_cost,
-           COALESCE(cts.total_stock_boxes, 0) as total_stock_boxes, 
-           COALESCE(cts.total_stock_sqft, 0) as total_stock_sqft,
-           COALESCE(cts.total_stock_boxes * t.current_cost, 0) as stock_value,
+           COALESCE(SUM(pet.purchase_qty_boxes), 0) as total_stock_boxes, 
+           COALESCE(SUM(pet.purchase_qty_boxes * ts.sqft_per_box), 0) as total_stock_sqft,
+           COALESCE(SUM(pet.purchase_qty_boxes) * t.current_cost, 0) as stock_value,
            '' as vendor_name
     FROM tiles t
     JOIN tile_sizes ts ON t.size_id = ts.id
-    LEFT JOIN current_tiles_stock cts ON t.id = cts.id
+    LEFT JOIN purchase_entries_tiles pet ON t.id = pet.tile_id
     WHERE 1=1
 ";
 
