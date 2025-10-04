@@ -300,6 +300,66 @@ backend:
         -agent: "testing"
         -comment: "COMPLETED: Chart.js integration implemented in sales reports and daily business summary for visual data representation. Charts configured for sales trends and profit analysis."
 
+  - task: "Enhanced Reports Dashboard"
+    implemented: true
+    working: true
+    file: "public/reports_dashboard_new.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: Enhanced reports dashboard with quick stats display (today's revenue, monthly revenue, damage count), permission system (Reports Access, P&L Access badges), and navigation cards for all report categories working correctly."
+
+  - task: "Daily P&L Report"
+    implemented: true
+    working: true
+    file: "public/report_daily_pl.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: Daily P&L report with date range filtering and presets (today, yesterday, this week, etc.), revenue/cost/commission/returns calculations, profit margin analysis and trending, export functionality implemented. Database schema integration working correctly."
+
+  - task: "Enhanced Sales Report"
+    implemented: true
+    working: true
+    file: "public/report_sales_enhanced.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: Enhanced sales report with advanced filtering (customer, salesperson, product type, min amount), customer and salesperson performance analysis, product mix analytics (tiles vs misc items), revenue breakdowns with commission tracking working correctly."
+
+  - task: "Enhanced Damage Report"
+    implemented: true
+    working: true
+    file: "public/report_damage_enhanced.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: Enhanced damage report with supplier performance analysis, damage cost calculations for tiles and misc items, damage percentage thresholds and filtering, comprehensive damage tracking from purchase entries working correctly."
+
+  - task: "Database Schema Integration"
+    implemented: true
+    working: true
+    file: "public/report_daily_pl.php, public/report_sales_enhanced.php, public/report_damage_enhanced.php"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "testing"
+        -comment: "COMPLETED: Database schema integration verified - all legacy column issues resolved (ii.quantity → ii.boxes_decimal for invoice_items, imi.quantity → imi.qty_units for invoice_misc_items). All reports use latest schema correctly with proper integration to invoices, invoice_items, invoice_misc_items, purchase_entries_tiles, purchase_entries_misc tables."
+
 frontend:
   - task: "React Frontend Basic Setup"
     implemented: true
