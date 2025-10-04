@@ -60,7 +60,7 @@ $today_profit = 0;
 $profit_stmt = $pdo->prepare("
     SELECT 
         SUM(ii.boxes_decimal * ii.rate_per_box) as tile_revenue,
-        SUM(imi.quantity * imi.rate_per_unit) as misc_revenue
+        SUM(imi.qty_units * imi.rate_per_unit) as misc_revenue
     FROM invoices i
     LEFT JOIN invoice_items ii ON i.id = ii.invoice_id
     LEFT JOIN invoice_misc_items imi ON i.id = imi.invoice_id
