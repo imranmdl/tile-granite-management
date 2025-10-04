@@ -107,7 +107,7 @@ require_once __DIR__ . '/../includes/header.php';
                             $pending_quotes = $pdo->query("
                                 SELECT COUNT(*) as count
                                 FROM quotations 
-                                WHERE status = 'pending'
+                                WHERE COALESCE(status, 'pending') = 'pending'
                             ")->fetchColumn();
                             ?>
                             <h3><?= number_format($pending_quotes) ?></h3>
