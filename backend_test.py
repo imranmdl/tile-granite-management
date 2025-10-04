@@ -328,7 +328,7 @@ class PHPBusinessSystemTester:
             
         try:
             # Test commission system
-            response = self.session.get(f"{self.base_url}/public/commission_ledger.php", timeout=10)
+            response = self.session.get(f"{self.base_url}/commission_ledger.php", timeout=10)
             
             if response.status_code == 200:
                 if 'commission' in response.text.lower() and ('calculation' in response.text.lower() or 'amount' in response.text.lower()):
