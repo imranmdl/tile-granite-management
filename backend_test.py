@@ -116,29 +116,44 @@ class PHPBusinessSystemTester:
             self.log_test("quotation_enhanced.php Validation", False, f"Error: {str(e)}")
             return False
 
-    def test_authentication_system(self):
-        """Test if admin/admin123 authentication works"""
-        try:
-            # Try to access login endpoint
-            login_response = self.session.get(f"{self.base_url}/login.php", timeout=5)
-            if login_response.status_code == 200 and 'login' in login_response.text.lower():
-                # Try authentication
-                login_data = {
-                    'username': 'admin',
-                    'password': 'admin123'
-                }
-                auth_response = self.session.post(f"{self.base_url}/login.php", data=login_data, timeout=5)
-                if auth_response.status_code == 200:
-                    self.log_test("Authentication System", True, "PHP authentication system accessible")
-                    return True
-            
-            self.log_test("Authentication System", False, 
-                        "PHP authentication not accessible",
-                        "Cannot access login.php - React frontend intercepting requests")
+    def test_item_profit_php(self):
+        """Test item_profit.php - previously had 'rate_per_box' column errors"""
+        if not self.authenticated:
+            self.log_test("item_profit.php Database Query Validation", False, "Authentication required")
             return False
             
+        try:
+            response = self.session.get(f"{self.base_url}/public/item_profit.php", timeout=10)
+            
+            if response.status_code == 200:
+                # Check for database column errors
+                if 'rate_per_box' in response.text and 'error' in response.text.lower():
+                    self.log_test("item_profit.php Database Query Validation", False, 
+                                "rate_per_box column errors still present")
+                    return False
+                
+                # Check for other database errors
+                if 'database error' in response.text.lower() or 'sql error' in response.text.lower():
+                    self.log_test("item_profit.php Database Query Validation", False, 
+                                "Database query errors found")
+                    return False
+                
+                # Check if page loads with profit data or form
+                if 'profit' in response.text.lower() or 'item' in response.text.lower():
+                    self.log_test("item_profit.php Database Query Validation", True, 
+                                "Database queries execute without rate_per_box errors")
+                    return True
+                else:
+                    self.log_test("item_profit.php Database Query Validation", False, 
+                                "Page loads but no profit/item content found")
+                    return False
+            else:
+                self.log_test("item_profit.php Database Query Validation", False, 
+                            f"HTTP {response.status_code} - file not accessible")
+                return False
+                
         except Exception as e:
-            self.log_test("Authentication System", False, f"Error: {str(e)}")
+            self.log_test("item_profit.php Database Query Validation", False, f"Error: {str(e)}")
             return False
 
     def test_database_connectivity(self):
