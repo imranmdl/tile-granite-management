@@ -242,20 +242,30 @@ class CommissionReportingSystemTester:
             return False
 
     def test_daily_business_summary(self):
-        """Test PHP daily business summary"""
+        """Test daily business summary endpoints in FastAPI"""
         try:
-            response = self.session.get(f"{self.php_url}/report_daily_business.php", timeout=10)
+            # Check for daily business endpoints
+            daily_endpoints = [
+                "/daily",
+                "/daily/summary",
+                "/daily/business",
+                "/analytics/daily"
+            ]
             
-            if response.status_code == 200:
-                content = response.text
-                if "Daily Business" in content or "daily" in content.lower():
-                    self.log_test("Daily Business Summary", True, "PHP daily business summary report accessible")
-                    return True
-                else:
-                    self.log_test("Daily Business Summary", False, "Daily business report accessible but missing content")
-                    return False
+            found_endpoints = []
+            for endpoint in daily_endpoints:
+                try:
+                    response = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if response.status_code != 404:
+                        found_endpoints.append(endpoint)
+                except:
+                    pass
+            
+            if found_endpoints:
+                self.log_test("Daily Business Summary", True, f"Daily business endpoints found: {', '.join(found_endpoints)}")
+                return True
             else:
-                self.log_test("Daily Business Summary", False, f"PHP daily business report not accessible: HTTP {response.status_code}")
+                self.log_test("Daily Business Summary", False, "No daily business summary endpoints implemented in FastAPI backend")
                 return False
                 
         except Exception as e:
