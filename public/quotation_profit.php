@@ -6,11 +6,23 @@ require_once __DIR__ . '/../includes/helpers.php';
 auth_require_login();
 
 $pdo = Database::pdo();
-$rng = compute_range();
-$page_title = pretty_report_name('Quote P/L') . ' — ' . $rng['label'];
+$user_id = $_SESSION['user_id'] ?? 1;
 
+// Check permissions
+$user_stmt = $pdo->prepare("SELECT * FROM users_simple WHERE id = ?");
+$user_stmt->execute([$user_id]);
+$user = $user_stmt->fetch(PDO::FETCH_ASSOC);
+
+$can_view_reports = ($user['can_view_reports'] ?? 0) == 1 || ($user['role'] ?? '') === 'admin';
+$can_view_pl = ($user['can_view_pl'] ?? 0) == 1 || ($user['role'] ?? '') === 'admin';
+
+if (!$can_view_reports) {
+    $_SESSION['error'] = 'You do not have permission to access reports';
+    safe_redirect('index.php');
+}
+
+$page_title = "Quotation-wise Profit Analysis";
 require_once __DIR__ . '/../includes/header.php';
-render_range_controls();
 
 $mode = (isset($_GET['mode']) && strtolower($_GET['mode'])==='detailed') ? 'detailed' : 'simple';
 $id   = isset($_GET['id']) ? (int)$_GET['id'] : 0;
