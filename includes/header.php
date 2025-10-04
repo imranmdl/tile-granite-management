@@ -191,6 +191,8 @@ if (!function_exists('nav_active_any')) {
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item <?= nav_active('report_daily_pl.php',$path) ?>" href="<?= $base ?>/report_daily_pl.php"><i class="bi bi-calendar-day"></i> Daily P&L Report</a></li>
             <li><a class="dropdown-item <?= nav_active('report_sales_enhanced.php',$path) ?>" href="<?= $base ?>/report_sales_enhanced.php"><i class="bi bi-graph-up-arrow"></i> Enhanced Sales Report</a></li>
+            <li><a class="dropdown-item <?= nav_active('report_inventory_enhanced.php',$path) ?>" href="<?= $base ?>/report_inventory_enhanced.php"><i class="bi bi-boxes"></i> Enhanced Inventory Report</a></li>
+            <li><a class="dropdown-item <?= nav_active('report_commission_enhanced.php',$path) ?>" href="<?= $base ?>/report_commission_enhanced.php"><i class="bi bi-person-check"></i> Enhanced Commission Report</a></li>
             <li><a class="dropdown-item <?= nav_active('report_damage_enhanced.php',$path) ?>" href="<?= $base ?>/report_damage_enhanced.php"><i class="bi bi-exclamation-triangle"></i> Enhanced Damage Report</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item <?= nav_active('report_sales.php',$path) ?>" href="<?= $base ?>/report_sales.php"><i class="bi bi-graph-up"></i> Legacy Sales Report</a></li>
