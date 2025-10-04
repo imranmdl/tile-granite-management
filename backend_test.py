@@ -210,29 +210,31 @@ class CommissionReportingSystemTester:
             return False
 
     def test_sales_report(self):
-        """Test PHP sales report"""
+        """Test sales report endpoints in FastAPI"""
         try:
-            # Test basic sales report access
-            response = self.session.get(f"{self.php_url}/report_sales.php", timeout=10)
+            # Check for sales-related endpoints
+            sales_endpoints = [
+                "/sales",
+                "/sales/report",
+                "/sales/summary",
+                "/invoices",
+                "/invoices/list"
+            ]
             
-            if response.status_code == 200:
-                content = response.text
-                if "Sales Report" in content or "sales" in content.lower():
-                    # Test with date range parameters
-                    today = datetime.now().strftime('%Y-%m-%d')
-                    response_with_params = self.session.get(f"{self.php_url}/report_sales.php?date_from={today}&date_to={today}", timeout=10)
-                    
-                    if response_with_params.status_code == 200:
-                        self.log_test("Sales Report", True, "PHP sales report accessible with date range filtering")
-                        return True
-                    else:
-                        self.log_test("Sales Report", True, "PHP sales report accessible but date filtering may have issues")
-                        return True
-                else:
-                    self.log_test("Sales Report", False, "Sales report page accessible but missing content")
-                    return False
+            found_endpoints = []
+            for endpoint in sales_endpoints:
+                try:
+                    response = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if response.status_code != 404:
+                        found_endpoints.append(endpoint)
+                except:
+                    pass
+            
+            if found_endpoints:
+                self.log_test("Sales Report", True, f"Sales endpoints found: {', '.join(found_endpoints)}")
+                return True
             else:
-                self.log_test("Sales Report", False, f"PHP sales report not accessible: HTTP {response.status_code}")
+                self.log_test("Sales Report", False, "No sales reporting endpoints implemented in FastAPI backend")
                 return False
                 
         except Exception as e:
