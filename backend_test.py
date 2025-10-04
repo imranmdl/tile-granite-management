@@ -305,7 +305,7 @@ class PHPBusinessSystemTester:
                     return True
                 else:
                     # Try another database-dependent page
-                    inv_response = self.session.get(f"{self.base_url}/public/inventory.php", timeout=10)
+                    inv_response = self.session.get(f"{self.base_url}/inventory.php", timeout=10)
                     if inv_response.status_code == 200 and 'inventory' in inv_response.text.lower():
                         self.log_test("Database Connectivity", True, "SQLite database connectivity verified via inventory")
                         return True
