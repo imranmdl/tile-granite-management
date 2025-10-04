@@ -31,7 +31,7 @@ $quotation_sql = "
             WHERE qi.quotation_id = q.id
         ) as tiles_revenue,
         (
-            SELECT SUM(qmi.quantity * qmi.rate_per_unit)
+            SELECT SUM(qmi.qty_units * qmi.rate_per_unit)
             FROM quotation_misc_items qmi
             WHERE qmi.quotation_id = q.id
         ) as misc_revenue,
