@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-Backend Test Suite for Critical Error Resolution Testing
-Tests the actual system implementation and identifies critical mismatches.
+PHP Business Management System Test Suite
+Tests the PHP-based invoice management system running on localhost:8080
 """
 
 import requests
 import json
 import sys
+import re
 from datetime import datetime
 
-class CriticalErrorResolutionTester:
-    def __init__(self, base_url="https://tile-mgmt-system.preview.emergentagent.com"):
+class PHPBusinessSystemTester:
+    def __init__(self, base_url="http://localhost:8080"):
         self.base_url = base_url
-        self.api_url = f"{base_url}/api"
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Content-Type': 'application/json'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         self.test_results = []
+        self.authenticated = False
         
     def log_test(self, test_name, success, message="", details=""):
         """Log test results"""
