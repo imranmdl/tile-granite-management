@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     
     if ($success) {
-        header('Location: /public/index.php');
+        header('Location: /index.php');
         exit;
     }
 }
