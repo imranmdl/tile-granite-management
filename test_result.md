@@ -390,18 +390,18 @@ metadata:
 
 test_plan:
   current_focus: 
-    - "quotation_enhanced.php Syntax Validation"
     - "item_profit.php Database Query Validation"
     - "quotation_profit.php Function Validation"
     - "damage_report.php Admin Function Validation"
     - "report_inventory.php Column Validation"
+    - "quotation_enhanced.php End-to-End Validation"
+    - "Authentication System Validation"
   stuck_tasks:
-    - "quotation_enhanced.php Syntax Validation"
     - "item_profit.php Database Query Validation"
-    - "quotation_profit.php Function Validation"
+    - "quotation_profit.php Function Validation"  
     - "damage_report.php Admin Function Validation"
     - "report_inventory.php Column Validation"
-  test_all: false
+  test_all: true
   test_priority: "high_first"
 
 agent_communication:
