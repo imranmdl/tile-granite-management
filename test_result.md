@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the comprehensive Commission and Reporting system implementation including database schema validation, commission system functionality, reporting dashboard, sales reports, daily business summary, commission reports, permissions system, data integrity, navigation, and Chart.js integration."
+user_problem_statement: "Critical Error Resolution Testing - Priority Fix Validation: Test specific error-prone files that were just fixed: 1) quotation_enhanced.php - Verify no more syntax errors on line 1416, 2) item_profit.php - Test database queries work without 'rate_per_box' column errors, 3) quotation_profit.php - Verify no more undefined function compute_range() errors, 4) damage_report.php - Test require_admin() function works properly, 5) report_inventory.php - Verify no more 'total_stock_units' column errors. Expected authentication: admin/admin123, Base URL: http://localhost:8080"
 
 backend:
   - task: "Database Schema Validation"
