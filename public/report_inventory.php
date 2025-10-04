@@ -51,7 +51,7 @@ if ($low_stock_only) {
     $tiles_sql .= " AND COALESCE(cts.total_stock_boxes, 0) < 10";
 }
 
-$tiles_sql .= " ORDER BY t.name, ts.label";
+$tiles_sql .= " GROUP BY t.id, t.name, ts.label ORDER BY t.name, ts.label";
 
 $tiles_stmt = $pdo->prepare($tiles_sql);
 $tiles_stmt->execute($params);
