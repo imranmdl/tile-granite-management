@@ -303,43 +303,56 @@ class CommissionReportingSystemTester:
             return False
 
     def test_permissions_system(self):
-        """Test PHP permissions system"""
+        """Test permissions system in FastAPI"""
         try:
-            # Test login page accessibility
-            response = self.session.get(f"{self.php_url}/login_clean.php", timeout=10)
+            # Check for authentication/authorization endpoints
+            auth_endpoints = [
+                "/auth",
+                "/auth/login",
+                "/auth/logout",
+                "/users",
+                "/users/permissions"
+            ]
             
-            if response.status_code == 200:
-                content = response.text
-                if "login" in content.lower() or "username" in content.lower():
-                    # Check database for user permissions
-                    try:
-                        import sqlite3
-                        conn = sqlite3.connect(self.db_path)
-                        cursor = conn.cursor()
-                        
-                        # Check if users_simple table has permission columns
+            found_endpoints = []
+            for endpoint in auth_endpoints:
+                try:
+                    response = self.session.get(f"{self.api_url}{endpoint}", timeout=5)
+                    if response.status_code != 404:
+                        found_endpoints.append(endpoint)
+                except:
+                    pass
+            
+            if found_endpoints:
+                self.log_test("Permissions System", True, f"Authentication endpoints found: {', '.join(found_endpoints)}")
+                return True
+            else:
+                # Check if SQLite database has user permission data
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(self.db_path)
+                    cursor = conn.cursor()
+                    
+                    # Check if users_simple table exists with permission columns
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users_simple'")
+                    if cursor.fetchone():
                         cursor.execute("PRAGMA table_info(users_simple)")
                         columns = [col[1] for col in cursor.fetchall()]
                         permission_cols = ['can_view_pl', 'can_view_reports', 'can_export_data']
-                        
                         found_perms = sum(1 for col in permission_cols if col in columns)
-                        conn.close()
                         
                         if found_perms >= 2:
-                            self.log_test("Permissions System", True, f"PHP permissions system functional with {found_perms} permission columns")
-                            return True
+                            self.log_test("Permissions System", False, f"Permission system exists in database ({found_perms} permission columns) but not implemented in FastAPI")
                         else:
-                            self.log_test("Permissions System", True, "PHP login system accessible but limited permissions")
-                            return True
-                    except Exception as db_error:
-                        self.log_test("Permissions System", True, f"PHP login system accessible (DB check failed: {str(db_error)})")
-                        return True
-                else:
-                    self.log_test("Permissions System", False, "Login page accessible but missing login elements")
+                            self.log_test("Permissions System", False, "No permission system implemented in FastAPI")
+                    else:
+                        self.log_test("Permissions System", False, "No permission system implemented in FastAPI")
+                    
+                    conn.close()
                     return False
-            else:
-                self.log_test("Permissions System", False, f"PHP login system not accessible: HTTP {response.status_code}")
-                return False
+                except Exception as db_error:
+                    self.log_test("Permissions System", False, f"No permission system implemented in FastAPI: {str(db_error)}")
+                    return False
                 
         except Exception as e:
             self.log_test("Permissions System", False, f"Error: {str(e)}")
