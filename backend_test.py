@@ -291,7 +291,7 @@ class PHPBusinessSystemTester:
             
         try:
             # Test database connectivity by accessing a page that requires database
-            response = self.session.get(f"{self.base_url}/public/dashboard_test.php", timeout=10)
+            response = self.session.get(f"{self.base_url}/dashboard_test.php", timeout=10)
             
             if response.status_code == 200:
                 # Check for database connection errors
