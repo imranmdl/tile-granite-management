@@ -584,7 +584,7 @@ class PHPBusinessSystemTester:
             return False
 
     def test_enhanced_commission_report(self):
-        """Test Enhanced Commission Report (/report_commission_enhanced.php)"""
+        """Test Enhanced Commission Report - Fixed cl.commission_date → cl.created_at"""
         if not self.authenticated:
             self.log_test("Enhanced Commission Report", False, "Authentication required")
             return False
@@ -593,32 +593,31 @@ class PHPBusinessSystemTester:
             response = self.session.get(f"{self.base_url}/report_commission_enhanced.php", timeout=10)
             
             if response.status_code == 200:
-                # Check for database column errors
+                # Check for specific database schema errors that should be fixed
+                if 'no such column: cl.commission_date' in response.text:
+                    self.log_test("Enhanced Commission Report", False, "CRITICAL: cl.commission_date column error - should be cl.created_at")
+                    return False
+                
+                if 'cl.commission_date' in response.text and 'error' in response.text.lower():
+                    self.log_test("Enhanced Commission Report", False, "CRITICAL: cl.commission_date column error still present")
+                    return False
+                
+                # Check for other database column errors
                 if ('boxes_decimal' in response.text or 'qty_units' in response.text) and 'error' in response.text.lower():
                     self.log_test("Enhanced Commission Report", False, "Database schema errors found")
                     return False
                 
                 # Check for commission tracking
                 if 'commission' in response.text.lower() and ('tracking' in response.text.lower() or 'ledger' in response.text.lower()):
-                    # Check for enhanced features
-                    if 'enhanced' in response.text.lower() or 'analysis' in response.text.lower():
-                        # Check for commission calculations
-                        if 'calculation' in response.text.lower() or 'percentage' in response.text.lower():
-                            self.log_test("Enhanced Commission Report", True, "Enhanced commission report with tracking, analysis, and calculations working")
-                            return True
-                        else:
-                            self.log_test("Enhanced Commission Report", True, "Enhanced commission report with tracking and analysis working")
-                            return True
-                    else:
-                        self.log_test("Enhanced Commission Report", True, "Enhanced commission report with tracking working")
-                        return True
+                    self.log_test("Enhanced Commission Report", True, "Enhanced commission report working - cl.created_at schema fix successful")
+                    return True
                 else:
                     self.log_test("Enhanced Commission Report", False, "Commission report loads but missing tracking features")
                     return False
             elif response.status_code == 500:
-                # Check if it's a minor runtime error but core functionality works
-                self.log_test("Enhanced Commission Report", True, "Minor: HTTP 500 runtime error but enhanced commission report functionality implemented")
-                return True
+                # Check error logs for specific schema issues
+                self.log_test("Enhanced Commission Report", False, "HTTP 500 error - likely database schema issue with cl.commission_date")
+                return False
             else:
                 self.log_test("Enhanced Commission Report", False, f"HTTP {response.status_code} - enhanced commission report not accessible")
                 return False
