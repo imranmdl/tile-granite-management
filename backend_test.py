@@ -396,7 +396,7 @@ class PHPBusinessSystemTester:
             return False
 
     def test_daily_pl_report(self):
-        """Test Daily P&L Report (/report_daily_pl.php)"""
+        """Test Daily P&L Report (/report_daily_pl.php) - Fixed t.as_of_cost_per_box → t.current_cost"""
         if not self.authenticated:
             self.log_test("Daily P&L Report", False, "Authentication required")
             return False
@@ -405,7 +405,16 @@ class PHPBusinessSystemTester:
             response = self.session.get(f"{self.base_url}/report_daily_pl.php", timeout=10)
             
             if response.status_code == 200:
-                # Check for database column errors (boxes_decimal, qty_units)
+                # Check for specific database schema errors that should be fixed
+                if 't.as_of_cost_per_box' in response.text and 'error' in response.text.lower():
+                    self.log_test("Daily P&L Report", False, "CRITICAL: t.as_of_cost_per_box column error still present - should be t.current_cost")
+                    return False
+                
+                if 'no such column: t.as_of_cost_per_box' in response.text:
+                    self.log_test("Daily P&L Report", False, "CRITICAL: Database schema error - t.as_of_cost_per_box column not found")
+                    return False
+                
+                # Check for other database column errors
                 if ('boxes_decimal' in response.text or 'qty_units' in response.text) and 'error' in response.text.lower():
                     self.log_test("Daily P&L Report", False, "Database schema errors found")
                     return False
@@ -414,35 +423,18 @@ class PHPBusinessSystemTester:
                 if 'date' in response.text.lower() and ('today' in response.text.lower() or 'yesterday' in response.text.lower()):
                     # Check for P&L calculations
                     if 'revenue' in response.text.lower() and ('cost' in response.text.lower() or 'profit' in response.text.lower()):
-                        # Check for export functionality
-                        if 'export' in response.text.lower() or 'download' in response.text.lower():
-                            self.log_test("Daily P&L Report", True, "P&L report with date filtering, calculations, and export working")
-                            return True
-                        else:
-                            self.log_test("Daily P&L Report", True, "P&L report with date filtering and calculations working (export may be implicit)")
-                            return True
+                        self.log_test("Daily P&L Report", True, "Daily P&L report working - t.current_cost schema fix successful")
+                        return True
                     else:
                         self.log_test("Daily P&L Report", False, "P&L report loads but missing revenue/cost calculations")
                         return False
                 else:
                     self.log_test("Daily P&L Report", False, "P&L report loads but missing date filtering")
                     return False
-            elif response.status_code == 302:
-                # Redirect - likely authentication issue or permission denied
-                location = response.headers.get('Location', '')
-                if 'login' in location:
-                    self.log_test("Daily P&L Report", False, "Authentication failed - redirected to login")
-                    return False
-                elif 'reports_dashboard' in location:
-                    self.log_test("Daily P&L Report", False, "Permission denied - user lacks P&L access rights")
-                    return False
-                else:
-                    self.log_test("Daily P&L Report", False, f"Unexpected redirect to: {location}")
-                    return False
             elif response.status_code == 500:
-                # Check if it's a minor runtime error but core functionality works
-                self.log_test("Daily P&L Report", True, "Minor: HTTP 500 runtime error but P&L report functionality implemented")
-                return True
+                # Check error logs for specific schema issues
+                self.log_test("Daily P&L Report", False, "HTTP 500 error - likely database schema issue with t.as_of_cost_per_box")
+                return False
             else:
                 self.log_test("Daily P&L Report", False, f"HTTP {response.status_code} - P&L report not accessible")
                 return False
