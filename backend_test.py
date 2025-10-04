@@ -832,6 +832,18 @@ class PHPBusinessSystemTester:
         print("\n🔧 Testing Enhanced Damage Report...")
         self.test_enhanced_damage_report()
         
+        print("\n📦 Testing Enhanced Inventory Report...")
+        self.test_enhanced_inventory_report()
+        
+        print("\n💼 Testing Enhanced Commission Report...")
+        self.test_enhanced_commission_report()
+        
+        print("\n📋 Testing Quotation Profit Report (Rebuilt)...")
+        self.test_quotation_profit_rebuilt()
+        
+        print("\n🧾 Testing Invoice Profit Report (Rebuilt)...")
+        self.test_invoice_profit_rebuilt()
+        
         print("\n🗄️ Testing Database Schema Integration...")
         self.test_database_schema_integration()
         
