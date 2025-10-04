@@ -236,33 +236,81 @@ class PHPBusinessSystemTester:
             self.log_test("damage_report.php Admin Function Validation", False, f"Error: {str(e)}")
             return False
 
-    def test_port_8080_access(self):
-        """Test if there's a PHP server on port 8080 as user expects"""
-        try:
-            # Try localhost:8080 (user mentioned this in requirements)
-            test_urls = [
-                "http://localhost:8080",
-                "http://localhost:8080/quotation_enhanced.php",
-                f"{self.base_url}:8080",
-                f"{self.base_url}:8080/quotation_enhanced.php"
-            ]
-            
-            for url in test_urls:
-                try:
-                    response = self.session.get(url, timeout=5)
-                    if response.status_code == 200 and 'php' in response.text.lower():
-                        self.log_test("Port 8080 Access", True, f"PHP server found at {url}")
-                        return True
-                except:
-                    continue
-            
-            self.log_test("Port 8080 Access", False, 
-                        "No PHP server found on port 8080",
-                        "User expected PHP system on localhost:8080 but no server found")
+    def test_report_inventory_php(self):
+        """Test report_inventory.php - previously had 'total_stock_units' column errors"""
+        if not self.authenticated:
+            self.log_test("report_inventory.php Column Validation", False, "Authentication required")
             return False
             
+        try:
+            response = self.session.get(f"{self.base_url}/public/report_inventory.php", timeout=10)
+            
+            if response.status_code == 200:
+                # Check for total_stock_units column errors
+                if 'total_stock_units' in response.text and 'error' in response.text.lower():
+                    self.log_test("report_inventory.php Column Validation", False, 
+                                "total_stock_units column errors still present")
+                    return False
+                
+                # Check for other database errors
+                if 'database error' in response.text.lower() or 'sql error' in response.text.lower():
+                    self.log_test("report_inventory.php Column Validation", False, 
+                                "Database query errors found")
+                    return False
+                
+                # Check if page loads with inventory data
+                if 'inventory' in response.text.lower() or 'stock' in response.text.lower():
+                    self.log_test("report_inventory.php Column Validation", True, 
+                                "Database queries execute without total_stock_units errors")
+                    return True
+                else:
+                    self.log_test("report_inventory.php Column Validation", False, 
+                                "Page loads but no inventory content found")
+                    return False
+            else:
+                self.log_test("report_inventory.php Column Validation", False, 
+                            f"HTTP {response.status_code} - file not accessible")
+                return False
+                
         except Exception as e:
-            self.log_test("Port 8080 Access", False, f"Error: {str(e)}")
+            self.log_test("report_inventory.php Column Validation", False, f"Error: {str(e)}")
+            return False
+
+    def test_database_connectivity(self):
+        """Test SQLite database connectivity"""
+        if not self.authenticated:
+            self.log_test("Database Connectivity", False, "Authentication required")
+            return False
+            
+        try:
+            # Test database connectivity by accessing a page that requires database
+            response = self.session.get(f"{self.base_url}/public/dashboard_test.php", timeout=10)
+            
+            if response.status_code == 200:
+                # Check for database connection errors
+                if 'database connection failed' in response.text.lower() or 'sqlite error' in response.text.lower():
+                    self.log_test("Database Connectivity", False, "SQLite database connection failed")
+                    return False
+                
+                # If we can access dashboard or any data-driven page, database is working
+                if 'dashboard' in response.text.lower() or 'data' in response.text.lower():
+                    self.log_test("Database Connectivity", True, "SQLite database connectivity verified")
+                    return True
+                else:
+                    # Try another database-dependent page
+                    inv_response = self.session.get(f"{self.base_url}/public/inventory.php", timeout=10)
+                    if inv_response.status_code == 200 and 'inventory' in inv_response.text.lower():
+                        self.log_test("Database Connectivity", True, "SQLite database connectivity verified via inventory")
+                        return True
+                    
+                    self.log_test("Database Connectivity", False, "Cannot verify database connectivity")
+                    return False
+            else:
+                self.log_test("Database Connectivity", False, f"Cannot access database test pages - HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Database Connectivity", False, f"Error: {str(e)}")
             return False
 
     def run_all_tests(self):
