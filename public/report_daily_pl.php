@@ -78,7 +78,7 @@ $daily_revenue = $revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
 $tile_cost_sql = "
     SELECT 
         DATE(i.invoice_dt) as sale_date,
-        SUM(ii.quantity * t.as_of_cost_per_box) as tile_cost
+        SUM(ii.boxes_decimal * t.as_of_cost_per_box) as tile_cost
     FROM invoices i
     JOIN invoice_items ii ON i.id = ii.invoice_id
     JOIN tiles t ON ii.tile_id = t.id
