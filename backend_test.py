@@ -210,7 +210,7 @@ class PHPBusinessSystemTester:
             return False
             
         try:
-            response = self.session.get(f"{self.base_url}/public/damage_report.php", timeout=10)
+            response = self.session.get(f"{self.base_url}/damage_report.php", timeout=10)
             
             if response.status_code == 200:
                 # Check for require_admin() function errors
