@@ -38,24 +38,46 @@ class PHPBusinessSystemTester:
             print(f"    Details: {details}")
         print()
 
-    def test_system_architecture(self):
-        """Test what system is actually running"""
+    def test_authentication_system(self):
+        """Test admin/admin123 login functionality"""
         try:
-            # Test FastAPI backend
-            response = self.session.get(f"{self.api_url}/", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('message') == 'Hello World':
-                    self.log_test("System Architecture", False, 
-                                "CRITICAL MISMATCH: FastAPI system running, but user expects PHP system",
-                                "Current system: FastAPI + React. User requested testing of PHP files (quotation_enhanced.php, item_profit.php, etc.) but these are not served by the current system.")
-                    return False
+            # First, get the login page
+            login_response = self.session.get(f"{self.base_url}/login.php", timeout=10)
+            if login_response.status_code != 200:
+                self.log_test("Authentication System", False, "Login page not accessible")
+                return False
             
-            self.log_test("System Architecture", False, "Unable to determine system type")
+            # Check if login form exists
+            if 'username' not in login_response.text or 'password' not in login_response.text:
+                self.log_test("Authentication System", False, "Login form not found")
+                return False
+            
+            # Attempt login with admin/admin123
+            login_data = {
+                'username': 'admin',
+                'password': 'admin123'
+            }
+            
+            auth_response = self.session.post(f"{self.base_url}/login.php", data=login_data, timeout=10)
+            
+            # Check if login was successful (should redirect or show dashboard)
+            if auth_response.status_code == 200 and ('dashboard' in auth_response.text.lower() or 'logout' in auth_response.text.lower()):
+                self.authenticated = True
+                self.log_test("Authentication System", True, "Admin login successful - dashboard accessible")
+                return True
+            elif auth_response.status_code == 302:
+                # Follow redirect
+                redirect_response = self.session.get(f"{self.base_url}/", timeout=10)
+                if redirect_response.status_code == 200 and ('dashboard' in redirect_response.text.lower() or 'logout' in redirect_response.text.lower()):
+                    self.authenticated = True
+                    self.log_test("Authentication System", True, "Admin login successful - redirected to dashboard")
+                    return True
+            
+            self.log_test("Authentication System", False, "Login failed - invalid credentials or system error")
             return False
             
         except Exception as e:
-            self.log_test("System Architecture", False, f"Error: {str(e)}")
+            self.log_test("Authentication System", False, f"Error during authentication: {str(e)}")
             return False
 
     def test_php_file_accessibility(self):
