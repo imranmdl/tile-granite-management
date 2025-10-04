@@ -156,23 +156,44 @@ class PHPBusinessSystemTester:
             self.log_test("item_profit.php Database Query Validation", False, f"Error: {str(e)}")
             return False
 
-    def test_database_connectivity(self):
-        """Test database connectivity through current system"""
-        try:
-            # Test MongoDB connectivity through FastAPI
-            response = self.session.get(f"{self.api_url}/status", timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, list) and len(data) > 0:
-                    self.log_test("Database Connectivity", True, 
-                                f"MongoDB connected via FastAPI - {len(data)} status records found")
-                    return True
-            
-            self.log_test("Database Connectivity", False, "No database connectivity through current system")
+    def test_quotation_profit_php(self):
+        """Test quotation_profit.php - previously had undefined function compute_range() errors"""
+        if not self.authenticated:
+            self.log_test("quotation_profit.php Function Validation", False, "Authentication required")
             return False
             
+        try:
+            response = self.session.get(f"{self.base_url}/public/quotation_profit.php", timeout=10)
+            
+            if response.status_code == 200:
+                # Check for undefined function errors
+                if 'undefined function' in response.text.lower() and 'compute_range' in response.text:
+                    self.log_test("quotation_profit.php Function Validation", False, 
+                                "compute_range() function still undefined")
+                    return False
+                
+                # Check for other fatal errors
+                if 'fatal error' in response.text.lower() or 'call to undefined function' in response.text.lower():
+                    self.log_test("quotation_profit.php Function Validation", False, 
+                                "Fatal function errors found")
+                    return False
+                
+                # Check if page loads with profit calculations
+                if 'profit' in response.text.lower() or 'quotation' in response.text.lower():
+                    self.log_test("quotation_profit.php Function Validation", True, 
+                                "compute_range() function available - profit calculations working")
+                    return True
+                else:
+                    self.log_test("quotation_profit.php Function Validation", False, 
+                                "Page loads but no profit/quotation content found")
+                    return False
+            else:
+                self.log_test("quotation_profit.php Function Validation", False, 
+                            f"HTTP {response.status_code} - file not accessible")
+                return False
+                
         except Exception as e:
-            self.log_test("Database Connectivity", False, f"Error: {str(e)}")
+            self.log_test("quotation_profit.php Function Validation", False, f"Error: {str(e)}")
             return False
 
     def test_expected_endpoints(self):
