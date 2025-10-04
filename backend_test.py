@@ -19,10 +19,6 @@ class CriticalErrorResolutionTester:
             'Content-Type': 'application/json'
         })
         self.test_results = []
-        self.mongo_url = "mongodb://localhost:27017"
-        self.db_name = "test_database"
-        self.db_path = '/app/data/app.sqlite'  # SQLite database for PHP system (not served)
-        self.authenticated = False
         
     def log_test(self, test_name, success, message="", details=""):
         """Log test results"""
