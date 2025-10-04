@@ -38,7 +38,7 @@ $tiles_sql = "
         
         -- Purchase/Cost Data
         COALESCE(t.current_cost, 0) as current_cost,
-        COALESCE(AVG(pet.rate_per_box), 0) as avg_purchase_cost,
+        COALESCE(AVG(pet.as_of_cost_per_box), 0) as avg_purchase_cost,
         
         -- Sales Data from Invoices
         COUNT(DISTINCT ii.invoice_id) as invoice_count,
