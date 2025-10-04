@@ -186,7 +186,8 @@ if (!function_exists('nav_active_any')) {
           <a class="nav-link dropdown-toggle <?= nav_active_any(['reports_dashboard.php','report_sales.php','report_daily_summary.php','report_commission.php','item_profit.php','invoice_profit.php','quotation_profit.php','damage_report.php','expenses.php','reports.php','report_inventory.php'],$path) ?>"
              href="#" data-bs-toggle="dropdown">Reports</a>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item <?= nav_active('reports_dashboard.php',$path) ?>" href="<?= $base ?>/reports_dashboard.php"><i class="bi bi-speedometer2"></i> Reports Dashboard</a></li>
+            <li><a class="dropdown-item <?= nav_active('reports_dashboard_new.php',$path) ?>" href="<?= $base ?>/reports_dashboard_new.php"><i class="bi bi-speedometer2"></i> Enhanced Reports Dashboard</a></li>
+            <li><a class="dropdown-item <?= nav_active('reports_dashboard.php',$path) ?>" href="<?= $base ?>/reports_dashboard.php"><i class="bi bi-speedometer"></i> Legacy Reports Dashboard</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item <?= nav_active('report_sales.php',$path) ?>" href="<?= $base ?>/report_sales.php"><i class="bi bi-graph-up"></i> Sales Report</a></li>
             <li><a class="dropdown-item <?= nav_active('report_daily_summary.php',$path) ?>" href="<?= $base ?>/report_daily_summary.php"><i class="bi bi-calendar-day"></i> Daily Summary</a></li>
