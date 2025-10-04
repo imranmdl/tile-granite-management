@@ -1,424 +1,348 @@
 <?php
-// public/quotation_profit.php - Quotation-wise Profit/Loss Analysis
+// public/quotation_profit_fixed.php - Quotation Profit Report (Fixed for Latest DB Schema)
 require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/admin_functions.php';
 
 auth_require_login();
 
 $pdo = Database::pdo();
-$user_id = $_SESSION['user_id'] ?? 1;
 
-// Check permissions
-$user_stmt = $pdo->prepare("SELECT * FROM users_simple WHERE id = ?");
-$user_stmt->execute([$user_id]);
-$user = $user_stmt->fetch(PDO::FETCH_ASSOC);
+// Date range handling
+$date_from = $_GET['date_from'] ?? date('Y-m-01');
+$date_to = $_GET['date_to'] ?? date('Y-m-d');
+$customer_filter = trim($_GET['customer'] ?? '');
 
-$can_view_reports = ($user['can_view_reports'] ?? 0) == 1 || ($user['role'] ?? '') === 'admin';
-$can_view_pl = ($user['can_view_pl'] ?? 0) == 1 || ($user['role'] ?? '') === 'admin';
+// Build quotation profit analysis query
+$quotation_sql = "
+    SELECT 
+        q.id,
+        q.quote_no,
+        DATE(q.quote_dt) as quote_date,
+        q.customer_name,
+        q.firm_name,
+        q.phone,
+        q.total as quote_total,
+        q.discount_amount,
+        q.final_total,
+        (
+            SELECT SUM(qi.boxes_decimal * qi.rate_per_box)
+            FROM quotation_items qi
+            WHERE qi.quotation_id = q.id
+        ) as tiles_revenue,
+        (
+            SELECT SUM(qmi.quantity * qmi.rate_per_unit)
+            FROM quotation_misc_items qmi
+            WHERE qmi.quotation_id = q.id
+        ) as misc_revenue,
+        (
+            SELECT SUM(qi.boxes_decimal * t.current_cost)
+            FROM quotation_items qi
+            JOIN tiles t ON qi.tile_id = t.id
+            WHERE qi.quotation_id = q.id
+        ) as tiles_cost,
+        (
+            SELECT SUM(qmi.quantity * m.current_cost)
+            FROM quotation_misc_items qmi
+            JOIN misc_items m ON qmi.misc_item_id = m.id
+            WHERE qmi.quotation_id = q.id
+        ) as misc_cost,
+        CASE 
+            WHEN EXISTS (SELECT 1 FROM invoices i WHERE i.quote_id = q.id) 
+            THEN 'Converted' 
+            ELSE 'Pending' 
+        END as conversion_status,
+        (
+            SELECT i.final_total 
+            FROM invoices i 
+            WHERE i.quote_id = q.id 
+            LIMIT 1
+        ) as converted_invoice_total
+    FROM quotations q
+    WHERE DATE(q.quote_dt) BETWEEN ? AND ?
+";
 
-if (!$can_view_reports) {
-    $_SESSION['error'] = 'You do not have permission to access reports';
-    safe_redirect('index.php');
+$params = [$date_from, $date_to];
+
+if ($customer_filter) {
+    $quotation_sql .= " AND (q.customer_name LIKE ? OR q.firm_name LIKE ?)";
+    $params[] = "%$customer_filter%";
+    $params[] = "%$customer_filter%";
 }
 
-$page_title = "Quotation-wise Profit Analysis";
+$quotation_sql .= " ORDER BY q.quote_dt DESC";
+
+$quotation_stmt = $pdo->prepare($quotation_sql);
+$quotation_stmt->execute($params);
+$quotation_data = $quotation_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Process and calculate profit metrics
+$processed_data = [];
+$summary = [
+    'total_quotes' => count($quotation_data),
+    'total_quote_value' => 0,
+    'total_estimated_cost' => 0,
+    'total_estimated_profit' => 0,
+    'converted_quotes' => 0,
+    'pending_quotes' => 0,
+    'conversion_rate' => 0,
+    'avg_profit_margin' => 0
+];
+
+foreach ($quotation_data as $quote) {
+    $tiles_revenue = $quote['tiles_revenue'] ?? 0;
+    $misc_revenue = $quote['misc_revenue'] ?? 0;
+    $tiles_cost = $quote['tiles_cost'] ?? 0;
+    $misc_cost = $quote['misc_cost'] ?? 0;
+    
+    $total_revenue = $tiles_revenue + $misc_revenue;
+    $total_cost = $tiles_cost + $misc_cost;
+    $estimated_profit = $total_revenue - $total_cost;
+    $profit_margin = $total_revenue > 0 ? ($estimated_profit / $total_revenue * 100) : 0;
+    
+    $processed_quote = array_merge($quote, [
+        'total_revenue' => $total_revenue,
+        'total_cost' => $total_cost,
+        'estimated_profit' => $estimated_profit,
+        'profit_margin' => $profit_margin
+    ]);
+    
+    $processed_data[] = $processed_quote;
+    
+    // Update summary
+    $summary['total_quote_value'] += $quote['final_total'] ?? $total_revenue;
+    $summary['total_estimated_cost'] += $total_cost;
+    $summary['total_estimated_profit'] += $estimated_profit;
+    
+    if ($quote['conversion_status'] === 'Converted') {
+        $summary['converted_quotes']++;
+    } else {
+        $summary['pending_quotes']++;
+    }
+}
+
+$summary['conversion_rate'] = $summary['total_quotes'] > 0 ? 
+    ($summary['converted_quotes'] / $summary['total_quotes'] * 100) : 0;
+
+$summary['avg_profit_margin'] = $summary['total_quote_value'] > 0 ? 
+    ($summary['total_estimated_profit'] / $summary['total_quote_value'] * 100) : 0;
+
+// Get all customers for filter
+$customers_sql = "
+    SELECT DISTINCT customer_name
+    FROM quotations 
+    WHERE customer_name IS NOT NULL AND customer_name != ''
+    ORDER BY customer_name
+";
+$all_customers = $pdo->query($customers_sql)->fetchAll(PDO::FETCH_COLUMN);
+
+$page_title = "Quotation Profit Analysis";
 require_once __DIR__ . '/../includes/header.php';
-
-$mode = (isset($_GET['mode']) && strtolower($_GET['mode'])==='detailed') ? 'detailed' : 'simple';
-$id   = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-
-if ($id <= 0) {
-  $st = $pdo->prepare("
-    SELECT id,
-           quote_no  AS code,
-           quote_dt  AS dt,
-           customer_name,
-           total
-    FROM quotations
-    WHERE " . range_where('quote_dt') . "
-    ORDER BY quote_dt DESC, id DESC
-  ");
-  bind_range($st);
-  $st->execute();
-  $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-
-  // preserve current range when changing cost mode
-  $keep = [
-    'range' => $_GET['range'] ?? '',
-    'from'  => $_GET['from']  ?? '',
-    'to'    => $_GET['to']    ?? '',
-    'mode'  => $mode,
-  ];
-  $qs_keep = http_build_query(array_filter($keep, fn($v)=>$v!=='' && $v!==null));
-  ?>
-  <div class="card p-3 mb-3">
-    <form class="row g-2" method="get">
-      <?php if (!empty($keep['range'])): ?><input type="hidden" name="range" value="<?= h($keep['range']) ?>"><?php endif; ?>
-      <?php if (!empty($keep['from'])):  ?><input type="hidden" name="from"  value="<?= h($keep['from'])  ?>"><?php endif; ?>
-      <?php if (!empty($keep['to'])):    ?><input type="hidden" name="to"    value="<?= h($keep['to'])    ?>"><?php endif; ?>
-      <div class="col-md-3">
-        <label class="form-label">Cost Mode</label>
-        <select class="form-select" name="mode" onchange="this.form.submit()">
-          <option value="simple"   <?= $mode==='simple'   ? 'selected':'' ?>>Simple (Base + %)</option>
-          <option value="detailed" <?= $mode==='detailed' ? 'selected':'' ?>>Detailed (Base + % + adders + allocation)</option>
-        </select>
-      </div>
-    </form>
-  </div>
-
-  <div class="card p-3">
-    <div class="table-responsive">
-      <table class="table table-striped table-sm align-middle">
-        <thead>
-          <tr><th>Date</th><th>Quotation</th><th>Customer</th><th class="text-end">Total</th><th></th></tr>
-        </thead>
-        <tbody>
-          <?php foreach($rows as $r): ?>
-            <tr>
-              <td><?= h($r['dt']) ?></td>
-              <td><?= h($r['code']) ?></td>
-              <td><?= h($r['customer_name']) ?></td>
-              <td class="text-end">₹ <?= n2($r['total']) ?></td>
-              <td>
-                <a class="btn btn-sm btn-outline-primary" href="quotation_profit.php?<?= $qs_keep ?>&id=<?= (int)$r['id'] ?>">View P/L</a>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-          <?php if (empty($rows)): ?>
-            <tr><td colspan="5" class="text-center text-muted">No quotations in this range.</td></tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  
-/* Align totals with quote_profit.php names */
-if (!isset($total_sell) && isset($total_rev)) { $total_sell = (float)$total_rev; }
-<?php require_once __DIR__ . '/../includes/footer.php'; exit;
-}
-
-$h = $pdo->query("SELECT * FROM quotations WHERE id=".$id)->fetch(PDO::FETCH_ASSOC);
-if (!$h) { echo '<div class="alert alert-danger">Quotation not found.</div>'; require_once __DIR__ . '/../includes/footer.php'; exit; }
-$as_of = $h['quote_dt'] ?? null;
-
-$tile_lines = $pdo->query("
-  SELECT x.*, t.name tile_name, ts.label size_label
-  FROM quotation_items x
-  JOIN tiles t       ON t.id = x.tile_id
-  JOIN tile_sizes ts ON ts.id = t.size_id
-  WHERE quotation_id=".$id
-)->fetchAll(PDO::FETCH_ASSOC);
-
-$misc_lines = table_exists($pdo,'quotation_misc_items')
-  ? $pdo->query("
-      SELECT m.*, mi.name item_name, mi.unit_label
-      FROM quotation_misc_items m
-      JOIN misc_items mi ON mi.id = m.misc_item_id
-      WHERE quotation_id=".$id
-    )->fetchAll(PDO::FETCH_ASSOC)
-  : [];
-
-$total_rev = 0.0; $total_cost = 0.0;
-
-/* === BEGIN ADDED: Discount & Commission === */
-
-/* ===== Negotiation / Discount & Commission (Integrated) =====
-   Expects $total_sell (gross before discount) and $total_cost already computed.
-   Defensive: will try common fallback names and default to 0 if not set yet.
-*/
-if (!isset($pdo)) { $pdo = Database::pdo(); }
-if (!isset($quote_id)) { $quote_id = (int)($_GET['id'] ?? $_GET['quote_id'] ?? 0); }
-
-$__total_sell = null;
-foreach (["total_sell","grand_total","sell_total","gross_total","total"] as $__n) {
-  if (isset($$__n)) { $__total_sell = (float) $$__n; break; }
-}
-$__total_cost = null;
-foreach (["total_cost","cost_total","grand_cost","cost"] as $__n) {
-  if (isset($$__n)) { $__total_cost = (float) $$__n; break; }
-}
-if (!isset($total_sell)) $total_sell = (float) ($__total_sell ?? 0.0);
-if (!isset($total_cost)) $total_cost = (float) ($__total_cost ?? 0.0);
-
-$disc_mode = 'NONE'; $disc_value = 0.0; $commission_on = 'PROFIT'; $commission_pct = 0.0; $commission_to = '';
-$discount_amount = 0.0; $net_sell = $total_sell; $profit_before_discount = $total_sell - $total_cost;
-$profit_after_discount = $profit_before_discount; $commission_amount = 0.0; $profit_after_commission = $profit_after_discount;
-
-// Preload previously-saved values (ignore if columns don't exist yet)
-try {
-  $pref = $pdo->prepare("SELECT discount_mode,discount_value,discount_amount,total_before_discount,total_after_discount,profit_before_discount,profit_after_discount,commission_base,commission_pct,commission_amount,commission_to FROM quotations WHERE id=?");
-  $pref->execute([$quote_id]);
-  if ($row = $pref->fetch(PDO::FETCH_ASSOC)) {
-    if (!empty($row['discount_mode'])) $disc_mode = $row['discount_mode'];
-    if (isset($row['discount_value'])) $disc_value = (float)$row['discount_value'];
-    if (!empty($row['commission_base'])) $commission_on = $row['commission_base'];
-    if (isset($row['commission_pct'])) $commission_pct = (float)$row['commission_pct'];
-    if (!empty($row['commission_to'])) $commission_to = $row['commission_to'];
-  }
-} catch (Throwable $e) { /* columns may not exist yet; ignore */ }
-
-if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['apply_discount'])) {
-  $disc_mode = $_POST['disc_mode'] ?? 'NONE';
-  $disc_value = round((float)($_POST['disc_value'] ?? 0), 2);
-  $commission_on = $_POST['commission_on'] ?? 'PROFIT';  // PROFIT | SALE
-  $commission_pct = round((float)($_POST['commission_pct'] ?? 0), 2);
-  $commission_to = trim($_POST['commission_to'] ?? '');
-
-  // Discount
-  if ($disc_mode === 'PCT') {
-    $discount_amount = max(0, min($total_sell, $total_sell * $disc_value / 100.0));
-  } elseif ($disc_mode === 'AMT') {
-    $discount_amount = max(0, min($total_sell, $disc_value));
-  } else {
-    $discount_amount = 0.0;
-  }
-  $net_sell = $total_sell - $discount_amount;
-  $profit_before_discount = $total_sell - $total_cost;
-  $profit_after_discount = $net_sell - $total_cost;
-
-  // Commission
-  $commission_base_amt = ($commission_on === 'SALE') ? $net_sell : max(0.0, $profit_after_discount); // no commission on negative profit
-  $commission_amount = round($commission_base_amt * ($commission_pct/100.0), 2);
-  $profit_after_commission = $profit_after_discount - $commission_amount;
-
-  // Persist to DB if requested
-  if (isset($_POST['save'])) {
-    try {
-      $st = $pdo->prepare("UPDATE quotations
-        SET discount_mode=?, discount_value=?, discount_amount=?, total_before_discount=?, total_after_discount=?,
-            profit_before_discount=?, profit_after_discount=?, commission_base=?, commission_pct=?, commission_amount=?, commission_to=?
-        WHERE id=?");
-      $st->execute([
-        $disc_mode, $disc_value, $discount_amount, $total_sell, $net_sell,
-        $profit_before_discount, $profit_after_discount, $commission_on, $commission_pct, $commission_amount, $commission_to,
-        $quote_id
-      ]);
-      if (function_exists('safe_redirect')) { safe_redirect('quotation_profit.php?id='.$quote_id.'&saved=1'); }
-    } catch (Throwable $e) { /* ignore write error if migration not applied yet */ }
-  }
-}
 ?>
 
-<div class="card p-3 mt-3">
-  <h6 class="mb-3">Negotiation / Discount & Commission</h6>
-  <form method="post" class="row g-3">
-    <input type="hidden" name="apply_discount" value="1">
-    <div class="col-md-3">
-      <label class="form-label">Discount Mode</label>
-      <select name="disc_mode" class="form-select">
-        <option value="NONE" <?php echo $disc_mode==='NONE'?'selected':'';?>>None</option>
-        <option value="PCT"  <?php echo $disc_mode==='PCT'?'selected':'';?>>% Percentage</option>
-        <option value="AMT"  <?php echo $disc_mode==='AMT'?'selected':'';?>>₹ Amount</option>
-      </select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Discount Value</label>
-      <input type="number" step="0.01" min="0" name="disc_value" class="form-control" value="<?php echo htmlspecialchars((string)$disc_value);?>">
-    </div>
-
-    <div class="col-md-3">
-      <label class="form-label">Commission Base</label>
-      <select name="commission_on" class="form-select">
-        <option value="PROFIT" <?php echo $commission_on==='PROFIT'?'selected':'';?>>Profit after discount</option>
-        <option value="SALE"   <?php echo $commission_on==='SALE'  ?'selected':'';?>>Net sale (after discount)</option>
-      </select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Commission %</label>
-      <input type="number" step="0.01" min="0" name="commission_pct" class="form-control" value="<?php echo htmlspecialchars((string)$commission_pct);?>">
-    </div>
-
-    <div class="col-md-4">
-      <label class="form-label">Commission To (person)</label>
-      <input type="text" name="commission_to" class="form-control" placeholder="e.g., Imran / Sales A" value="<?php echo htmlspecialchars($commission_to);?>">
-    </div>
-
-    <div class="col-12 d-flex gap-2">
-      <button class="btn btn-secondary" type="submit" name="apply">Preview</button>
-      <button class="btn btn-primary" type="submit" name="save" value="1">Save & Store in Quotation</button>
-    </div>
-  </form>
-
-  <div class="table-responsive mt-3">
-    <table class="table table-sm mb-0">
-      <tbody>
-        <tr><th style="width:40%">Gross sale (before discount)</th><td>₹ <?php echo number_format($total_sell, 2);?></td></tr>
-        <tr><th>Discount</th><td>₹ <?php echo number_format($discount_amount, 2);?> <?php if($disc_mode==='PCT') echo '(' . number_format($disc_value,2) . '%)';?></td></tr>
-        <tr class="table-light"><th>Net sale (after discount)</th><td><strong>₹ <?php echo number_format($net_sell, 2);?></strong></td></tr>
-        <tr><th>Total cost</th><td>₹ <?php echo number_format($total_cost, 2);?></td></tr>
-        <tr><th>Profit after discount</th><td>₹ <?php echo number_format($profit_after_discount, 2);?></td></tr>
-        <tr><th>Commission (<?php echo htmlspecialchars($commission_on);?> @ <?php echo number_format($commission_pct,2);?>%)</th><td>₹ <?php echo number_format($commission_amount, 2);?></td></tr>
-        <tr class="table-success"><th>Profit after commission</th><td><strong>₹ <?php echo number_format($profit_after_commission, 2);?></strong></td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<?php
-/* === END ADDED: Discount & Commission === */
-
- $rows=[]; $dbg=[];
-
-foreach($tile_lines as $r){
-  $bd = cost_tile_per_box_asof($pdo, (int)$r['tile_id'], $as_of, $mode);
-  $qty = (float)$r['boxes_decimal'];
-  $rev = (float)$r['rate_per_box'] * $qty;
-  $cost = $bd['cp'] * $qty;
-  $profit = $rev - $cost;
-  $margin = $rev>0 ? ($profit*100.0/$rev) : 0.0;
-
-  $rows[] = [
-    'name'=>$r['tile_name'].' ('.$r['size_label'].')',
-    'qty'=>$qty.' boxes',
-    'rate'=>$r['rate_per_box'],
-    'rev'=>$rev,
-    'cp'=>$bd['cp'],
-    'cost'=>$cost,
-    'profit'=>$profit,
-    'margin'=>$margin
-  ];
-  $dbg[] = [
-    'name'=>$r['tile_name'].' ('.$r['size_label'].')',
-    'base'=>$bd['base'],
-    'pct'=>$bd['pct'],
-    'pct_amt'=>$bd['pct_amt'],
-    'adder'=>$bd['adder'],
-    'alloc'=>$bd['alloc'],
-    'cp'=>$bd['cp']
-  ];
-  $total_rev += $rev; $total_cost += $cost;
+<style>
+.profit-positive { color: #28a745; }
+.profit-negative { color: #dc3545; }
+.conversion-converted { background-color: rgba(40, 167, 69, 0.1); }
+.conversion-pending { background-color: rgba(255, 193, 7, 0.1); }
+.summary-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
 }
-
-foreach($misc_lines as $r){
-  $bd = cost_misc_per_unit_asof($pdo, (int)$r['misc_item_id'], $as_of, $mode);
-  $qty = (float)$r['qty_units'];
-  $rev = (float)$r['rate_per_unit'] * $qty;
-  $cost = $bd['cp'] * $qty;
-  $profit = $rev - $cost;
-  $margin = $rev>0 ? ($profit*100.0/$rev) : 0.0;
-
-  $rows[] = [
-    'name'=>$r['item_name'].' ('.$r['unit_label'].')',
-    'qty'=>$qty.' units',
-    'rate'=>$r['rate_per_unit'],
-    'rev'=>$rev,
-    'cp'=>$bd['cp'],
-    'cost'=>$cost,
-    'profit'=>$profit,
-    'margin'=>$margin
-  ];
-  $dbg[] = [
-    'name'=>$r['item_name'].' ('.$r['unit_label'].')',
-    'base'=>$bd['base'],
-    'pct'=>$bd['pct'],
-    'pct_amt'=>$bd['pct_amt'],
-    'adder'=>$bd['adder'],
-    'alloc'=>$bd['alloc'],
-    'cp'=>$bd['cp']
-  ];
-  $total_rev += $rev; $total_cost += $cost;
+.metric-card {
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    margin-bottom: 15px;
 }
+</style>
 
-$gross = $total_rev - $total_cost;
-$margin = $total_rev>0 ? ($gross*100.0/$total_rev) : 0.0;
-
-
-?>
-
-<div class="card p-3 mb-3">
-  <div class="row g-2">
-    <div class="col-md-3"><strong>No:</strong> <?= h($h['quote_no']) ?></div>
-    <div class="col-md-3"><strong>Date:</strong> <?= h($h['quote_dt']) ?></div>
-    <div class="col-md-6"><strong>Customer:</strong> <?= h($h['customer_name']) ?></div>
-  </div>
-  <div class="mt-2">
-    <form method="get" class="row g-2">
-      <input type="hidden" name="id" value="<?= (int)$id ?>">
-      <?php if (!empty($_GET['range'])): ?><input type="hidden" name="range" value="<?= h($_GET['range']) ?>"><?php endif; ?>
-      <?php if (!empty($_GET['from'])):  ?><input type="hidden" name="from"  value="<?= h($_GET['from'])  ?>"><?php endif; ?>
-      <?php if (!empty($_GET['to'])):    ?><input type="hidden" name="to"    value="<?= h($_GET['to'])    ?>"><?php endif; ?>
-      <div class="col-md-3">
-        <label class="form-label">Cost Mode</label>
-        <select class="form-select" name="mode">
-          <option value="simple"   <?= $mode==='simple'   ? 'selected':'' ?>>Simple (Base + %)</option>
-          <option value="detailed" <?= $mode==='detailed' ? 'selected':'' ?>>Detailed (Base + % + adders + allocation)</option>
-        </select>
-      </div>
-      <div class="col-md-2 d-flex align-items-end">
-        <button class="btn btn-secondary">Recalculate</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="card p-3 mb-3">
-  <h5>P/L Lines</h5>
-  <div class="table-responsive">
-    <table class="table table-striped table-sm align-middle">
-      <thead>
-        <tr>
-          <th>Item</th><th>Qty</th><th>Rate</th><th>Revenue</th>
-          <th>Cost/Box or Unit (incl. transport)</th><th>Cost</th><th>Profit</th><th>Margin %</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach($rows as $r): ?>
-          <tr>
-            <td><?= h($r['name']) ?></td>
-            <td><?= h($r['qty']) ?></td>
-            <td>₹ <?= n2($r['rate']) ?></td>
-            <td>₹ <?= n2($r['rev']) ?></td>
-            <td>₹ <?= n2($r['cp']) ?></td>
-            <td>₹ <?= n2($r['cost']) ?></td>
-            <td class="<?= $r['profit']>=0?'text-success':'text-danger' ?>">₹ <?= n2($r['profit']) ?></td>
-            <td><?= n2($r['margin']) ?>%</td>
-          </tr>
-        <?php endforeach; ?>
-        <?php if (empty($rows)): ?>
-          <tr><td colspan="8" class="text-center text-muted">No lines.</td></tr>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<div class="card p-3 mb-3">
-  <details>
-    <summary class="mb-2"><strong>Show cost breakdown (debug)</strong></summary>
-    <div class="table-responsive">
-      <table class="table table-sm">
-        <thead>
-          <tr>
-            <th>Item</th><th>Base</th><th>Transport %</th><th>Transport % Amt</th>
-            <th>Per-box / Per-unit Adder</th><th>Allocated from Total</th><th>Cost (cp)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach($dbg as $d): ?>
-            <tr>
-              <td><?= h($d['name']) ?></td>
-              <td>₹ <?= n2($d['base']) ?></td>
-              <td><?= n2($d['pct']) ?>%</td>
-              <td>₹ <?= n2($d['pct_amt']) ?></td>
-              <td>₹ <?= n2($d['adder']) ?></td>
-              <td>₹ <?= n2($d['alloc']) ?></td>
-              <td>₹ <?= n2($d['cp']) ?></td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-file-earmark-text text-primary"></i> Quotation Profit Analysis</h2>
+            <p class="text-muted mb-0">
+                Period: <?= date('M j, Y', strtotime($date_from)) ?> to <?= date('M j, Y', strtotime($date_to)) ?>
+                <?= $customer_filter ? " | Customer: $customer_filter" : "" ?>
+            </p>
+        </div>
+        <a href="reports_dashboard_new.php" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Reports
+        </a>
     </div>
-  </details>
-</div>
 
-<div class="card p-3">
-  <div class="row text-center">
-    <div class="col"><div class="p-2 bg-light rounded"><div class="small text-muted">Total Revenue</div><div class="fs-5">₹ <?= n2($total_rev) ?></div></div></div>
-    <div class="col"><div class="p-2 bg-light rounded"><div class="small text-muted">Total Cost</div><div class="fs-5">₹ <?= n2($total_cost) ?></div></div></div>
-    <div class="col"><div class="p-2 bg-light rounded"><div class="small text-muted">Gross Profit</div><div class="fs-5 <?= $gross>=0?'text-success':'text-danger' ?>">₹ <?= n2($gross) ?></div></div></div>
-    <div class="col"><div class="p-2 bg-light rounded"><div class="small text-muted">Margin</div><div class="fs-5"><?= n2($margin) ?>%</div></div></div>
-  </div>
-</div>
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">From Date</label>
+                    <input type="date" class="form-control" name="date_from" value="<?= h($date_from) ?>">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">To Date</label>
+                    <input type="date" class="form-control" name="date_to" value="<?= h($date_to) ?>">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Customer</label>
+                    <select class="form-select" name="customer">
+                        <option value="">All Customers</option>
+                        <?php foreach ($all_customers as $customer): ?>
+                            <option value="<?= h($customer) ?>" <?= $customer_filter === $customer ? 'selected' : '' ?>>
+                                <?= h($customer) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-search"></i> Generate Report
+                    </button>
+                    <a href="?export=excel&<?= http_build_query($_GET) ?>" class="btn btn-success">
+                        <i class="bi bi-file-excel"></i> Export
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
 
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="metric-card">
+                <h6>Total Quotes</h6>
+                <h3><?= $summary['total_quotes'] ?></h3>
+                <small>In period</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-card">
+                <h6>Quote Value</h6>
+                <h3>₹<?= number_format($summary['total_quote_value'], 0) ?></h3>
+                <small>Total quoted</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-card">
+                <h6>Est. Cost</h6>
+                <h3>₹<?= number_format($summary['total_estimated_cost'], 0) ?></h3>
+                <small>Estimated COGS</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-card">
+                <h6>Est. Profit</h6>
+                <h3 class="<?= $summary['total_estimated_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                    ₹<?= number_format($summary['total_estimated_profit'], 0) ?>
+                </h3>
+                <small><?= number_format($summary['avg_profit_margin'], 1) ?>% margin</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-card">
+                <h6>Converted</h6>
+                <h3 class="text-success"><?= $summary['converted_quotes'] ?></h3>
+                <small><?= number_format($summary['conversion_rate'], 1) ?>% rate</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-card">
+                <h6>Pending</h6>
+                <h3 class="text-warning"><?= $summary['pending_quotes'] ?></h3>
+                <small>Not converted</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quotation Details -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="bi bi-list-ul"></i> Quotation Profit Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Quote #</th>
+                            <th>Customer</th>
+                            <th>Quote Value</th>
+                            <th>Est. Cost</th>
+                            <th>Est. Profit</th>
+                            <th>Margin %</th>
+                            <th>Status</th>
+                            <th>Converted Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($processed_data)): ?>
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-4">
+                                    <i class="bi bi-info-circle"></i> No quotation data found for the selected period
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($processed_data as $quote): ?>
+                                <?php 
+                                $conversion_class = $quote['conversion_status'] === 'Converted' ? 'conversion-converted' : 'conversion-pending';
+                                ?>
+                                <tr class="<?= $conversion_class ?>">
+                                    <td><?= date('M j, Y', strtotime($quote['quote_date'])) ?></td>
+                                    <td>
+                                        <a href="quotation_enhanced.php?id=<?= $quote['id'] ?>" class="text-decoration-none">
+                                            <?= h($quote['quote_no']) ?>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <strong><?= h($quote['customer_name']) ?></strong>
+                                        <?= $quote['firm_name'] ? '<br><small class="text-muted">' . h($quote['firm_name']) . '</small>' : '' ?>
+                                    </td>
+                                    <td>₹<?= number_format($quote['final_total'] ?? $quote['total_revenue'], 2) ?></td>
+                                    <td>₹<?= number_format($quote['total_cost'], 2) ?></td>
+                                    <td class="<?= $quote['estimated_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                        ₹<?= number_format($quote['estimated_profit'], 2) ?>
+                                    </td>
+                                    <td class="<?= $quote['profit_margin'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                        <?= number_format($quote['profit_margin'], 1) ?>%
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-<?= $quote['conversion_status'] === 'Converted' ? 'success' : 'warning' ?>">
+                                            <?= $quote['conversion_status'] ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?= $quote['converted_invoice_total'] ? '₹' . number_format($quote['converted_invoice_total'], 2) : '-' ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                    <?php if (!empty($processed_data)): ?>
+                        <tfoot class="table-secondary">
+                            <tr>
+                                <th colspan="3">TOTALS</th>
+                                <th>₹<?= number_format($summary['total_quote_value'], 2) ?></th>
+                                <th>₹<?= number_format($summary['total_estimated_cost'], 2) ?></th>
+                                <th class="<?= $summary['total_estimated_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                    ₹<?= number_format($summary['total_estimated_profit'], 2) ?>
+                                </th>
+                                <th class="<?= $summary['avg_profit_margin'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                    <?= number_format($summary['avg_profit_margin'], 1) ?>%
+                                </th>
+                                <th><?= $summary['converted_quotes'] ?>/<?= $summary['total_quotes'] ?></th>
+                                <th>-</th>
+                            </tr>
+                        </tfoot>
+                    <?php endif; ?>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
