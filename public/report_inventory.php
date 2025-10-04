@@ -73,7 +73,7 @@ if ($low_stock_only) {
     $misc_sql .= " AND COALESCE(cms.total_stock_units, 0) < 10";
 }
 
-$misc_sql .= " ORDER BY m.name";
+$misc_sql .= " GROUP BY m.id, m.name ORDER BY m.name";
 
 $misc_stmt = $pdo->query($misc_sql);
 $misc_data = $misc_stmt->fetchAll(PDO::FETCH_ASSOC);
