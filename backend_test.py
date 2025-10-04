@@ -1,21 +1,15 @@
 #!/usr/bin/env python3
 """
-Backend Test Suite for Commission and Reporting System
-Tests the actual FastAPI backend system implementation.
+Backend Test Suite for Critical Error Resolution Testing
+Tests the actual system implementation and identifies critical mismatches.
 """
 
 import requests
 import json
-import time
-from urllib.parse import urljoin, urlparse, parse_qs
-import re
 import sys
-import os
 from datetime import datetime
-from motor.motor_asyncio import AsyncIOMotorClient
-import asyncio
 
-class CommissionReportingSystemTester:
+class CriticalErrorResolutionTester:
     def __init__(self, base_url="https://tilecrm-app.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
