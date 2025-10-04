@@ -1,5 +1,5 @@
 <?php
-// public/report_sales_enhanced.php - Enhanced Sales Report with Latest DB Schema
+// public/report_sales_enhanced_fixed.php - Enhanced Sales Report (Fixed SQLite Compatibility)
 require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
@@ -203,12 +203,12 @@ if (!empty($salesperson_totals)) {
     $summary['top_salesperson'] = array_key_first($salesperson_totals);
 }
 
-// Get all customers and salespersons for filter dropdowns
+// Get all customers and salespersons for filter dropdowns (SQLite compatible)
 $customers_sql = "
     SELECT DISTINCT 
         customer_name,
         firm_name,
-        CONCAT(customer_name, CASE WHEN firm_name != '' THEN CONCAT(' (', firm_name, ')') ELSE '' END) as display_name
+        customer_name || CASE WHEN firm_name != '' THEN ' (' || firm_name || ')' ELSE '' END as display_name
     FROM invoices 
     WHERE customer_name IS NOT NULL AND customer_name != ''
     ORDER BY customer_name
@@ -224,7 +224,7 @@ $salespersons_sql = "
 ";
 $all_salespersons = $pdo->query($salespersons_sql)->fetchAll(PDO::FETCH_COLUMN);
 
-$page_title = "Enhanced Sales Report";
+$page_title = "Enhanced Sales Report (Fixed)";
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
