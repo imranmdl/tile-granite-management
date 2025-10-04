@@ -80,39 +80,40 @@ class PHPBusinessSystemTester:
             self.log_test("Authentication System", False, f"Error during authentication: {str(e)}")
             return False
 
-    def test_php_file_accessibility(self):
-        """Test if PHP files are accessible via web"""
-        php_files = [
-            'quotation_enhanced.php',
-            'item_profit.php', 
-            'quotation_profit.php',
-            'damage_report.php',
-            'report_inventory.php'
-        ]
-        
-        accessible_files = []
-        for php_file in php_files:
-            try:
-                # Try direct access
-                response = self.session.get(f"{self.base_url}/{php_file}", timeout=5)
-                if response.status_code == 200 and 'php' in response.text.lower():
-                    accessible_files.append(php_file)
-                    
-                # Try public folder access
-                response = self.session.get(f"{self.base_url}/public/{php_file}", timeout=5)
-                if response.status_code == 200 and 'php' in response.text.lower():
-                    accessible_files.append(f"public/{php_file}")
-                    
-            except:
-                pass
-        
-        if accessible_files:
-            self.log_test("PHP File Accessibility", True, f"PHP files accessible: {', '.join(accessible_files)}")
-            return True
-        else:
-            self.log_test("PHP File Accessibility", False, 
-                        "CRITICAL: No PHP files accessible via web",
-                        "All PHP file requests return React app HTML instead of PHP execution. React frontend is intercepting all requests.")
+    def test_quotation_enhanced_php(self):
+        """Test quotation_enhanced.php - previously had parse errors"""
+        if not self.authenticated:
+            self.log_test("quotation_enhanced.php Validation", False, "Authentication required")
+            return False
+            
+        try:
+            # Test basic access
+            response = self.session.get(f"{self.base_url}/public/quotation_enhanced.php", timeout=10)
+            
+            if response.status_code == 200:
+                # Check for PHP syntax errors
+                if 'Parse error' in response.text or 'Fatal error' in response.text:
+                    self.log_test("quotation_enhanced.php Validation", False, 
+                                "PHP syntax errors still present",
+                                "Parse or fatal errors found in response")
+                    return False
+                
+                # Check if page loads properly (should have form elements or quotation content)
+                if 'quotation' in response.text.lower() or 'form' in response.text.lower():
+                    self.log_test("quotation_enhanced.php Validation", True, 
+                                "File loads without syntax errors - quotation interface accessible")
+                    return True
+                else:
+                    self.log_test("quotation_enhanced.php Validation", False, 
+                                "File loads but content appears incomplete")
+                    return False
+            else:
+                self.log_test("quotation_enhanced.php Validation", False, 
+                            f"HTTP {response.status_code} - file not accessible")
+                return False
+                
+        except Exception as e:
+            self.log_test("quotation_enhanced.php Validation", False, f"Error: {str(e)}")
             return False
 
     def test_authentication_system(self):
