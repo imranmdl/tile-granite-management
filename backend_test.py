@@ -444,7 +444,7 @@ class PHPBusinessSystemTester:
             return False
 
     def test_enhanced_sales_report(self):
-        """Test Enhanced Sales Report (/report_sales_enhanced.php)"""
+        """Test Enhanced Sales Report (/report_sales_enhanced.php) - Fixed CONCAT → || operator"""
         if not self.authenticated:
             self.log_test("Enhanced Sales Report", False, "Authentication required")
             return False
@@ -453,7 +453,16 @@ class PHPBusinessSystemTester:
             response = self.session.get(f"{self.base_url}/report_sales_enhanced.php", timeout=10)
             
             if response.status_code == 200:
-                # Check for database column errors
+                # Check for specific SQLite CONCAT function errors that should be fixed
+                if 'no such function: CONCAT' in response.text:
+                    self.log_test("Enhanced Sales Report", False, "CRITICAL: SQLite CONCAT function error - should use || operator instead")
+                    return False
+                
+                if 'CONCAT' in response.text and 'error' in response.text.lower():
+                    self.log_test("Enhanced Sales Report", False, "CRITICAL: CONCAT function error still present - SQLite compatibility issue")
+                    return False
+                
+                # Check for other database column errors
                 if ('boxes_decimal' in response.text or 'qty_units' in response.text) and 'error' in response.text.lower():
                     self.log_test("Enhanced Sales Report", False, "Database schema errors found")
                     return False
@@ -462,37 +471,18 @@ class PHPBusinessSystemTester:
                 if 'customer' in response.text.lower() and 'salesperson' in response.text.lower():
                     # Check for performance analysis
                     if 'performance' in response.text.lower() or 'analysis' in response.text.lower():
-                        # Check for product mix analytics
-                        if 'tiles' in response.text.lower() and 'misc' in response.text.lower():
-                            # Check for commission tracking
-                            if 'commission' in response.text.lower():
-                                self.log_test("Enhanced Sales Report", True, "Enhanced sales report with filtering, analysis, product mix, and commission tracking working")
-                                return True
-                            else:
-                                self.log_test("Enhanced Sales Report", True, "Enhanced sales report with filtering, analysis, and product mix working")
-                                return True
-                        else:
-                            self.log_test("Enhanced Sales Report", True, "Enhanced sales report with filtering and analysis working")
-                            return True
+                        self.log_test("Enhanced Sales Report", True, "Enhanced sales report working - CONCAT → || operator fix successful")
+                        return True
                     else:
                         self.log_test("Enhanced Sales Report", False, "Sales report loads but missing performance analysis")
                         return False
                 else:
                     self.log_test("Enhanced Sales Report", False, "Sales report loads but missing advanced filtering")
                     return False
-            elif response.status_code == 302:
-                # Redirect - likely authentication issue or permission denied
-                location = response.headers.get('Location', '')
-                if 'login' in location:
-                    self.log_test("Enhanced Sales Report", False, "Authentication failed - redirected to login")
-                    return False
-                else:
-                    self.log_test("Enhanced Sales Report", False, f"Unexpected redirect to: {location}")
-                    return False
             elif response.status_code == 500:
-                # Check if it's a minor runtime error but core functionality works
-                self.log_test("Enhanced Sales Report", True, "Minor: HTTP 500 runtime error but enhanced sales report functionality implemented")
-                return True
+                # Check error logs for specific CONCAT function issues
+                self.log_test("Enhanced Sales Report", False, "HTTP 500 error - likely SQLite CONCAT function compatibility issue")
+                return False
             else:
                 self.log_test("Enhanced Sales Report", False, f"HTTP {response.status_code} - enhanced sales report not accessible")
                 return False
