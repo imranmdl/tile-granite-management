@@ -357,17 +357,56 @@ backend:
         -agent: "testing"
         -comment: "COMPLETED: Enhanced damage report with supplier performance analysis, damage cost calculations for tiles and misc items, damage percentage thresholds and filtering, comprehensive damage tracking from purchase entries working correctly."
 
-  - task: "Database Schema Integration"
+  - task: "Enhanced Inventory Report"
+    implemented: true
+    working: false
+    file: "public/report_inventory_enhanced.php"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: false
+        -agent: "testing"
+        -comment: "CRITICAL DATABASE SCHEMA ERROR: PHP Fatal error - SQLSTATE[HY000]: General error: 1 no such column: ts.width in /app/public/report_inventory_enhanced.php:117. Database column mapping references non-existent columns in tile_sizes table."
+
+  - task: "Enhanced Commission Report"
+    implemented: true
+    working: false
+    file: "public/report_commission_enhanced.php"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: false
+        -agent: "testing"
+        -comment: "CRITICAL DATABASE SCHEMA ERROR: PHP Fatal error - SQLSTATE[HY000]: General error: 1 no such column: cl.commission_date in /app/public/report_commission_enhanced.php:124. Database column mapping references non-existent columns in commission_ledger table."
+
+  - task: "Invoice Profit Report (Rebuilt)"
     implemented: true
     working: true
-    file: "public/report_daily_pl.php, public/report_sales_enhanced.php, public/report_damage_enhanced.php"
+    file: "public/invoice_profit.php"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
         -working: true
         -agent: "testing"
+        -comment: "COMPLETED: Invoice profit report rebuilt with latest schema working correctly. Profit calculations and invoice integration functional."
+
+  - task: "Database Schema Integration"
+    implemented: true
+    working: false
+    file: "public/report_daily_pl.php, public/report_sales_enhanced.php, public/report_damage_enhanced.php"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: true
+        -agent: "testing"
         -comment: "COMPLETED: Database schema integration verified - all legacy column issues resolved (ii.quantity → ii.boxes_decimal for invoice_items, imi.quantity → imi.qty_units for invoice_misc_items). All reports use latest schema correctly with proper integration to invoices, invoice_items, invoice_misc_items, purchase_entries_tiles, purchase_entries_misc tables."
+        -working: false
+        -agent: "testing"
+        -comment: "CRITICAL DATABASE SCHEMA ISSUES: Multiple reports still contain legacy column references causing fatal errors: 1) t.as_of_cost_per_box → t.current_cost, 2) qmi.quantity → qmi.qty_units, 3) SQLite CONCAT → || operator, 4) Missing columns: pet.purchase_qty_boxes, ts.width, cl.commission_date. Schema integration incomplete."
 
 frontend:
   - task: "React Frontend Basic Setup"
