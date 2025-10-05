@@ -249,10 +249,54 @@ if ($has_stock) {
   </div>
 
   <!-- KPIs -->
-  <div class="row g-3">
-    <div class="col-lg-4"><div class="card kpi p-3"><div class="d-flex align-items-center gap-2 mb-2"><span class="emoji">🧱</span><h6 class="m-0">Tiles</h6></div><div class="big"><?= number_format($tiles) ?></div><div class="text-muted small">Total tile records</div></div></div>
-    <div class="col-lg-4"><div class="card kpi p-3"><div class="d-flex align-items-center gap-2 mb-2"><span class="emoji">🧾</span><h6 class="m-0">Quotations</h6></div><div class="big"><?= number_format($quotes) ?></div><div class="text-muted small">All time</div></div></div>
-    <div class="col-lg-4"><div class="card kpi p-3"><div class="d-flex align-items-center gap-2 mb-2"><span class="emoji">💳</span><h6 class="m-0">Invoices</h6></div><div class="big"><?= number_format($invoices) ?></div><div class="text-muted small">All time</div></div></div>
+  <div class="row g-4 mb-4">
+    <div class="col-lg-4">
+      <div class="card kpi p-4" onclick="location.href='/public/tiles.php'">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <span class="emoji">🧱</span>
+          <div>
+            <h6 class="m-0 fw-bold">Tiles Catalog</h6>
+            <small class="text-muted">Manage inventory</small>
+          </div>
+        </div>
+        <div class="big"><?= number_format($tiles) ?></div>
+        <div class="text-muted small mt-1">
+          <i class="bi bi-box-seam me-1"></i>Total tile products
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="card kpi p-4" onclick="location.href='/public/quotation_list_enhanced.php'">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <span class="emoji">🧾</span>
+          <div>
+            <h6 class="m-0 fw-bold">Quotations</h6>
+            <small class="text-muted">Customer quotes</small>
+          </div>
+        </div>
+        <div class="big"><?= number_format($quotes) ?></div>
+        <div class="text-muted small mt-1">
+          <i class="bi bi-file-text me-1"></i>All time quotes
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="card kpi p-4" onclick="location.href='/public/invoice_enhanced.php'">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <span class="emoji">💳</span>
+          <div>
+            <h6 class="m-0 fw-bold">Invoices</h6>
+            <small class="text-muted">Sales transactions</small>
+          </div>
+        </div>
+        <div class="big"><?= number_format($invoices) ?></div>
+        <div class="text-muted small mt-1">
+          <i class="bi bi-receipt me-1"></i>Total invoices
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Revenue / Profit -->
