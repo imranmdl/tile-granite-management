@@ -131,7 +131,7 @@ try {
             ((mi.qty_in - COALESCE(mi.damage_units, 0)) * mi.cost_per_unit + COALESCE(mi.transport_cost, 0)) as total_cost
         FROM misc_inventory_items mi
         JOIN misc_items m ON mi.misc_item_id = m.id
-        ORDER BY mi.created_at DESC
+        ORDER BY mi.purchase_date DESC, mi.id DESC
         LIMIT 10
     ";
     
