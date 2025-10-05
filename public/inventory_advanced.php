@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 // Get current stock
                 $current_stmt = $pdo->prepare("
-                    SELECT COALESCE(SUM(quantity - COALESCE(damage_quantity, 0)), 0) 
+                    SELECT COALESCE(SUM(qty_in - COALESCE(damage_units, 0)), 0) 
                     FROM misc_inventory_items 
                     WHERE misc_item_id = ?
                 ");
