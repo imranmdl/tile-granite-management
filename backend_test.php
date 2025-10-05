@@ -330,9 +330,10 @@ class InventorySystemTester {
         // Create a test tile size if not exists
         $this->pdo->exec("INSERT OR IGNORE INTO tile_sizes (id, label, sqft_per_box) VALUES (999, 'Test Size', 1.5)");
         
-        // Create a test tile
+        // Create a test tile with unique name
+        $unique_name = 'Test Tile ' . time() . '_' . rand(1000, 9999);
         $stmt = $this->pdo->prepare("INSERT INTO tiles (name, size_id) VALUES (?, ?)");
-        $stmt->execute(['Test Tile ' . time(), 999]);
+        $stmt->execute([$unique_name, 999]);
         
         return (int)$this->pdo->lastInsertId();
     }
