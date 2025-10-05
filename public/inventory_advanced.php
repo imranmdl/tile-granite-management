@@ -189,12 +189,12 @@ $inventory_sql = "
         GROUP BY misc_item_id
     ) inv ON m.id = inv.misc_item_id
     LEFT JOIN (
-        SELECT misc_item_id, SUM(quantity) as total_sold
+        SELECT misc_item_id, SUM(qty_units) as total_sold
         FROM invoice_misc_items 
         GROUP BY misc_item_id
     ) sold ON m.id = sold.misc_item_id
     LEFT JOIN (
-        SELECT misc_item_id, SUM(quantity) as total_returned
+        SELECT misc_item_id, SUM(qty_units) as total_returned
         FROM invoice_return_misc_items 
         GROUP BY misc_item_id
     ) returned ON m.id = returned.misc_item_id
