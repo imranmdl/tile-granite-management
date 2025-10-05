@@ -311,7 +311,7 @@ class InventoryUpdates {
                         tile_id,
                         SUM(boxes_in) as total_boxes_received,
                         SUM(boxes_in - COALESCE(damage_boxes, 0)) as total_net_boxes,
-                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * COALESCE(purchase_box_value, 0)) as total_cost
+                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * COALESCE(per_box_value, 0)) as total_cost
                     FROM inventory_items 
                     GROUP BY tile_id
                 ) p ON t.id = p.tile_id
