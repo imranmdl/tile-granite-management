@@ -339,10 +339,11 @@ class InventoryUpdates {
                 -- Returns  
                 LEFT JOIN (
                     SELECT 
-                        tile_id,
-                        SUM(quantity) as total_boxes_returned
+                        item_id as tile_id,
+                        SUM(quantity_returned) as total_boxes_returned
                     FROM individual_returns
-                    GROUP BY tile_id
+                    WHERE item_type = 'tile'
+                    GROUP BY item_id
                 ) r ON t.id = r.tile_id
             ");
         } catch (Exception $e) {
