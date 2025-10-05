@@ -117,15 +117,93 @@ if ($has_stock) {
 }
 ?>
 <style>
-  :root{ --card-r:18px; --shadow:0 10px 30px rgba(0,0,0,.10); }
-  .kpi{ border:0;border-radius:var(--card-r);box-shadow:var(--shadow);overflow:hidden }
-  .kpi .big{ font-size:2.25rem;line-height:1.1;font-weight:800 }
-  .kpi .emoji{ font-size:2rem }
-  .card-soft{ border:0;border-radius:var(--card-r);box-shadow:var(--shadow) }
-  .chip{ border-radius:999px;padding:.35rem .8rem;border:1px solid rgba(0,0,0,.08) }
+  :root{ 
+    --card-r:18px; 
+    --shadow:0 10px 30px rgba(0,0,0,.10);
+    --brand-primary: #8a243d;
+    --brand-secondary: #0d3b66;
+    --brand-accent: #ffd166;
+    --gradient: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+  }
+  body { background-color: #f8f9fa; }
+  .kpi{ 
+    border:0;
+    border-radius:var(--card-r);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    background: white;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+  }
+  .kpi:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0,0,0,.15);
+  }
+  .kpi .big{ font-size:2.5rem;line-height:1.1;font-weight:800;color:var(--brand-primary) }
+  .kpi .emoji{ font-size:2.5rem;margin-bottom:10px }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient);
+  }
+  .card-soft{ 
+    border:0;
+    border-radius:var(--card-r);
+    box-shadow:var(--shadow);
+    background: white;
+    transition: all 0.3s ease;
+  }
+  .card-soft:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(0,0,0,.12);
+  }
+  .chip{ 
+    border-radius:999px;
+    padding:.35rem .8rem;
+    border:1px solid rgba(0,0,0,.08);
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: #6c757d;
+  }
+  .chip:hover {
+    background: var(--brand-primary);
+    color: white;
+    border-color: var(--brand-primary);
+    text-decoration: none;
+    transform: scale(1.05);
+  }
+  .chip.btn-outline-primary {
+    background: var(--brand-primary);
+    color: white;
+    border-color: var(--brand-primary);
+  }
   .spark-wrap{ position:relative;height:44px }
-  .spark-bg{ fill:rgba(39,125,161,.08) }
-  .spark-line{ fill:none;stroke:#277da1;stroke-width:2.5 }
+  .spark-bg{ fill:rgba(138, 36, 61,.08) }
+  .spark-line{ fill:none;stroke:var(--brand-primary);stroke-width:3 }
+  .dashboard-header {
+    background: var(--gradient);
+    color: white;
+    border-radius: var(--card-r);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+  }
+  .quick-action-btn {
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+  }
+  .quick-action-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  }
 </style>
 
 <div class="container-xxl my-3">
