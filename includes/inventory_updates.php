@@ -222,7 +222,7 @@ class InventoryUpdates {
                     SUM(COALESCE(damage_boxes, 0)) as total_damage_boxes,
                     CASE 
                         WHEN SUM(boxes_in - COALESCE(damage_boxes, 0)) > 0 
-                        THEN SUM((boxes_in - COALESCE(damage_boxes, 0)) * COALESCE(purchase_box_value, 0)) / SUM(boxes_in - COALESCE(damage_boxes, 0))
+                        THEN SUM((boxes_in - COALESCE(damage_boxes, 0)) * COALESCE(per_box_value, 0)) / SUM(boxes_in - COALESCE(damage_boxes, 0))
                         ELSE 0 
                     END as weighted_avg_cost
                 FROM inventory_items 
