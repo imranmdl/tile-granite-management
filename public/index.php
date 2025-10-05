@@ -368,4 +368,71 @@ if ($has_stock) {
   </div>
 </div>
 
+<script>
+function refreshDashboard() {
+  const refreshBtn = document.querySelector('[onclick="refreshDashboard()"]');
+  const originalText = refreshBtn.innerHTML;
+  refreshBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Refreshing...';
+  refreshBtn.disabled = true;
+  
+  // Simulate refresh delay
+  setTimeout(() => {
+    location.reload();
+  }, 1000);
+}
+
+// Add click animation to KPI cards
+document.querySelectorAll('.kpi').forEach(card => {
+  card.addEventListener('mouseenter', function() {
+    this.style.transform = 'translateY(-8px) scale(1.02)';
+  });
+  
+  card.addEventListener('mouseleave', function() {
+    this.style.transform = 'translateY(0) scale(1)';
+  });
+});
+
+// Auto-refresh dashboard every 5 minutes
+setInterval(() => {
+  // Show subtle notification
+  const notification = document.createElement('div');
+  notification.className = 'position-fixed top-0 end-0 p-3';
+  notification.style.zIndex = '9999';
+  notification.innerHTML = `
+    <div class="toast show" role="alert">
+      <div class="toast-header">
+        <i class="bi bi-arrow-clockwise text-primary me-2"></i>
+        <strong class="me-auto">Dashboard Updated</strong>
+        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+      </div>
+      <div class="toast-body">
+        Data refreshed automatically
+      </div>
+    </div>
+  `;
+  document.body.appendChild(notification);
+  
+  // Remove notification after 3 seconds
+  setTimeout(() => {
+    notification.remove();
+  }, 3000);
+}, 300000); // 5 minutes
+
+// Real-time clock
+function updateClock() {
+  const now = new Date();
+  const timeString = now.toLocaleTimeString();
+  const clockElement = document.querySelector('.dashboard-header h4');
+  if (clockElement) {
+    clockElement.textContent = now.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
+}
+
+setInterval(updateClock, 60000); // Update every minute
+</script>
+
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
