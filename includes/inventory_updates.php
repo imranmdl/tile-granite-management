@@ -284,9 +284,9 @@ class InventoryUpdates {
                     -- Returns totals
                     COALESCE(r.total_boxes_returned, 0) as total_returned,
                     
-                    -- Current calculations
-                    (COALESCE(p.total_net_boxes, 0) + COALESCE(pet.total_net_boxes, 0) - COALESCE(s.total_boxes_sold, 0) + COALESCE(r.total_boxes_returned, 0)) as current_stock,
-                    (COALESCE(p.total_net_boxes, 0) + COALESCE(pet.total_net_boxes, 0) - COALESCE(s.total_boxes_sold, 0) + COALESCE(r.total_boxes_returned, 0)) as available_boxes,
+                    -- Current calculations (including inventory transactions)
+                    (COALESCE(p.total_net_boxes, 0) + COALESCE(pet.total_net_boxes, 0) - COALESCE(s.total_boxes_sold, 0) + COALESCE(r.total_boxes_returned, 0) + COALESCE(it.total_transactions, 0)) as current_stock,
+                    (COALESCE(p.total_net_boxes, 0) + COALESCE(pet.total_net_boxes, 0) - COALESCE(s.total_boxes_sold, 0) + COALESCE(r.total_boxes_returned, 0) + COALESCE(it.total_transactions, 0)) as available_boxes,
                     
                     -- Cost calculations
                     CASE 
