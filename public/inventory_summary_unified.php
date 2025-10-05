@@ -29,8 +29,8 @@ function getMiscInventoryLevels(PDO $pdo) {
         SELECT 
             m.id as item_id,
             m.name as item_name,
-            m.unit,
-            m.description,
+            m.unit_label as unit,
+            '' as description,
             'misc' as item_type,
             
             -- Purchase totals
@@ -67,9 +67,9 @@ function getMiscInventoryLevels(PDO $pdo) {
         LEFT JOIN (
             SELECT 
                 misc_item_id,
-                SUM(quantity) as total_quantity_received,
-                SUM(quantity - COALESCE(damage_quantity, 0)) as total_net_quantity,
-                SUM((quantity - COALESCE(damage_quantity, 0)) * COALESCE(cost_per_unit, 0)) as total_cost
+                SUM(qty_in) as total_quantity_received,
+                SUM(qty_in - COALESCE(damage_units, 0)) as total_net_quantity,
+                SUM((qty_in - COALESCE(damage_units, 0)) * COALESCE(cost_per_unit, 0)) as total_cost
             FROM misc_inventory_items 
             GROUP BY misc_item_id
         ) p ON m.id = p.misc_item_id
@@ -78,7 +78,7 @@ function getMiscInventoryLevels(PDO $pdo) {
         LEFT JOIN (
             SELECT 
                 misc_item_id,
-                SUM(quantity) as total_quantity_sold
+                SUM(qty) as total_quantity_sold
             FROM invoice_misc_items
             GROUP BY misc_item_id
         ) s ON m.id = s.misc_item_id
@@ -87,7 +87,7 @@ function getMiscInventoryLevels(PDO $pdo) {
         LEFT JOIN (
             SELECT 
                 misc_item_id,
-                SUM(quantity) as total_quantity_returned
+                SUM(qty) as total_quantity_returned
             FROM invoice_return_misc_items
             GROUP BY misc_item_id
         ) r ON m.id = r.misc_item_id
