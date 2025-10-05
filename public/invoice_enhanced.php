@@ -2,6 +2,7 @@
 // public/invoice_enhanced.php - Enhanced Invoice system with conversion from quotation
 require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/inventory_updates.php';
 
 auth_require_login();
 
