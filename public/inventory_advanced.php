@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($adjustment != 0) {
                     $stmt = $pdo->prepare("
                         INSERT INTO misc_inventory_items 
-                        (misc_item_id, purchase_date, quantity, damage_quantity, cost_per_unit, 
+                        (misc_item_id, purchase_date, qty_in, damage_units, cost_per_unit, 
                          vendor, notes, created_by)
                         VALUES (?, ?, ?, 0, 0, ?, ?, ?)
                     ");
