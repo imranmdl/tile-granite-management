@@ -339,7 +339,7 @@ class InventorySystemTester {
     
     private function addTestInventory($tile_id, $boxes) {
         $stmt = $this->pdo->prepare("
-            INSERT INTO inventory_items (tile_id, purchase_dt, boxes_in, purchase_box_value, vendor)
+            INSERT INTO inventory_items (tile_id, purchase_dt, boxes_in, per_box_value, vendor)
             VALUES (?, ?, ?, ?, ?)
         ");
         $stmt->execute([$tile_id, date('Y-m-d'), $boxes, 50, 'Test Vendor']);
