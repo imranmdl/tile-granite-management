@@ -295,7 +295,7 @@ class InventoryUpdates {
                         ELSE 0
                     END as avg_cost_per_box,
                     
-                    (COALESCE(p.total_net_boxes, 0) + COALESCE(pet.total_net_boxes, 0) - COALESCE(s.total_boxes_sold, 0) + COALESCE(r.total_boxes_returned, 0)) * 
+                    (COALESCE(p.total_net_boxes, 0) + COALESCE(pet.total_net_boxes, 0) - COALESCE(s.total_boxes_sold, 0) + COALESCE(r.total_boxes_returned, 0) + COALESCE(it.total_transactions, 0)) * 
                     CASE 
                         WHEN (COALESCE(p.total_net_boxes, 0) + COALESCE(pet.total_net_boxes, 0)) > 0
                         THEN (COALESCE(p.total_cost, 0) + COALESCE(pet.total_cost, 0)) / (COALESCE(p.total_net_boxes, 0) + COALESCE(pet.total_net_boxes, 0))
