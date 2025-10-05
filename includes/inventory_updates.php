@@ -101,11 +101,11 @@ class InventoryUpdates {
             
             SELECT 
                 'purchase' as type,
-                purchase_dt as date, 
-                (boxes_in - COALESCE(damage_boxes, 0)) as quantity,
-                (boxes_in - COALESCE(damage_boxes, 0)) as net_quantity,
-                purchase_box_value as cost_per_box,
-                vendor,
+                purchase_date as date, 
+                total_boxes as quantity,
+                (total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100) as net_quantity,
+                cost_per_box as cost_per_box,
+                supplier_name as vendor,
                 notes
             FROM purchase_entries_tiles pet
             WHERE tile_id = ? AND pet.id NOT IN (
