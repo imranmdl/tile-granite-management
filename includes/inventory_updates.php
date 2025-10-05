@@ -383,8 +383,9 @@ class InventoryUpdates {
             // Rebuild from purchases
             $pdo->exec("
                 INSERT INTO inventory_transactions (tile_id, quantity_change, transaction_type, reference_id, transaction_date, created_by)
-                SELECT tile_id, (boxes_in - COALESCE(damage_boxes, 0)), 'purchase', id, purchase_dt, 1
+                SELECT tile_id, (boxes_in - COALESCE(damage_boxes, 0)), 'purchase', id, COALESCE(purchase_dt, date('now')), 1
                 FROM inventory_items
+                WHERE tile_id IS NOT NULL
             ");
             
             // Rebuild from sales
