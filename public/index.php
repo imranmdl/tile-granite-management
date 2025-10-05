@@ -341,14 +341,27 @@ if ($has_stock) {
         </ul>
       </div>
 
-      <div class="card card-soft p-3">
-        <h6 class="mb-2">Quick Actions</h6>
-        <div class="d-grid gap-2">
-          <a class="btn btn-primary" href="/public/tiles.php">Tiles & Sizes</a>
-          <a class="btn btn-success" href="/public/quotation.php">New Quotation</a>
-          <a class="btn btn-warning" href="/public/invoice.php">New Invoice</a>
-          <a class="btn btn-outline-primary" href="/public/inventory.php">Inventory</a>
-          <a class="btn btn-secondary" href="/public/expenses.php">Add Expense</a>
+      <div class="card card-soft p-4">
+        <h6 class="mb-3 fw-bold"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h6>
+        <div class="d-grid gap-3">
+          <a class="btn btn-primary quick-action-btn" href="/public/tiles.php">
+            <i class="bi bi-bricks me-2"></i>Tiles & Sizes
+          </a>
+          <a class="btn btn-success quick-action-btn" href="/public/quotation_enhanced.php">
+            <i class="bi bi-file-plus me-2"></i>New Quotation
+          </a>
+          <a class="btn btn-warning quick-action-btn" href="/public/invoice_enhanced.php">
+            <i class="bi bi-receipt-cutoff me-2"></i>New Invoice
+          </a>
+          <a class="btn btn-outline-primary quick-action-btn" href="/public/tiles_inventory.php">
+            <i class="bi bi-boxes me-2"></i>Inventory
+          </a>
+          <a class="btn btn-info quick-action-btn" href="/public/reports_dashboard_new.php">
+            <i class="bi bi-graph-up-arrow me-2"></i>Reports
+          </a>
+          <a class="btn btn-secondary quick-action-btn" href="/public/expenses.php">
+            <i class="bi bi-credit-card me-2"></i>Add Expense
+          </a>
         </div>
       </div>
     </div>
