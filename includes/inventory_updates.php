@@ -60,8 +60,8 @@ class InventoryUpdates {
         
         $sql = "
             SELECT 
-                t.id,
-                t.name,
+                t.id as tile_id,
+                t.name as tile_name,
                 ts.label as size_label,
                 ts.sqft_per_box,
                 COALESCE(cis.total_received, 0) as total_received,
