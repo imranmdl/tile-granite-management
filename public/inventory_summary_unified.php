@@ -78,7 +78,7 @@ function getMiscInventoryLevels(PDO $pdo) {
         LEFT JOIN (
             SELECT 
                 misc_item_id,
-                SUM(qty) as total_quantity_sold
+                SUM(qty_units) as total_quantity_sold
             FROM invoice_misc_items
             GROUP BY misc_item_id
         ) s ON m.id = s.misc_item_id
@@ -87,7 +87,7 @@ function getMiscInventoryLevels(PDO $pdo) {
         LEFT JOIN (
             SELECT 
                 misc_item_id,
-                SUM(qty) as total_quantity_returned
+                SUM(qty_units) as total_quantity_returned
             FROM invoice_return_misc_items
             GROUP BY misc_item_id
         ) r ON m.id = r.misc_item_id
