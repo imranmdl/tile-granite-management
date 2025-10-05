@@ -162,7 +162,7 @@ class InventorySystemTester {
             $initial_levels = InventoryUpdates::getCurrentInventoryLevels($this->pdo);
             $initial_stock = 0;
             foreach ($initial_levels as $item) {
-                if ($item['id'] == $test_tile_id) {
+                if ($item['tile_id'] == $test_tile_id) {
                     $initial_stock = (float)$item['available_boxes'];
                     break;
                 }
@@ -178,7 +178,7 @@ class InventorySystemTester {
             $updated_levels = InventoryUpdates::getCurrentInventoryLevels($this->pdo);
             $updated_stock = 0;
             foreach ($updated_levels as $item) {
-                if ($item['id'] == $test_tile_id) {
+                if ($item['tile_id'] == $test_tile_id) {
                     $updated_stock = (float)$item['available_boxes'];
                     break;
                 }
@@ -202,7 +202,7 @@ class InventorySystemTester {
             $initial_levels = InventoryUpdates::getCurrentInventoryLevels($this->pdo);
             $initial_stock = 0;
             foreach ($initial_levels as $item) {
-                if ($item['id'] == $test_tile_id) {
+                if ($item['tile_id'] == $test_tile_id) {
                     $initial_stock = (float)$item['available_boxes'];
                     break;
                 }
@@ -219,7 +219,7 @@ class InventorySystemTester {
             $updated_levels = InventoryUpdates::getCurrentInventoryLevels($this->pdo);
             $updated_stock = 0;
             foreach ($updated_levels as $item) {
-                if ($item['id'] == $test_tile_id) {
+                if ($item['tile_id'] == $test_tile_id) {
                     $updated_stock = (float)$item['available_boxes'];
                     break;
                 }
@@ -291,7 +291,7 @@ class InventorySystemTester {
             $levels = InventoryUpdates::getCurrentInventoryLevels($this->pdo);
             $stock = 0;
             foreach ($levels as $item) {
-                if ($item['id'] == $test_tile_id) {
+                if ($item['tile_id'] == $test_tile_id) {
                     $stock = (float)$item['available_boxes'];
                     break;
                 }
