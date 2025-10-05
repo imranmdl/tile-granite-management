@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $stmt = $pdo->prepare("
                         INSERT INTO misc_inventory_items 
-                        (misc_item_id, purchase_date, quantity, damage_quantity, cost_per_unit, 
+                        (misc_item_id, purchase_date, qty_in, damage_units, cost_per_unit, 
                          transport_cost, vendor, invoice_no, notes, created_by)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ");
