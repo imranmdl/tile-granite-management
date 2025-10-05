@@ -10,39 +10,48 @@ $pdo = Database::pdo();
 $message = '';
 $error = '';
 
-// Check actual table structure and create/fix tables
+// Check and fix database structure
 try {
-    // Get existing columns for misc_items table
-    $columns = $pdo->query("PRAGMA table_info(misc_items)")->fetchAll(PDO::FETCH_ASSOC);
-    $has_unit_label = false;
-    $has_unit = false;
-    
-    foreach ($columns as $col) {
-        if ($col['name'] === 'unit_label') $has_unit_label = true;
-        if ($col['name'] === 'unit') $has_unit = true;
+    // Check misc_items table structure
+    $columns = [];
+    try {
+        $columns = $pdo->query("PRAGMA table_info(misc_items)")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Table doesn't exist, create it
     }
     
-    // Create or fix misc_items table
+    $column_names = array_column($columns, 'name');
+    $has_unit_label = in_array('unit_label', $column_names);
+    $has_description = in_array('description', $column_names);
+    
+    // Create or update misc_items table
     if (empty($columns)) {
         $pdo->exec("
             CREATE TABLE misc_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 unit_label TEXT NOT NULL DEFAULT 'units',
-                description TEXT,
+                description TEXT DEFAULT '',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ");
-    } elseif (!$has_unit_label && $has_unit) {
-        // Rename unit to unit_label if needed
-        $pdo->exec("ALTER TABLE misc_items RENAME COLUMN unit TO unit_label");
-    } elseif (!$has_unit_label && !$has_unit) {
-        // Add unit_label column
-        $pdo->exec("ALTER TABLE misc_items ADD COLUMN unit_label TEXT DEFAULT 'units'");
+    } else {
+        // Add missing columns
+        if (!$has_unit_label) {
+            $pdo->exec("ALTER TABLE misc_items ADD COLUMN unit_label TEXT DEFAULT 'units'");
+        }
+        if (!$has_description) {
+            $pdo->exec("ALTER TABLE misc_items ADD COLUMN description TEXT DEFAULT ''");
+        }
     }
 
     // Check misc_inventory_items table
-    $inv_columns = $pdo->query("PRAGMA table_info(misc_inventory_items)")->fetchAll(PDO::FETCH_ASSOC);
+    $inv_columns = [];
+    try {
+        $inv_columns = $pdo->query("PRAGMA table_info(misc_inventory_items)")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Table doesn't exist
+    }
     
     if (empty($inv_columns)) {
         $pdo->exec("
@@ -54,9 +63,9 @@ try {
                 damage_units REAL DEFAULT 0,
                 cost_per_unit REAL NOT NULL,
                 transport_cost REAL DEFAULT 0,
-                vendor TEXT,
-                invoice_no TEXT,
-                notes TEXT,
+                vendor TEXT DEFAULT '',
+                invoice_no TEXT DEFAULT '',
+                notes TEXT DEFAULT '',
                 created_by INTEGER,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (misc_item_id) REFERENCES misc_items(id)
@@ -136,22 +145,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
     }
 }
 
-// Get all misc items
+// Get all misc items safely
+$misc_items = [];
 try {
-    $misc_items = $pdo->query("SELECT id, name, unit_label, description FROM misc_items ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+    $misc_items = $pdo->query("
+        SELECT 
+            id, 
+            name, 
+            unit_label, 
+            COALESCE(description, '') as description 
+        FROM misc_items 
+        ORDER BY name
+    ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
-    $misc_items = [];
     if (!$error) $error = "Error loading misc items: " . $e->getMessage();
 }
 
-// Get inventory data - SAME STRUCTURE AS inventory_summary_unified.php
+// Get inventory data - SAFE QUERIES
+$inventory_data = [];
 try {
     $inventory_sql = "
         SELECT 
             m.id, 
             m.name, 
             m.unit_label as unit, 
-            m.description,
+            COALESCE(m.description, '') as description,
             COALESCE(inv.total_received, 0) as total_received,
             COALESCE(inv.net_received, 0) as net_received,
             COALESCE(inv.total_cost, 0) as total_cost,
@@ -177,12 +195,12 @@ try {
             GROUP BY misc_item_id
         ) inv ON m.id = inv.misc_item_id
         LEFT JOIN (
-            SELECT misc_item_id, SUM(qty_units) as total_sold
+            SELECT misc_item_id, SUM(COALESCE(qty_units, 0)) as total_sold
             FROM invoice_misc_items 
             GROUP BY misc_item_id
         ) sold ON m.id = sold.misc_item_id
         LEFT JOIN (
-            SELECT misc_item_id, SUM(qty_units) as total_returned
+            SELECT misc_item_id, SUM(COALESCE(qty_units, 0)) as total_returned
             FROM invoice_return_misc_items 
             GROUP BY misc_item_id
         ) returned ON m.id = returned.misc_item_id
@@ -191,8 +209,24 @@ try {
     
     $inventory_data = $pdo->query($inventory_sql)->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
-    $inventory_data = [];
     if (!$error) $error = "Error loading inventory data: " . $e->getMessage();
+}
+
+// Calculate totals
+$totals = [
+    'total_items' => count($inventory_data),
+    'total_available' => array_sum(array_column($inventory_data, 'available_quantity')),
+    'total_value' => array_sum(array_column($inventory_data, 'total_cost_value')),
+    'low_stock_count' => 0,
+    'out_of_stock_count' => 0
+];
+
+foreach ($inventory_data as $item) {
+    if ($item['available_quantity'] <= 0) {
+        $totals['out_of_stock_count']++;
+    } elseif ($item['available_quantity'] < 10) {
+        $totals['low_stock_count']++;
+    }
 }
 
 $page_title = "Miscellaneous Inventory Management";
@@ -225,18 +259,25 @@ require_once __DIR__ . '/../includes/header.php';
 .stock-low { background: #fff3cd; color: #856404; }
 .stock-out { background: #f8d7da; color: #721c24; }
 .value-display { font-weight: 700; font-size: 1.1rem; }
+.summary-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
 </style>
 
 <?php if ($message): ?>
     <div class="alert alert-success alert-dismissible fade show">
-        <?= h($message) ?>
+        <i class="bi bi-check-circle me-2"></i><?= h($message) ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
 
 <?php if ($error): ?>
     <div class="alert alert-danger alert-dismissible fade show">
-        <?= h($error) ?>
+        <i class="bi bi-exclamation-triangle me-2"></i><?= h($error) ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
@@ -246,12 +287,59 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="row align-items-center">
         <div class="col-md-8">
             <h2><i class="bi bi-gear-wide me-3"></i>Miscellaneous Inventory Management</h2>
-            <p class="mb-0 opacity-75">Manage non-tile inventory items - matches unified summary data</p>
+            <p class="mb-0 opacity-75">Complete tracking for non-tile inventory items</p>
         </div>
         <div class="col-md-4">
-            <div class="text-center bg-white bg-opacity-20 rounded p-3">
-                <div class="h4 mb-1"><?= count($misc_items) ?></div>
-                <small>Total Item Types</small>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="summary-card">
+                        <div class="h4 mb-1"><?= $totals['total_items'] ?></div>
+                        <small>Item Types</small>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="summary-card">
+                        <div class="h4 mb-1">₹<?= number_format($totals['total_value'], 0) ?></div>
+                        <small>Total Value</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-success"><?= number_format($totals['total_available'], 1) ?></h5>
+                <p class="card-text text-muted">Available Units</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-warning"><?= $totals['low_stock_count'] ?></h5>
+                <p class="card-text text-muted">Low Stock Items</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-danger"><?= $totals['out_of_stock_count'] ?></h5>
+                <p class="card-text text-muted">Out of Stock</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <a href="other_purchase.php" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-2"></i>Add Purchase
+                </a>
             </div>
         </div>
     </div>
@@ -276,6 +364,8 @@ require_once __DIR__ . '/../includes/header.php';
                 <option value="liters">Liters</option>
                 <option value="pieces">Pieces</option>
                 <option value="sets">Sets</option>
+                <option value="boxes">Boxes</option>
+                <option value="rolls">Rolls</option>
             </select>
         </div>
         <div class="col-md-4">
@@ -314,20 +404,20 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div class="col-md-2">
             <label class="form-label">Quantity *</label>
-            <input type="number" step="0.01" class="form-control" name="qty_in" required min="0">
+            <input type="number" step="0.01" class="form-control" name="qty_in" required min="0" placeholder="0.00">
         </div>
         <div class="col-md-2">
             <label class="form-label">Damage Qty</label>
-            <input type="number" step="0.01" class="form-control" name="damage_units" min="0" value="0">
+            <input type="number" step="0.01" class="form-control" name="damage_units" min="0" value="0" placeholder="0.00">
         </div>
         <div class="col-md-3">
             <label class="form-label">Cost per Unit *</label>
-            <input type="number" step="0.01" class="form-control" name="cost_per_unit" required min="0" placeholder="₹">
+            <input type="number" step="0.01" class="form-control" name="cost_per_unit" required min="0" placeholder="₹0.00">
         </div>
         
         <div class="col-md-2">
             <label class="form-label">Transport Cost</label>
-            <input type="number" step="0.01" class="form-control" name="transport_cost" min="0" value="0" placeholder="₹">
+            <input type="number" step="0.01" class="form-control" name="transport_cost" min="0" value="0" placeholder="₹0.00">
         </div>
         <div class="col-md-3">
             <label class="form-label">Vendor</label>
@@ -351,13 +441,20 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 <?php endif; ?>
 
-<!-- Inventory Table - SAME STRUCTURE AS UNIFIED SUMMARY -->
+<!-- Inventory Table -->
 <div class="card">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
             <i class="bi bi-list-ul me-2"></i>Miscellaneous Inventory Stock Levels
-            <small class="text-muted ms-2">(Data matches Inventory Summary)</small>
         </h5>
+        <div class="btn-group">
+            <a href="other_purchase.php" class="btn btn-success btn-sm">
+                <i class="bi bi-plus-circle me-1"></i>Add Purchase
+            </a>
+            <a href="inventory_summary_unified.php" class="btn btn-info btn-sm">
+                <i class="bi bi-speedometer me-1"></i>Unified View
+            </a>
+        </div>
     </div>
     <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -389,6 +486,7 @@ require_once __DIR__ . '/../includes/header.php';
                         $current_stock = (float)$item['current_stock'];
                         $available_qty = (float)$item['available_quantity'];
                         $stock_value = (float)$item['total_cost_value'];
+                        $avg_cost = (float)$item['avg_cost_per_unit'];
                         
                         if ($current_stock <= 0) {
                             $stock_class = 'stock-out';
@@ -408,6 +506,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <?php if ($item['description']): ?>
                                     <div class="small text-info"><?= h($item['description']) ?></div>
                                 <?php endif; ?>
+                                <div class="small text-secondary">ID: <?= $item['id'] ?></div>
                             </td>
                             <td>
                                 <div class="value-display text-success"><?= number_format($item['total_received'], 2) ?></div>
@@ -430,23 +529,57 @@ require_once __DIR__ . '/../includes/header.php';
                                 <small class="text-muted">remaining</small>
                             </td>
                             <td>
-                                <div class="value-display">₹<?= number_format($item['avg_cost_per_unit'], 2) ?></div>
+                                <div class="value-display">₹<?= number_format($avg_cost, 2) ?></div>
+                                <small class="text-muted">per <?= h($item['unit']) ?></small>
                             </td>
                             <td>
                                 <div class="value-display text-success">₹<?= number_format($stock_value, 0) ?></div>
+                                <?php if ($available_qty > 0): ?>
+                                    <small class="text-muted d-block">₹<?= number_format($stock_value / $available_qty, 2) ?>/unit avg</small>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <span class="stock-indicator <?= $stock_class ?>"><?= $stock_text ?></span>
+                                <?php if ($current_stock > 0 && $current_stock < 10): ?>
+                                    <div class="small text-warning mt-1">
+                                        <i class="bi bi-exclamation-triangle"></i> Reorder
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="inventory_summary_unified.php" class="btn btn-info" title="View in Summary">
+                                    <a href="other_purchase.php?item_id=<?= $item['id'] ?>" 
+                                       class="btn btn-success" title="Add Stock">
+                                        <i class="bi bi-plus-circle"></i>
+                                    </a>
+                                    <a href="inventory_summary_unified.php" 
+                                       class="btn btn-info" title="View in Summary">
                                         <i class="bi bi-eye"></i>
                                     </a>
+                                    <?php if ($available_qty > 0): ?>
+                                        <button type="button" class="btn btn-warning" 
+                                                title="Quick Sale">
+                                            <i class="bi bi-cart"></i>
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    
+                    <!-- Totals Row -->
+                    <tr class="table-secondary fw-bold">
+                        <td>TOTALS:</td>
+                        <td><?= number_format(array_sum(array_column($inventory_data, 'total_received')), 1) ?></td>
+                        <td><?= number_format(array_sum(array_column($inventory_data, 'total_sold')), 1) ?></td>
+                        <td><?= number_format(array_sum(array_column($inventory_data, 'total_returned')), 1) ?></td>
+                        <td class="text-primary"><?= number_format($totals['total_available'], 1) ?></td>
+                        <td class="text-primary"><?= number_format($totals['total_available'], 1) ?></td>
+                        <td>-</td>
+                        <td class="text-success">₹<?= number_format($totals['total_value'], 0) ?></td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -454,9 +587,27 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <div class="text-center mt-4">
-    <a href="inventory_summary_unified.php" class="btn btn-primary">
+    <a href="inventory_summary_unified.php" class="btn btn-primary me-2">
         <i class="bi bi-speedometer me-2"></i>View Unified Inventory Summary
     </a>
+    <a href="other_purchase.php" class="btn btn-success">
+        <i class="bi bi-plus-circle me-2"></i>Add Purchase Entry
+    </a>
 </div>
+
+<script>
+// Auto-refresh every 5 minutes
+setInterval(() => {
+    if (!document.hidden) {
+        location.reload();
+    }
+}, 300000);
+
+// Show/hide description based on selection
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Misc Inventory loaded with <?= count($inventory_data) ?> items');
+    console.log('Total value: ₹<?= number_format($totals['total_value'], 0) ?>');
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
