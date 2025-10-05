@@ -99,3 +99,19 @@ if (!function_exists('column_exists')) {
     }
   }
 }
+
+/* =========================
+   Admin functions placeholder
+   ========================= */
+if (!function_exists('auth_require_role')) {
+  function auth_require_role($required_role) {
+    auth_require_login();
+    $user_role = auth_role();
+    if ($user_role !== $required_role && $user_role !== 'admin') {
+      http_response_code(403);
+      echo "<h3>Access Denied</h3><p>You need '$required_role' role to access this page.</p>";
+      echo "<a href='/public/index.php'>Back to Dashboard</a>";
+      exit;
+    }
+  }
+}
