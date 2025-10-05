@@ -45,10 +45,11 @@ function calculate_transport_cost(array $item, float $spb = 1.0): array {
     ];
 }
 
-function get_tile_availability(PDO $pdo, int $tile_id): float {
-    // Good boxes received
-    $st = $pdo->prepare("SELECT COALESCE(SUM(boxes_in - COALESCE(damage_boxes, 0)), 0) FROM inventory_items WHERE tile_id = ?");
-    $st->execute([$tile_id]);
+// Get misc item availability
+function get_misc_item_availability(PDO $pdo, int $item_id): float {
+    // Good quantity received
+    $st = $pdo->prepare("SELECT COALESCE(SUM(quantity - COALESCE(damage_quantity, 0)), 0) FROM misc_inventory_items WHERE misc_item_id = ?");
+    $st->execute([$item_id]);
     $received = (float)$st->fetchColumn();
     
     // Sold boxes
