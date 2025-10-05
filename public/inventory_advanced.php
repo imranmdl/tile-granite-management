@@ -177,12 +177,12 @@ $inventory_sql = "
     LEFT JOIN (
         SELECT 
             misc_item_id,
-            SUM(quantity) as total_received,
-            SUM(quantity - COALESCE(damage_quantity, 0)) as net_received,
-            SUM((quantity - COALESCE(damage_quantity, 0)) * cost_per_unit) as total_cost,
+            SUM(qty_in) as total_received,
+            SUM(qty_in - COALESCE(damage_units, 0)) as net_received,
+            SUM((qty_in - COALESCE(damage_units, 0)) * cost_per_unit) as total_cost,
             CASE 
-                WHEN SUM(quantity - COALESCE(damage_quantity, 0)) > 0 
-                THEN SUM((quantity - COALESCE(damage_quantity, 0)) * cost_per_unit) / SUM(quantity - COALESCE(damage_quantity, 0))
+                WHEN SUM(qty_in - COALESCE(damage_units, 0)) > 0 
+                THEN SUM((qty_in - COALESCE(damage_units, 0)) * cost_per_unit) / SUM(qty_in - COALESCE(damage_units, 0))
                 ELSE 0 
             END as avg_cost
         FROM misc_inventory_items 
