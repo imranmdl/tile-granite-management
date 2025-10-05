@@ -1,5 +1,5 @@
 <?php
-// public/inventory_advanced.php — Enhanced Inventory Management with improved UI and calculations
+// public/inventory_advanced.php - Enhanced Miscellaneous Inventory Management
 require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/inventory_updates.php';
@@ -7,725 +7,562 @@ require_once __DIR__ . '/../includes/inventory_updates.php';
 auth_require_login();
 
 $pdo = Database::pdo();
+$message = '';
+$error = '';
 
-/* ---------- Calculation Helpers ---------- */
-function calculate_transport_cost(array $item, float $spb = 1.0): array {
-    $per_box_value = (float)($item['per_box_value'] ?? 0);
-    $per_sqft_value = (float)($item['per_sqft_value'] ?? 0);
-    $transport_pct = (float)($item['transport_pct'] ?? 0);
-    $transport_per_box = (float)($item['transport_per_box'] ?? 0);
-    $transport_total = (float)($item['transport_total'] ?? 0);
-    $boxes_in = (float)($item['boxes_in'] ?? 0);
-    $damage_boxes = (float)($item['damage_boxes'] ?? 0);
-    
-    // Calculate base cost per box
-    $base_cost_per_box = $per_box_value > 0 ? $per_box_value : ($per_sqft_value * $spb);
-    
-    // Calculate net boxes (after damage)
-    $net_boxes = max(0, $boxes_in - $damage_boxes);
-    
-    // Calculate transport costs
-    $transport_from_percent = $base_cost_per_box * ($transport_pct / 100.0);
-    $transport_allocated = ($transport_total > 0 && $net_boxes > 0) ? ($transport_total / $net_boxes) : 0;
-    
-    $total_transport_per_box = $transport_from_percent + $transport_per_box + $transport_allocated;
-    $final_cost_per_box = $base_cost_per_box + $total_transport_per_box;
-    $final_cost_per_sqft = $spb > 0 ? ($final_cost_per_box / $spb) : 0;
-    
-    return [
-        'base_cost_per_box' => round($base_cost_per_box, 2),
-        'transport_from_percent' => round($transport_from_percent, 2),
-        'transport_per_box' => round($transport_per_box, 2),
-        'transport_allocated' => round($transport_allocated, 2),
-        'total_transport_per_box' => round($total_transport_per_box, 2),
-        'final_cost_per_box' => round($final_cost_per_box, 2),
-        'final_cost_per_sqft' => round($final_cost_per_sqft, 2),
-        'net_boxes' => round($net_boxes, 3),
-        'total_value' => round($net_boxes * $final_cost_per_box, 2)
-    ];
-}
+// Ensure misc inventory tables exist
+$pdo->exec("
+    CREATE TABLE IF NOT EXISTS misc_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        unit TEXT NOT NULL DEFAULT 'units',
+        description TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+");
 
-// Get misc item availability
-function get_misc_item_availability(PDO $pdo, int $item_id): float {
-    // Good quantity received
-    $st = $pdo->prepare("SELECT COALESCE(SUM(quantity - COALESCE(damage_quantity, 0)), 0) FROM misc_inventory_items WHERE misc_item_id = ?");
-    $st->execute([$item_id]);
-    $received = (float)$st->fetchColumn();
-    
-    // Sold boxes
-    $st = $pdo->prepare("SELECT COALESCE(SUM(boxes_decimal), 0) FROM invoice_items WHERE tile_id = ?");
-    $st->execute([$tile_id]);
-    $sold = (float)$st->fetchColumn();
-    
-    // Returned boxes
-    $st = $pdo->prepare("SELECT COALESCE(SUM(boxes_decimal), 0) FROM invoice_return_items WHERE tile_id = ?");
-    $st->execute([$tile_id]);
-    $returned = (float)$st->fetchColumn();
-    
-    return max(0, $received - $sold + $returned);
-}
+$pdo->exec("
+    CREATE TABLE IF NOT EXISTS misc_inventory_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        misc_item_id INTEGER NOT NULL,
+        purchase_date TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        damage_quantity REAL DEFAULT 0,
+        cost_per_unit REAL NOT NULL,
+        transport_cost REAL DEFAULT 0,
+        vendor TEXT,
+        invoice_no TEXT,
+        notes TEXT,
+        created_by INTEGER,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (misc_item_id) REFERENCES misc_items(id)
+    )
+");
 
-/* ---------- Helper Functions ---------- */
-function P($k, $d = null) { return $_POST[$k] ?? $d; }
-function Pn($k) { $v = P($k, 0); return is_numeric($v) ? (float)$v : 0.0; }
-function Pid($k) { $v = P($k, 0); return is_numeric($v) ? (int)$v : 0; }
-
-/* ===========================================================
-   HANDLE POST ACTIONS
-   =========================================================== */
-
-// Update inventory item
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_inventory'])) {
-    $id = Pid('item_id');
-    if ($id > 0) {
-        // Validate inputs
-        $boxes_in = Pn('boxes_in');
-        $damage_boxes = Pn('damage_boxes');
-        $per_box_value = Pn('per_box_value');
-        $per_sqft_value = Pn('per_sqft_value');
-        $transport_pct = Pn('transport_pct');
-        $transport_per_box = Pn('transport_per_box');
-        $transport_total = Pn('transport_total');
-        $vendor = trim(P('vendor', ''));
-        $purchase_dt = P('purchase_dt', date('Y-m-d'));
-        $notes = trim(P('notes', ''));
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $user_id = $_SESSION['user_id'] ?? 1;
+    
+    // Add new misc item
+    if (isset($_POST['add_misc_item'])) {
+        $name = trim($_POST['name'] ?? '');
+        $unit = trim($_POST['unit'] ?? 'units');
+        $description = trim($_POST['description'] ?? '');
         
-        // Validation
-        if ($boxes_in < 0) {
-            $error = "Boxes in cannot be negative";
-        } elseif ($damage_boxes < 0 || $damage_boxes > $boxes_in) {
-            $error = "Damage boxes must be between 0 and total boxes";
-        } elseif ($per_box_value < 0 || $per_sqft_value < 0) {
-            $error = "Values cannot be negative";
-        } elseif ($per_box_value == 0 && $per_sqft_value == 0) {
-            $error = "Either per box value or per sqft value must be provided";
-        } else {
-            // Update the record
-            $stmt = $pdo->prepare("
-                UPDATE inventory_items SET
-                    boxes_in = ?, damage_boxes = ?, per_box_value = ?, per_sqft_value = ?,
-                    transport_pct = ?, transport_per_box = ?, transport_total = ?,
-                    vendor = ?, purchase_dt = ?, notes = ?
-                WHERE id = ?
-            ");
-            
-            if ($stmt->execute([
-                $boxes_in, $damage_boxes, $per_box_value, $per_sqft_value,
-                $transport_pct, $transport_per_box, $transport_total,
-                $vendor, $purchase_dt, $notes, $id
-            ])) {
-                $success = "Inventory item updated successfully";
-            } else {
-                $error = "Failed to update inventory item";
+        if ($name && $unit) {
+            try {
+                $stmt = $pdo->prepare("INSERT INTO misc_items (name, unit, description) VALUES (?, ?, ?)");
+                if ($stmt->execute([$name, $unit, $description])) {
+                    $message = "Misc item '$name' added successfully";
+                } else {
+                    $error = "Failed to add misc item";
+                }
+            } catch (Exception $e) {
+                $error = "Database error: " . $e->getMessage();
             }
+        } else {
+            $error = "Item name and unit are required";
         }
     }
     
-    header("Location: inventory_advanced.php" . (isset($error) ? "?error=" . urlencode($error) : (isset($success) ? "?success=" . urlencode($success) : "")));
-    exit;
-}
-
-// Delete inventory item
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inventory'])) {
-    $id = Pid('item_id');
-    if ($id > 0) {
-        // Check if this inventory item has been used in any invoices
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) FROM invoice_items ii 
-            JOIN inventory_items inv ON inv.tile_id = ii.tile_id 
-            WHERE inv.id = ?
-        ");
-        $stmt->execute([$id]);
-        $usage_count = (int)$stmt->fetchColumn();
+    // Add inventory entry
+    if (isset($_POST['add_inventory'])) {
+        $misc_item_id = (int)($_POST['misc_item_id'] ?? 0);
+        $purchase_date = $_POST['purchase_date'] ?? date('Y-m-d');
+        $quantity = (float)($_POST['quantity'] ?? 0);
+        $damage_quantity = (float)($_POST['damage_quantity'] ?? 0);
+        $cost_per_unit = (float)($_POST['cost_per_unit'] ?? 0);
+        $transport_cost = (float)($_POST['transport_cost'] ?? 0);
+        $vendor = trim($_POST['vendor'] ?? '');
+        $invoice_no = trim($_POST['invoice_no'] ?? '');
+        $notes = trim($_POST['notes'] ?? '');
         
-        if ($usage_count > 0) {
-            $error = "Cannot delete: This inventory item is referenced in invoices";
-        } else {
-            $stmt = $pdo->prepare("DELETE FROM inventory_items WHERE id = ?");
-            if ($stmt->execute([$id])) {
-                $success = "Inventory item deleted successfully";
+        if ($misc_item_id && $quantity > 0 && $cost_per_unit > 0) {
+            if ($damage_quantity > $quantity) {
+                $error = "Damage quantity cannot exceed total quantity";
             } else {
-                $error = "Failed to delete inventory item";
+                try {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO misc_inventory_items 
+                        (misc_item_id, purchase_date, quantity, damage_quantity, cost_per_unit, 
+                         transport_cost, vendor, invoice_no, notes, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    
+                    if ($stmt->execute([
+                        $misc_item_id, $purchase_date, $quantity, $damage_quantity, 
+                        $cost_per_unit, $transport_cost, $vendor, $invoice_no, $notes, $user_id
+                    ])) {
+                        $message = "Inventory entry added successfully";
+                    } else {
+                        $error = "Failed to add inventory entry";
+                    }
+                } catch (Exception $e) {
+                    $error = "Database error: " . $e->getMessage();
+                }
             }
+        } else {
+            $error = "Item, quantity, and cost per unit are required";
         }
     }
     
-    header("Location: inventory_advanced.php" . (isset($error) ? "?error=" . urlencode($error) : (isset($success) ? "?success=" . urlencode($success) : "")));
-    exit;
-}
-
-// Bulk operations
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
-    $action = P('bulk_action');
-    $selected_ids = $_POST['selected_items'] ?? [];
-    
-    if (empty($selected_ids)) {
-        $error = "Please select items for bulk operation";
-    } else {
-        $ids_str = implode(',', array_map('intval', $selected_ids));
+    // Stock adjustment
+    if (isset($_POST['adjust_stock'])) {
+        $misc_item_id = (int)($_POST['misc_item_id'] ?? 0);
+        $new_quantity = (float)($_POST['new_quantity'] ?? 0);
+        $adjustment_reason = trim($_POST['adjustment_reason'] ?? '');
+        $notes = trim($_POST['notes'] ?? '');
         
-        switch ($action) {
-            case 'delete':
-                // Check usage first
-                $stmt = $pdo->query("
-                    SELECT COUNT(*) FROM invoice_items ii 
-                    JOIN inventory_items inv ON inv.tile_id = ii.tile_id 
-                    WHERE inv.id IN ($ids_str)
+        if ($misc_item_id && $new_quantity >= 0 && $adjustment_reason) {
+            try {
+                // Get current stock
+                $current_stmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(quantity - COALESCE(damage_quantity, 0)), 0) 
+                    FROM misc_inventory_items 
+                    WHERE misc_item_id = ?
                 ");
-                $usage_count = (int)$stmt->fetchColumn();
+                $current_stmt->execute([$misc_item_id]);
+                $current_stock = (float)$current_stmt->fetchColumn();
                 
-                if ($usage_count > 0) {
-                    $error = "Cannot delete: Some selected items are referenced in invoices";
-                } else {
-                    $pdo->query("DELETE FROM inventory_items WHERE id IN ($ids_str)");
-                    $success = "Selected items deleted successfully";
-                }
-                break;
+                $adjustment = $new_quantity - $current_stock;
                 
-            case 'update_vendor':
-                $new_vendor = trim(P('new_vendor', ''));
-                if ($new_vendor) {
-                    $stmt = $pdo->prepare("UPDATE inventory_items SET vendor = ? WHERE id IN ($ids_str)");
-                    $stmt->execute([$new_vendor]);
-                    $success = "Vendor updated for selected items";
+                if ($adjustment != 0) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO misc_inventory_items 
+                        (misc_item_id, purchase_date, quantity, damage_quantity, cost_per_unit, 
+                         vendor, notes, created_by)
+                        VALUES (?, ?, ?, 0, 0, ?, ?, ?)
+                    ");
+                    
+                    $adjustment_notes = "Stock adjustment: $adjustment_reason. ";
+                    $adjustment_notes .= "Previous: $current_stock, New: $new_quantity. ";
+                    if ($notes) $adjustment_notes .= "Notes: $notes";
+                    
+                    if ($stmt->execute([
+                        $misc_item_id, date('Y-m-d'), $adjustment, 
+                        'STOCK_ADJUSTMENT', $adjustment_notes, $user_id
+                    ])) {
+                        $message = "Stock adjusted from " . number_format($current_stock, 2) . " to " . number_format($new_quantity, 2);
+                    } else {
+                        $error = "Failed to adjust stock";
+                    }
                 } else {
-                    $error = "Please provide a vendor name";
+                    $error = "New quantity is same as current stock";
                 }
-                break;
+            } catch (Exception $e) {
+                $error = "Database error: " . $e->getMessage();
+            }
+        } else {
+            $error = "Item, quantity, and reason are required";
         }
     }
-    
-    header("Location: inventory_advanced.php" . (isset($error) ? "?error=" . urlencode($error) : (isset($success) ? "?success=" . urlencode($success) : "")));
-    exit;
 }
 
-/* ===========================================================
-   FETCH DATA FOR DISPLAY
-   =========================================================== */
+// Get all misc items
+$misc_items = $pdo->query("SELECT * FROM misc_items ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
-// Get filters
-$tile_filter = (int)($_GET['tile_id'] ?? 0);
-$vendor_filter = trim($_GET['vendor'] ?? '');
-$date_from = $_GET['date_from'] ?? '';
-$date_to = $_GET['date_to'] ?? '';
-
-// Build WHERE clause
-$where_conditions = [];
-$params = [];
-
-if ($tile_filter > 0) {
-    $where_conditions[] = "ii.tile_id = ?";
-    $params[] = $tile_filter;
-}
-
-if ($vendor_filter) {
-    $where_conditions[] = "ii.vendor LIKE ?";
-    $params[] = "%$vendor_filter%";
-}
-
-if ($date_from) {
-    $where_conditions[] = "ii.purchase_dt >= ?";
-    $params[] = $date_from;
-}
-
-if ($date_to) {
-    $where_conditions[] = "ii.purchase_dt <= ?";
-    $params[] = $date_to;
-}
-
-$where_clause = empty($where_conditions) ? '' : 'WHERE ' . implode(' AND ', $where_conditions);
-
-// Fetch inventory items with calculations
-$sql = "
-    SELECT ii.*, t.name AS tile_name, ts.label AS size_label, ts.sqft_per_box
-    FROM inventory_items ii
-    JOIN tiles t ON t.id = ii.tile_id
-    JOIN tile_sizes ts ON ts.id = t.size_id
-    $where_clause
-    ORDER BY ii.id DESC
+// Get inventory data with current stock calculations
+$inventory_sql = "
+    SELECT 
+        m.id, m.name, m.unit, m.description,
+        COALESCE(inv.total_received, 0) as total_received,
+        COALESCE(inv.net_received, 0) as net_received,
+        COALESCE(inv.total_cost, 0) as total_cost,
+        COALESCE(inv.avg_cost, 0) as avg_cost,
+        COALESCE(sold.total_sold, 0) as total_sold,
+        COALESCE(returned.total_returned, 0) as total_returned,
+        (COALESCE(inv.net_received, 0) - COALESCE(sold.total_sold, 0) + COALESCE(returned.total_returned, 0)) as current_stock,
+        (COALESCE(inv.net_received, 0) - COALESCE(sold.total_sold, 0) + COALESCE(returned.total_returned, 0)) * COALESCE(inv.avg_cost, 0) as stock_value
+    FROM misc_items m
+    LEFT JOIN (
+        SELECT 
+            misc_item_id,
+            SUM(quantity) as total_received,
+            SUM(quantity - COALESCE(damage_quantity, 0)) as net_received,
+            SUM((quantity - COALESCE(damage_quantity, 0)) * cost_per_unit) as total_cost,
+            CASE 
+                WHEN SUM(quantity - COALESCE(damage_quantity, 0)) > 0 
+                THEN SUM((quantity - COALESCE(damage_quantity, 0)) * cost_per_unit) / SUM(quantity - COALESCE(damage_quantity, 0))
+                ELSE 0 
+            END as avg_cost
+        FROM misc_inventory_items 
+        GROUP BY misc_item_id
+    ) inv ON m.id = inv.misc_item_id
+    LEFT JOIN (
+        SELECT misc_item_id, SUM(quantity) as total_sold
+        FROM invoice_misc_items 
+        GROUP BY misc_item_id
+    ) sold ON m.id = sold.misc_item_id
+    LEFT JOIN (
+        SELECT misc_item_id, SUM(quantity) as total_returned
+        FROM invoice_return_misc_items 
+        GROUP BY misc_item_id
+    ) returned ON m.id = returned.misc_item_id
+    ORDER BY m.name
 ";
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$inventory_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$inventory_data = $pdo->query($inventory_sql)->fetchAll(PDO::FETCH_ASSOC);
 
-// Get tiles for filter dropdown
-$tiles = $pdo->query("
-    SELECT t.id, t.name, ts.label AS size_label
-    FROM tiles t
-    JOIN tile_sizes ts ON ts.id = t.size_id
-    ORDER BY t.name
-")->fetchAll(PDO::FETCH_ASSOC);
-
-// Get vendors for filter
-$vendors = $pdo->query("SELECT DISTINCT vendor FROM inventory_items WHERE vendor IS NOT NULL AND vendor != '' ORDER BY vendor")->fetchAll(PDO::FETCH_COLUMN);
-
-$page_title = "Advanced Inventory Management";
+$page_title = "Enhanced Miscellaneous Inventory Management";
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <style>
-.inventory-table th, .inventory-table td {
-    padding: 8px 12px;
-    vertical-align: middle;
+.inventory-header {
+    background: linear-gradient(135deg, #fd7e14 0%, #dc6545 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
 }
-.form-control-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
+
+.form-section {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
 }
-.calculated-field {
-    background-color: #f8f9fa;
+
+.inventory-table {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.stock-indicator {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
     font-weight: 600;
 }
-.error-row {
-    background-color: #f8d7da;
+
+.stock-good { background: #d4edda; color: #155724; }
+.stock-low { background: #fff3cd; color: #856404; }
+.stock-out { background: #f8d7da; color: #721c24; }
+
+.value-display {
+    font-weight: 700;
+    font-size: 1.1rem;
 }
-.success-row {
-    background-color: #d1e7dd;
-}
-.sticky-header {
-    position: sticky;
-    top: 74px;
-    z-index: 10;
-    background: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+.quick-stats {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    backdrop-filter: blur(10px);
 }
 </style>
 
-<?php if (isset($_GET['error'])): ?>
-    <div class="alert alert-danger alert-dismissible fade show">
-        <?= h($_GET['error']) ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-<?php endif; ?>
-
-<?php if (isset($_GET['success'])): ?>
+<?php if ($message): ?>
     <div class="alert alert-success alert-dismissible fade show">
-        <?= h($_GET['success']) ?>
+        <?= h($message) ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
 
-<!-- Filters -->
-<div class="card p-3 mb-3">
-    <h5>Filters & Search</h5>
-    <form method="get" class="row g-3">
+<?php if ($error): ?>
+    <div class="alert alert-danger alert-dismissible fade show">
+        <?= h($error) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
+<!-- Header -->
+<div class="inventory-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h2><i class="bi bi-gear-wide me-3"></i>Miscellaneous Inventory Management</h2>
+            <p class="mb-0 opacity-75">Manage non-tile inventory items with complete tracking</p>
+        </div>
+        <div class="col-md-4">
+            <div class="quick-stats">
+                <div class="h4 mb-1"><?= count($misc_items) ?></div>
+                <small>Total Item Types</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add New Item Form -->
+<div class="form-section">
+    <h5 class="mb-4"><i class="bi bi-plus-circle me-2"></i>Add New Miscellaneous Item</h5>
+    
+    <form method="post" class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label">Item Name *</label>
+            <input type="text" class="form-control" name="name" required placeholder="e.g., Cement, Sand, Tools">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Unit *</label>
+            <select class="form-select" name="unit" required>
+                <option value="units">Units</option>
+                <option value="kg">Kilograms</option>
+                <option value="bags">Bags</option>
+                <option value="meters">Meters</option>
+                <option value="liters">Liters</option>
+                <option value="pieces">Pieces</option>
+                <option value="sets">Sets</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Description</label>
+            <input type="text" class="form-control" name="description" placeholder="Brief description">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&nbsp;</label>
+            <button type="submit" name="add_misc_item" class="btn btn-warning w-100">
+                <i class="bi bi-plus-circle"></i> Add Item
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Add Inventory Entry Form -->
+<?php if (!empty($misc_items)): ?>
+<div class="form-section">
+    <h5 class="mb-4"><i class="bi bi-box-arrow-in-down me-2"></i>Add Inventory Entry</h5>
+    
+    <form method="post" class="row g-3">
         <div class="col-md-3">
-            <label class="form-label">Tile</label>
-            <select class="form-select" name="tile_id">
-                <option value="">All Tiles</option>
-                <?php foreach ($tiles as $tile): ?>
-                    <option value="<?= (int)$tile['id'] ?>" <?= $tile_filter === (int)$tile['id'] ? 'selected' : '' ?>>
-                        <?= h($tile['name']) ?> (<?= h($tile['size_label']) ?>)
+            <label class="form-label">Select Item *</label>
+            <select class="form-select" name="misc_item_id" required>
+                <option value="">Choose item...</option>
+                <?php foreach ($misc_items as $item): ?>
+                    <option value="<?= $item['id'] ?>">
+                        <?= h($item['name']) ?> (<?= h($item['unit']) ?>)
                     </option>
                 <?php endforeach; ?>
             </select>
         </div>
         <div class="col-md-2">
+            <label class="form-label">Purchase Date *</label>
+            <input type="date" class="form-control" name="purchase_date" value="<?= date('Y-m-d') ?>" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Quantity *</label>
+            <input type="number" step="0.01" class="form-control" name="quantity" required min="0">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Damage Qty</label>
+            <input type="number" step="0.01" class="form-control" name="damage_quantity" min="0" value="0">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Cost per Unit *</label>
+            <input type="number" step="0.01" class="form-control" name="cost_per_unit" required min="0" placeholder="₹">
+        </div>
+        
+        <div class="col-md-2">
+            <label class="form-label">Transport Cost</label>
+            <input type="number" step="0.01" class="form-control" name="transport_cost" min="0" value="0" placeholder="₹">
+        </div>
+        <div class="col-md-3">
             <label class="form-label">Vendor</label>
-            <input type="text" class="form-control" name="vendor" value="<?= h($vendor_filter) ?>" placeholder="Search vendor...">
+            <input type="text" class="form-control" name="vendor" placeholder="Supplier name">
         </div>
         <div class="col-md-2">
-            <label class="form-label">From Date</label>
-            <input type="date" class="form-control" name="date_from" value="<?= h($date_from) ?>">
+            <label class="form-label">Invoice No</label>
+            <input type="text" class="form-control" name="invoice_no" placeholder="Invoice #">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Notes</label>
+            <input type="text" class="form-control" name="notes" placeholder="Additional notes">
         </div>
         <div class="col-md-2">
-            <label class="form-label">To Date</label>
-            <input type="date" class="form-control" name="date_to" value="<?= h($date_to) ?>">
-        </div>
-        <div class="col-md-3 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary me-2">Apply Filters</button>
-            <a href="inventory_advanced.php" class="btn btn-outline-secondary">Clear</a>
+            <label class="form-label">&nbsp;</label>
+            <button type="submit" name="add_inventory" class="btn btn-success w-100">
+                <i class="bi bi-plus-circle"></i> Add Entry
+            </button>
         </div>
     </form>
 </div>
-
-<!-- Bulk Actions -->
-<div class="card p-3 mb-3">
-    <h5>Bulk Actions</h5>
-    <form method="post" id="bulkForm" onsubmit="return confirmBulkAction()">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label">Action</label>
-                <select class="form-select" name="bulk_action" id="bulkAction">
-                    <option value="">Select Action</option>
-                    <option value="delete">Delete Selected</option>
-                    <option value="update_vendor">Update Vendor</option>
-                </select>
-            </div>
-            <div class="col-md-3" id="vendorInput" style="display: none;">
-                <label class="form-label">New Vendor</label>
-                <input type="text" class="form-control" name="new_vendor" placeholder="Enter vendor name">
-            </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-warning">Execute Bulk Action</button>
-            </div>
-        </div>
-    </form>
-</div>
-
-<!-- Summary Stats -->
-<div class="row g-3 mb-3">
-    <?php
-    $total_items = count($inventory_items);
-    $total_value = 0;
-    $total_boxes = 0;
-    $total_damage = 0;
-    
-    foreach ($inventory_items as $item) {
-        $spb = (float)$item['sqft_per_box'];
-        $calc = calculate_transport_cost($item, $spb);
-        $total_value += $calc['total_value'];
-        $total_boxes += (float)$item['boxes_in'];
-        $total_damage += (float)$item['damage_boxes'];
-    }
-    ?>
-    <div class="col-md-3">
-        <div class="card text-bg-primary">
-            <div class="card-body">
-                <h6 class="card-title">Total Items</h6>
-                <h4><?= $total_items ?></h4>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-bg-success">
-            <div class="card-body">
-                <h6 class="card-title">Total Value</h6>
-                <h4>₹ <?= n2($total_value) ?></h4>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-bg-info">
-            <div class="card-body">
-                <h6 class="card-title">Total Boxes</h6>
-                <h4><?= n2($total_boxes) ?></h4>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-bg-warning">
-            <div class="card-body">
-                <h6 class="card-title">Damaged Boxes</h6>
-                <h4><?= n2($total_damage) ?></h4>
-            </div>
-        </div>
-    </div>
-</div>
+<?php endif; ?>
 
 <!-- Inventory Table -->
-<div class="card p-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">Inventory Items (<?= $total_items ?>)</h5>
-        <div>
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllItems()">Select All</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">Clear Selection</button>
-        </div>
+<div class="card inventory-table">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul me-2"></i>Miscellaneous Inventory Stock Levels
+        </h5>
     </div>
-    
     <div class="table-responsive">
-        <table class="table table-striped table-hover inventory-table">
-            <thead class="sticky-header">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
                 <tr>
-                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
-                    <th>ID</th>
-                    <th>Tile</th>
-                    <th>Size</th>
-                    <th>Vendor</th>
-                    <th>Purchase Date</th>
-                    <th class="text-end">Boxes In</th>
-                    <th class="text-end">Damage</th>
-                    <th class="text-end">Net Boxes</th>
-                    <th class="text-end">Per Box Value</th>
-                    <th class="text-end">Transport %</th>
-                    <th class="text-end">Transport Total</th>
-                    <th class="text-end">Final Cost/Box</th>
-                    <th class="text-end">Total Value</th>
-                    <th class="text-end">Available</th>
+                    <th>Item Details</th>
+                    <th>Total Received</th>
+                    <th>Total Sold</th>
+                    <th>Returns</th>
+                    <th>Available Stock</th>
+                    <th>Remaining Stock</th>
+                    <th>Avg Cost/Unit</th>
+                    <th>Stock Value</th>
+                    <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($inventory_items as $item): 
-                    $spb = (float)$item['sqft_per_box'];
-                    $calc = calculate_transport_cost($item, $spb);
-                    $available = get_tile_availability($pdo, (int)$item['tile_id']);
-                ?>
-                <tr data-item-id="<?= (int)$item['id'] ?>">
-                    <td>
-                        <input type="checkbox" class="item-checkbox" value="<?= (int)$item['id'] ?>" name="selected_items[]" form="bulkForm">
-                    </td>
-                    <td><?= (int)$item['id'] ?></td>
-                    <td><?= h($item['tile_name']) ?></td>
-                    <td><?= h($item['size_label']) ?></td>
-                    <td><?= h($item['vendor'] ?? '') ?></td>
-                    <td><?= h($item['purchase_dt'] ?? '') ?></td>
-                    <td class="text-end"><?= n2($item['boxes_in']) ?></td>
-                    <td class="text-end <?= (float)$item['damage_boxes'] > 0 ? 'text-danger' : '' ?>">
-                        <?= n2($item['damage_boxes']) ?>
-                    </td>
-                    <td class="text-end calculated-field"><?= n2($calc['net_boxes']) ?></td>
-                    <td class="text-end">₹ <?= n2($item['per_box_value']) ?></td>
-                    <td class="text-end"><?= n2($item['transport_pct']) ?>%</td>
-                    <td class="text-end">₹ <?= n2($item['transport_total']) ?></td>
-                    <td class="text-end calculated-field">₹ <?= n2($calc['final_cost_per_box']) ?></td>
-                    <td class="text-end calculated-field">₹ <?= n2($calc['total_value']) ?></td>
-                    <td class="text-end">
-                        <span class="badge <?= $available > 0 ? 'text-bg-success' : 'text-bg-danger' ?>">
-                            <?= n2($available) ?>
-                        </span>
-                    </td>
-                    <td>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="editItem(<?= (int)$item['id'] ?>)">
-                            Edit
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteItem(<?= (int)$item['id'] ?>)">
-                            Delete
-                        </button>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-                
-                <?php if (empty($inventory_items)): ?>
-                <tr>
-                    <td colspan="16" class="text-center text-muted py-4">
-                        No inventory items found matching your criteria.
-                    </td>
-                </tr>
+                <?php if (empty($inventory_data)): ?>
+                    <tr>
+                        <td colspan="10" class="text-center py-4">
+                            <i class="bi bi-gear-wide display-4 text-muted d-block mb-2"></i>
+                            <h5 class="text-muted">No miscellaneous inventory found</h5>
+                            <p class="text-muted">Add some misc items above to get started.</p>
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($inventory_data as $item): 
+                        $current_stock = (float)$item['current_stock'];
+                        $stock_value = (float)$item['stock_value'];
+                        
+                        if ($current_stock <= 0) {
+                            $stock_class = 'stock-out';
+                            $stock_text = 'Out of Stock';
+                        } elseif ($current_stock < 10) {
+                            $stock_class = 'stock-low';
+                            $stock_text = 'Low Stock';
+                        } else {
+                            $stock_class = 'stock-good';
+                            $stock_text = 'Good';
+                        }
+                    ?>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-warning"><?= h($item['name']) ?></div>
+                                <small class="text-muted"><?= h($item['unit']) ?></small>
+                                <?php if ($item['description']): ?>
+                                    <div class="small text-info"><?= h($item['description']) ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <div class="value-display text-success"><?= number_format($item['total_received'], 2) ?></div>
+                                <small class="text-muted"><?= h($item['unit']) ?></small>
+                            </td>
+                            <td>
+                                <div class="value-display text-danger"><?= number_format($item['total_sold'], 2) ?></div>
+                                <small class="text-muted">sold</small>
+                            </td>
+                            <td>
+                                <div class="value-display text-info"><?= number_format($item['total_returned'], 2) ?></div>
+                                <small class="text-muted">returned</small>
+                            </td>
+                            <td>
+                                <div class="value-display text-primary"><?= number_format($current_stock, 2) ?></div>
+                                <small class="text-muted">available</small>
+                            </td>
+                            <td>
+                                <div class="value-display"><?= number_format($current_stock, 2) ?></div>
+                                <small class="text-muted">remaining</small>
+                            </td>
+                            <td>
+                                <div class="value-display">₹<?= number_format($item['avg_cost'], 2) ?></div>
+                            </td>
+                            <td>
+                                <div class="value-display text-success">₹<?= number_format($stock_value, 0) ?></div>
+                            </td>
+                            <td>
+                                <span class="stock-indicator <?= $stock_class ?>"><?= $stock_text ?></span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-warning" 
+                                            onclick="adjustStock(<?= $item['id'] ?>, '<?= h($item['name']) ?>', <?= $current_stock ?>)" 
+                                            title="Adjust Stock">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-info" 
+                                            onclick="viewHistory(<?= $item['id'] ?>, '<?= h($item['name']) ?>')" 
+                                            title="View History">
+                                        <i class="bi bi-clock-history"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
 </div>
 
-<!-- Edit Modal -->
-<div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+<!-- Stock Adjustment Modal -->
+<div class="modal fade" id="stockAdjustmentModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <form method="post" id="editForm">
+            <form method="post">
                 <div class="modal-header">
-                    <h5 class="modal-title">Edit Inventory Item</h5>
+                    <h5 class="modal-title">Adjust Stock Level</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="item_id" id="editItemId">
+                    <input type="hidden" name="misc_item_id" id="adjustItemId">
                     
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Vendor</label>
-                            <input type="text" class="form-control" name="vendor" id="editVendor">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Purchase Date</label>
-                            <input type="date" class="form-control" name="purchase_dt" id="editPurchaseDate">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Boxes In</label>
-                            <input type="number" step="0.001" class="form-control" name="boxes_in" id="editBoxesIn" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Damage Boxes</label>
-                            <input type="number" step="0.001" class="form-control" name="damage_boxes" id="editDamageBoxes">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Per Box Value (₹)</label>
-                            <input type="number" step="0.01" class="form-control" name="per_box_value" id="editPerBoxValue">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Per Sqft Value (₹)</label>
-                            <input type="number" step="0.01" class="form-control" name="per_sqft_value" id="editPerSqftValue">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Transport % of Base Cost</label>
-                            <input type="number" step="0.01" class="form-control" name="transport_pct" id="editTransportPct">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Transport Per Box (₹)</label>
-                            <input type="number" step="0.01" class="form-control" name="transport_per_box" id="editTransportPerBox">
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Transport Total (₹)</label>
-                            <input type="number" step="0.01" class="form-control" name="transport_total" id="editTransportTotal">
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Notes</label>
-                            <textarea class="form-control" name="notes" id="editNotes" rows="3"></textarea>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Item</label>
+                        <input type="text" class="form-control" id="adjustItemName" readonly>
                     </div>
                     
-                    <!-- Live calculation preview -->
-                    <div class="mt-3 p-3 bg-light rounded">
-                        <h6>Calculation Preview:</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <small><strong>Net Boxes:</strong> <span id="previewNetBoxes">0</span></small><br>
-                                <small><strong>Base Cost/Box:</strong> ₹<span id="previewBaseCost">0</span></small><br>
-                                <small><strong>Transport Cost/Box:</strong> ₹<span id="previewTransportCost">0</span></small>
-                            </div>
-                            <div class="col-md-6">
-                                <small><strong>Final Cost/Box:</strong> ₹<span id="previewFinalCost">0</span></small><br>
-                                <small><strong>Total Value:</strong> ₹<span id="previewTotalValue">0</span></small>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Current Stock</label>
+                        <input type="number" class="form-control" id="currentStock" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">New Stock Level *</label>
+                        <input type="number" step="0.01" class="form-control" name="new_quantity" id="newQuantity" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Adjustment Reason *</label>
+                        <select class="form-select" name="adjustment_reason" required>
+                            <option value="">Select reason...</option>
+                            <option value="physical_count">Physical Count Correction</option>
+                            <option value="damage">Damage/Wastage</option>
+                            <option value="loss">Loss/Theft</option>
+                            <option value="usage">Internal Usage</option>
+                            <option value="return">Customer Return</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2" placeholder="Additional details..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" name="update_inventory" class="btn btn-primary">Update Item</button>
+                    <button type="submit" name="adjust_stock" class="btn btn-warning">
+                        <i class="bi bi-check-circle"></i> Adjust Stock
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// Global data for calculations
-const inventoryData = <?= json_encode($inventory_items) ?>;
-let currentEditingItem = null;
+function adjustStock(itemId, itemName, currentStock) {
+    document.getElementById('adjustItemId').value = itemId;
+    document.getElementById('adjustItemName').value = itemName;
+    document.getElementById('currentStock').value = currentStock.toFixed(2);
+    document.getElementById('newQuantity').value = currentStock.toFixed(2);
+    
+    new bootstrap.Modal(document.getElementById('stockAdjustmentModal')).show();
+}
 
-// Bulk action handling
-document.getElementById('bulkAction').addEventListener('change', function() {
-    const vendorInput = document.getElementById('vendorInput');
-    if (this.value === 'update_vendor') {
-        vendorInput.style.display = 'block';
-    } else {
-        vendorInput.style.display = 'none';
+function viewHistory(itemId, itemName) {
+    alert('History view for "' + itemName + '" (ID: ' + itemId + ') - Feature coming soon!');
+}
+
+// Auto-refresh every 5 minutes
+setInterval(() => {
+    if (!document.hidden) {
+        location.reload();
     }
-});
-
-// Selection functions
-function toggleSelectAll() {
-    const selectAll = document.getElementById('selectAll');
-    const checkboxes = document.querySelectorAll('.item-checkbox');
-    checkboxes.forEach(cb => cb.checked = selectAll.checked);
-}
-
-function selectAllItems() {
-    document.getElementById('selectAll').checked = true;
-    toggleSelectAll();
-}
-
-function clearSelection() {
-    document.getElementById('selectAll').checked = false;
-    toggleSelectAll();
-}
-
-function confirmBulkAction() {
-    const action = document.getElementById('bulkAction').value;
-    const selected = document.querySelectorAll('.item-checkbox:checked').length;
-    
-    if (!action) {
-        alert('Please select an action');
-        return false;
-    }
-    
-    if (selected === 0) {
-        alert('Please select items to perform the action on');
-        return false;
-    }
-    
-    let message = '';
-    switch (action) {
-        case 'delete':
-            message = `Are you sure you want to delete ${selected} selected items?`;
-            break;
-        case 'update_vendor':
-            const vendor = document.querySelector('[name="new_vendor"]').value;
-            if (!vendor) {
-                alert('Please enter a vendor name');
-                return false;
-            }
-            message = `Update vendor to "${vendor}" for ${selected} selected items?`;
-            break;
-    }
-    
-    return confirm(message);
-}
-
-// Edit functions
-function editItem(itemId) {
-    const item = inventoryData.find(i => parseInt(i.id) === itemId);
-    if (!item) return;
-    
-    currentEditingItem = item;
-    
-    // Populate form
-    document.getElementById('editItemId').value = item.id;
-    document.getElementById('editVendor').value = item.vendor || '';
-    document.getElementById('editPurchaseDate').value = item.purchase_dt || '';
-    document.getElementById('editBoxesIn').value = item.boxes_in || 0;
-    document.getElementById('editDamageBoxes').value = item.damage_boxes || 0;
-    document.getElementById('editPerBoxValue').value = item.per_box_value || 0;
-    document.getElementById('editPerSqftValue').value = item.per_sqft_value || 0;
-    document.getElementById('editTransportPct').value = item.transport_pct || 0;
-    document.getElementById('editTransportPerBox').value = item.transport_per_box || 0;
-    document.getElementById('editTransportTotal').value = item.transport_total || 0;
-    document.getElementById('editNotes').value = item.notes || '';
-    
-    // Setup live calculation
-    setupLiveCalculation();
-    updateCalculationPreview();
-    
-    // Show modal
-    new bootstrap.Modal(document.getElementById('editModal')).show();
-}
-
-function deleteItem(itemId) {
-    if (confirm('Are you sure you want to delete this inventory item?')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="item_id" value="${itemId}">
-            <input type="hidden" name="delete_inventory" value="1">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-// Live calculation for edit modal
-function setupLiveCalculation() {
-    const inputs = ['editBoxesIn', 'editDamageBoxes', 'editPerBoxValue', 'editPerSqftValue', 
-                   'editTransportPct', 'editTransportPerBox', 'editTransportTotal'];
-    
-    inputs.forEach(inputId => {
-        const input = document.getElementById(inputId);
-        if (input) {
-            input.addEventListener('input', updateCalculationPreview);
-        }
-    });
-}
-
-function updateCalculationPreview() {
-    if (!currentEditingItem) return;
-    
-    const spb = parseFloat(currentEditingItem.sqft_per_box) || 1;
-    const boxesIn = parseFloat(document.getElementById('editBoxesIn').value) || 0;
-    const damageBoxes = parseFloat(document.getElementById('editDamageBoxes').value) || 0;
-    const perBoxValue = parseFloat(document.getElementById('editPerBoxValue').value) || 0;
-    const perSqftValue = parseFloat(document.getElementById('editPerSqftValue').value) || 0;
-    const transportPct = parseFloat(document.getElementById('editTransportPct').value) || 0;
-    const transportPerBox = parseFloat(document.getElementById('editTransportPerBox').value) || 0;
-    const transportTotal = parseFloat(document.getElementById('editTransportTotal').value) || 0;
-    
-    // Calculate values
-    const netBoxes = Math.max(0, boxesIn - damageBoxes);
-    const baseCostPerBox = perBoxValue > 0 ? perBoxValue : (perSqftValue * spb);
-    const transportFromPct = baseCostPerBox * (transportPct / 100);
-    const transportAllocated = (transportTotal > 0 && netBoxes > 0) ? (transportTotal / netBoxes) : 0;
-    const totalTransportPerBox = transportFromPct + transportPerBox + transportAllocated;
-    const finalCostPerBox = baseCostPerBox + totalTransportPerBox;
-    const totalValue = netBoxes * finalCostPerBox;
-    
-    // Update preview
-    document.getElementById('previewNetBoxes').textContent = netBoxes.toFixed(3);
-    document.getElementById('previewBaseCost').textContent = baseCostPerBox.toFixed(2);
-    document.getElementById('previewTransportCost').textContent = totalTransportPerBox.toFixed(2);
-    document.getElementById('previewFinalCost').textContent = finalCostPerBox.toFixed(2);
-    document.getElementById('previewTotalValue').textContent = totalValue.toFixed(2);
-}
+}, 300000);
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
