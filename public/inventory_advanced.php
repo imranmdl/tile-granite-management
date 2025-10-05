@@ -1,8 +1,10 @@
 <?php
 // public/inventory_advanced.php — Enhanced Inventory Management with improved UI and calculations
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
-require_login();
+require_once __DIR__ . '/../includes/inventory_updates.php';
+
+auth_require_login();
 
 $pdo = Database::pdo();
 
