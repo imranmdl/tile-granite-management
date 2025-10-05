@@ -345,6 +345,15 @@ class InventoryUpdates {
                     WHERE item_type = 'tile'
                     GROUP BY item_id
                 ) r ON t.id = r.tile_id
+                
+                -- Inventory Transactions (sales, returns, adjustments)
+                LEFT JOIN (
+                    SELECT 
+                        tile_id,
+                        SUM(quantity_change) as total_transactions
+                    FROM inventory_transactions
+                    GROUP BY tile_id
+                ) it ON t.id = it.tile_id
             ");
         } catch (Exception $e) {
             // View creation failed - continue without it
