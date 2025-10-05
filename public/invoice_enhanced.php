@@ -90,7 +90,18 @@ if ($from_quote > 0) {
             
             $pdo->commit();
             
-            $message = "Invoice {$invoice_no} created successfully from quotation {$quotation['quote_no']}";
+            // Update inventory for all invoice items
+            $inventory_items = [];
+            foreach ($tile_items as $item) {
+                if ($item['tile_id'] > 0) {
+                    $inventory_items[] = $item;
+                }
+            }
+            if (!empty($inventory_items)) {
+                InventoryUpdates::processSale($pdo, $invoice_id, $inventory_items);
+            }
+            
+            $message = "Invoice {$invoice_no} created successfully from quotation {$quotation['quote_no']}. Inventory updated.";
             safe_redirect('invoice_enhanced.php?id=' . $invoice_id);
         }
         
