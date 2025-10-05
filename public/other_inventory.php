@@ -1,0 +1,694 @@
+<?php
+// public/other_inventory.php - Enhanced Other Items Inventory
+require_once __DIR__ . '/../includes/simple_auth.php';
+require_once __DIR__ . '/../includes/helpers.php';
+
+auth_require_login();
+
+$pdo = Database::pdo();
+$message = '';
+$error = '';
+
+// Handle item editing
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_item'])) {
+    $item_id = (int)$_POST['item_id'];
+    $item_name = trim($_POST['item_name']);
+    $unit_label = trim($_POST['unit_label']);
+    
+    if ($item_name && $unit_label) {
+        try {
+            $stmt = $pdo->prepare("UPDATE misc_items SET name = ?, unit_label = ? WHERE id = ?");
+            if ($stmt->execute([$item_name, $unit_label, $item_id])) {
+                $message = 'Item updated successfully';
+            } else {
+                $error = 'Failed to update item';
+            }
+        } catch (Exception $e) {
+            $error = 'Database error: ' . $e->getMessage();
+        }
+    } else {
+        $error = 'Please provide item name and unit';
+    }
+}
+
+// Handle item deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_item'])) {
+    $item_id = (int)$_POST['item_id'];
+    
+    try {
+        // Check if item has purchase entries
+        $check_stmt = $pdo->prepare("SELECT COUNT(*) FROM purchase_entries_misc WHERE misc_item_id = ?");
+        $check_stmt->execute([$item_id]);
+        $purchase_count = $check_stmt->fetchColumn();
+        
+        if ($purchase_count > 0) {
+            $error = 'Cannot delete item with existing purchase entries. Delete purchase entries first.';
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM misc_items WHERE id = ?");
+            if ($stmt->execute([$item_id])) {
+                $message = 'Item deleted successfully';
+            } else {
+                $error = 'Failed to delete item';
+            }
+        }
+    } catch (Exception $e) {
+        $error = 'Database error: ' . $e->getMessage();
+    }
+}
+
+// Handle photo upload for misc items
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_photo'])) {
+    $item_id = (int)$_POST['item_id'];
+    
+    if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+        $file = $_FILES['photo'];
+        
+        // Validate file size (3MB limit)
+        if ($file['size'] > 3 * 1024 * 1024) {
+            $error = 'File size must be less than 3MB';
+        } else {
+            // Validate file type
+            $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $file['tmp_name']);
+            
+            if (in_array($mime_type, $allowed_types)) {
+                // Create upload directory
+                $upload_dir = __DIR__ . '/../uploads/misc_items';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0777, true);
+                }
+                
+                // Generate unique filename
+                $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                $filename = 'misc_' . $item_id . '_' . time() . '.' . $extension;
+                $filepath = $upload_dir . '/' . $filename;
+                
+                if (move_uploaded_file($file['tmp_name'], $filepath)) {
+                    // Update database
+                    $stmt = $pdo->prepare("UPDATE misc_items SET photo_path = ?, photo_size = ? WHERE id = ?");
+                    $stmt->execute(['/uploads/misc_items/' . $filename, $file['size'], $item_id]);
+                    $message = 'Photo uploaded successfully';
+                } else {
+                    $error = 'Failed to upload photo';
+                }
+            } else {
+                $error = 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed';
+            }
+        }
+    } else {
+        $error = 'No file uploaded or upload error';
+    }
+}
+
+// Handle QR code generation for misc items
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_qr'])) {
+    $item_id = (int)$_POST['item_id'];
+    
+    // Get item information for QR code
+    $stmt = $pdo->prepare("
+        SELECT m.id, m.name, m.unit_label, 
+               cms.total_stock_quantity, cms.avg_cost_per_unit, m.photo_path
+        FROM misc_items m
+        LEFT JOIN current_misc_stock cms ON m.id = cms.id
+        WHERE m.id = ?
+    ");
+    $stmt->execute([$item_id]);
+    $item_data = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($item_data) {
+        // Create QR code data (JSON format for scanning)
+        $qr_data = json_encode([
+            'type' => 'misc_inventory',
+            'id' => $item_data['id'],
+            'name' => $item_data['name'],
+            'unit' => $item_data['unit_label'],
+            'stock_quantity' => $item_data['total_stock_quantity'],
+            'price_per_unit' => $item_data['avg_cost_per_unit'],
+            'photo' => $item_data['photo_path'] ? ('http://localhost' . $item_data['photo_path']) : null,
+            'scan_time' => date('Y-m-d H:i:s')
+        ]);
+        
+        // Generate QR code filename
+        $qr_filename = 'qr_misc_' . $item_id . '.png';
+        $qr_path = '/uploads/qr/' . $qr_filename;
+        $qr_full_path = __DIR__ . '/../uploads/qr/' . $qr_filename;
+        
+        // Create QR directory
+        $qr_dir = dirname($qr_full_path);
+        if (!is_dir($qr_dir)) {
+            mkdir($qr_dir, 0777, true);
+        }
+        
+        // Create QR code using SVG (no GD extension required) - Green theme
+        $svg_content = '<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="200" height="200" fill="white" stroke="#228b22" stroke-width="2"/>
+    <text x="10" y="20" font-family="Arial" font-size="12" font-weight="bold" fill="#008000">QR: Item #' . $item_id . '</text>
+    <text x="10" y="35" font-family="Arial" font-size="10" fill="black">' . htmlspecialchars(substr($item_data['name'], 0, 22)) . '</text>
+    <text x="10" y="50" font-family="Arial" font-size="10" fill="black">Stock: ' . number_format($item_data['total_stock_quantity'], 1) . ' ' . htmlspecialchars($item_data['unit_label']) . '</text>
+    <text x="10" y="65" font-family="Arial" font-size="10" fill="black">Price: ₹' . number_format($item_data['avg_cost_per_unit'], 2) . '/unit</text>
+    
+    <!-- Simple QR-like pattern with green theme -->
+    <g fill="#006400">';
+        
+        // Generate simple QR-like pattern
+        for ($i = 0; $i < 12; $i++) {
+            for ($j = 0; $j < 12; $j++) {
+                $x = 20 + $i * 12;
+                $y = 85 + $j * 8;
+                if (($i + $j + $item_id) % 3 == 0) {
+                    $svg_content .= '<rect x="' . $x . '" y="' . $y . '" width="10" height="6"/>';
+                }
+            }
+        }
+        
+        $svg_content .= '</g>
+    <text x="10" y="185" font-family="Arial" font-size="8" fill="#666">Scan for details</text>
+    <text x="10" y="195" font-family="Arial" font-size="8" fill="#666">Generated: ' . date('Y-m-d H:i') . '</text>
+</svg>';
+
+        // Save SVG file
+        if (file_put_contents($qr_full_path . '.svg', $svg_content)) {
+            // Update database with SVG path
+            $stmt = $pdo->prepare("UPDATE misc_items SET qr_code_path = ? WHERE id = ?");
+            if ($stmt->execute([$qr_path . '.svg', $item_id])) {
+                $message = 'QR Code generated successfully';
+            } else {
+                $error = 'Failed to update database with QR code path';
+            }
+        } else {
+            $error = 'Failed to save QR code file';
+        }
+    } else {
+        $error = 'Item not found';
+    }
+}
+
+// Get search parameters
+$search = trim($_GET['search'] ?? '');
+
+// Build query with search
+$where_clause = '';
+$params = [];
+
+if ($search) {
+    $where_clause = "WHERE m.name LIKE ? OR m.unit_label LIKE ?";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+
+// Get misc items data with enhanced stock and sales information
+$items_query = "
+    SELECT m.id, m.name, m.unit_label, m.photo_path, m.qr_code_path,
+           cms.total_stock_quantity, 
+           cms.avg_cost_per_unit, cms.avg_cost_per_unit_with_transport, cms.total_quantity_cost,
+           cms.total_sold_quantity_quotes, cms.total_sold_cost_quotes,
+           cms.purchase_count
+    FROM misc_items m
+    LEFT JOIN current_misc_stock cms ON m.id = cms.id
+    $where_clause
+    ORDER BY m.name
+";
+
+$stmt = $pdo->prepare($items_query);
+$stmt->execute($params);
+$items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$page_title = "Other Items Inventory";
+require_once __DIR__ . '/../includes/header.php';
+?>
+
+<style>
+.inventory-table-container {
+    overflow-x: auto;
+    max-height: 70vh;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+}
+
+.inventory-table {
+    min-width: 1600px;
+}
+
+.inventory-table th {
+    position: sticky;
+    top: 0;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    z-index: 10;
+    border: none;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+    padding: 12px 8px;
+}
+
+.inventory-table th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 11;
+}
+
+.inventory-table td:first-child {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 9;
+    font-weight: 600;
+}
+
+.inventory-table td {
+    vertical-align: middle;
+    padding: 10px 8px;
+    border: 1px solid #e9ecef;
+}
+
+.photo-thumb {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.qr-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.stock-indicator {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.stock-good { background: #d1edff; color: #0066cc; }
+.stock-low { background: #fff3cd; color: #856404; }
+.stock-out { background: #f8d7da; color: #721c24; }
+
+.search-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+</style>
+
+<?php if ($message): ?>
+    <div class="alert alert-success alert-dismissible fade show">
+        <?= h($message) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
+<?php if ($error): ?>
+    <div class="alert alert-danger alert-dismissible fade show">
+        <?= h($error) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
+<!-- Search Section -->
+<div class="search-section">
+    <form method="GET" class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Search Items</label>
+            <input type="text" class="form-control" name="search" value="<?= h($search) ?>" 
+                   placeholder="Search by item name or unit...">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&nbsp;</label>
+            <div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Toolbar -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Other Items Inventory (<?= count($items) ?> items)</h4>
+    <div class="btn-group">
+        <a href="misc_items.php" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> Add New Item
+        </a>
+        <a href="other_purchase.php" class="btn btn-primary">
+            <i class="bi bi-cart-plus"></i> Purchase Entry
+        </a>
+        <button type="button" class="btn btn-outline-info" onclick="exportData()">
+            <i class="bi bi-download"></i> Export
+        </button>
+    </div>
+</div>
+
+<!-- Enhanced Inventory Table -->
+<div class="inventory-table-container">
+    <table class="table table-hover inventory-table" id="inventoryTable">
+        <thead>
+            <tr>
+                <th style="min-width: 150px;">Item Name</th>
+                <th style="min-width: 80px;">Unit</th>
+                <th style="min-width: 80px;" class="col-photo">Photo</th>
+                <th style="min-width: 100px;">Stock Quantity</th>
+                <th style="min-width: 120px;" class="col-cost">Cost/Unit</th>
+                <th style="min-width: 120px;" class="col-cost">Cost + Transport</th>
+                <th style="min-width: 120px;" class="col-cost">Total Cost</th>
+                <th style="min-width: 100px;" class="col-sales">Sold Quantity</th>
+                <th style="min-width: 120px;" class="col-sales">Sold Revenue</th>
+                <th style="min-width: 120px;" class="col-sales">Quote Links</th>
+                <th style="min-width: 100px;">Purchases</th>
+                <th style="min-width: 80px;" class="col-qr">QR Code</th>
+                <th style="min-width: 150px;" class="col-actions">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($items)): ?>
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox display-4"></i><br>
+                        No items found. <a href="misc_items.php">Add some items</a> or adjust your search.
+                    </td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($items as $item): 
+                    $stock_quantity = (float)($item['total_stock_quantity'] ?? 0);
+                    $stock_class = $stock_quantity > 5 ? 'stock-good' : ($stock_quantity > 0 ? 'stock-low' : 'stock-out');
+                ?>
+                    <tr>
+                        <td>
+                            <strong><?= h($item['name']) ?></strong><br>
+                            <small class="text-muted">ID: <?= $item['id'] ?></small>
+                        </td>
+                        <td><?= h($item['unit_label']) ?></td>
+                        <td class="col-photo">
+                            <?php if ($item['photo_path']): ?>
+                                <img src="<?= h($item['photo_path']) ?>" class="photo-thumb" 
+                                     onclick="viewPhoto('<?= h($item['photo_path']) ?>', '<?= h($item['name']) ?>')">
+                            <?php else: ?>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                        onclick="uploadPhoto(<?= $item['id'] ?>)">
+                                    <i class="bi bi-camera"></i>
+                                </button>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <span class="stock-indicator <?= $stock_class ?>">
+                                <?= number_format($stock_quantity, 1) ?>
+                            </span>
+                        </td>
+                        <td class="col-cost">₹<?= number_format($item['avg_cost_per_unit'] ?? 0, 2) ?></td>
+                        <td class="col-cost">
+                            <span class="fw-bold text-primary">₹<?= number_format($item['avg_cost_per_unit_with_transport'] ?? 0, 2) ?></span>
+                        </td>
+                        <td class="col-cost">₹<?= number_format($item['total_quantity_cost'] ?? 0, 2) ?></td>
+                        <td class="col-sales">
+                            <?php if ($item['total_sold_quantity_quotes'] > 0): ?>
+                                <span class="badge bg-warning"><?= number_format($item['total_sold_quantity_quotes'], 1) ?></span>
+                            <?php else: ?>
+                                <span class="text-muted">0</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="col-sales">₹<?= number_format($item['total_sold_cost_quotes'] ?? 0, 2) ?></td>
+                        <td class="col-sales">
+                            <?php 
+                            // Get quotations for this item
+                            $quote_stmt = $pdo->prepare("
+                                SELECT DISTINCT q.quote_no, q.id 
+                                FROM quotations q 
+                                JOIN quotation_misc_items qmi ON q.id = qmi.quotation_id 
+                                WHERE qmi.misc_item_id = ? 
+                                ORDER BY q.quote_dt DESC 
+                                LIMIT 3
+                            ");
+                            $quote_stmt->execute([$item['id']]);
+                            $quotes = $quote_stmt->fetchAll(PDO::FETCH_ASSOC);
+                            
+                            if ($quotes): 
+                                foreach ($quotes as $quote): ?>
+                                    <a href="quotation_view.php?id=<?= $quote['id'] ?>" class="badge bg-success text-decoration-none me-1" target="_blank">
+                                        <?= h($quote['quote_no']) ?>
+                                    </a>
+                                <?php endforeach;
+                                if (count($quotes) == 3): ?>
+                                    <small class="text-muted">+more</small>
+                                <?php endif;
+                            else: ?>
+                                <span class="text-muted">No sales</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($item['purchase_count']): ?>
+                                <span class="badge bg-info"><?= $item['purchase_count'] ?> entries</span>
+                            <?php else: ?>
+                                <span class="text-muted">No purchases</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="col-qr">
+                            <?php if ($item['qr_code_path']): ?>
+                                <img src="<?= h($item['qr_code_path']) ?>" class="qr-thumb" 
+                                     onclick="viewQR('<?= h($item['qr_code_path']) ?>', '<?= h($item['name']) ?>')">
+                            <?php else: ?>
+                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                        onclick="generateQR(<?= $item['id'] ?>, '<?= h($item['name']) ?>')">
+                                    <i class="bi bi-qr-code"></i>
+                                </button>
+                            <?php endif; ?>
+                        </td>
+                        <td class="col-actions">
+                            <div class="btn-group btn-group-sm">
+                                <a href="other_purchase.php?item_id=<?= $item['id'] ?>" class="btn btn-success" title="Add Purchase">
+                                    <i class="bi bi-plus-circle"></i>
+                                </a>
+                                <button type="button" class="btn btn-info" onclick="viewHistory(<?= $item['id'] ?>)" title="View History">
+                                    <i class="bi bi-clock-history"></i>
+                                </button>
+                                <button type="button" class="btn btn-warning" onclick="editItem(<?= $item['id'] ?>, '<?= h($item['name']) ?>', '<?= h($item['unit_label']) ?>')" title="Edit Item">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+</div>
+
+<!-- Photo Upload Modal -->
+<div class="modal fade" id="photoUploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload Photo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="item_id" id="photoItemId">
+                    <div class="mb-3">
+                        <label class="form-label">Select Photo (Max 3MB)</label>
+                        <input type="file" class="form-control" name="photo" accept="image/*" required>
+                        <div class="form-text">Supported formats: JPEG, PNG, GIF, WebP</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" name="upload_photo" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Photo View Modal -->
+<div class="modal fade" id="photoViewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="photoViewTitle">Item Photo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="photoViewImage" src="" class="img-fluid">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Display Modal -->
+<div class="modal fade" id="qrCodeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrModalTitle">QR Code Generated</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="qrModalImage" src="" class="img-fluid mb-3" style="max-width: 200px;">
+                <div id="qrCodeData" class="small text-muted"></div>
+                <div class="mt-3">
+                    <button type="button" class="btn btn-primary" onclick="printQR()">
+                        <i class="bi bi-printer"></i> Print QR Code
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="downloadQR()">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div class="modal fade" id="editItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="editItemForm" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="edit_item" value="1">
+                    <input type="hidden" name="item_id" id="editItemId">
+                    
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Item Name *</label>
+                            <input type="text" class="form-control" name="item_name" id="editItemName" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Unit *</label>
+                            <input type="text" class="form-control" name="unit_label" id="editItemUnit" required 
+                                   placeholder="e.g., pieces, kg, liters">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="deleteItem()">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Update Item
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- QR Generation Form (Hidden) -->
+<form id="qrGenerationForm" method="post" style="display: none;">
+    <input type="hidden" name="item_id" id="qrItemId">
+    <input type="hidden" name="generate_qr" value="1">
+</form>
+
+<script>
+function uploadPhoto(itemId) {
+    document.getElementById('photoItemId').value = itemId;
+    new bootstrap.Modal(document.getElementById('photoUploadModal')).show();
+}
+
+function viewPhoto(photoPath, itemName) {
+    document.getElementById('photoViewTitle').textContent = itemName + ' - Photo';
+    document.getElementById('photoViewImage').src = photoPath;
+    new bootstrap.Modal(document.getElementById('photoViewModal')).show();
+}
+
+function generateQR(itemId, itemName) {
+    // Show loading state
+    const button = event.target.closest('button');
+    const originalHtml = button.innerHTML;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    button.disabled = true;
+    
+    // Use form submission instead of AJAX for better compatibility
+    const form = document.getElementById('qrGenerationForm');
+    const itemIdInput = document.getElementById('qrItemId');
+    itemIdInput.value = itemId;
+    
+    // Store info for modal
+    window.qrGenerationInfo = { itemId, itemName };
+    
+    // Submit form
+    form.submit();
+}
+
+function viewQR(qrPath, itemName) {
+    document.getElementById('qrModalTitle').textContent = itemName + ' - QR Code';
+    document.getElementById('qrModalImage').src = qrPath;
+    
+    // Show QR code data
+    document.getElementById('qrCodeData').innerHTML = `
+        <strong>Scan this QR code to view:</strong><br>
+        • Stock levels and pricing<br>
+        • Item photos and details<br>
+        • Current availability
+    `;
+    
+    new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
+}
+
+function printQR() {
+    const qrImage = document.getElementById('qrModalImage').src;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head><title>QR Code Print</title></head>
+            <body style="text-align: center; padding: 20px;">
+                <h3>${document.getElementById('qrModalTitle').textContent}</h3>
+                <img src="${qrImage}" style="max-width: 300px;">
+            </body>
+        </html>
+    `);
+    printWindow.print();
+}
+
+function downloadQR() {
+    const qrImage = document.getElementById('qrModalImage').src;
+    const link = document.createElement('a');
+    link.download = 'qr-code-' + Date.now() + '.png';
+    link.href = qrImage;
+    link.click();
+}
+
+function viewHistory(itemId) {
+    window.open(`other_purchase.php?item_id=${itemId}&view=history`, '_blank');
+}
+
+function exportData() {
+    alert('Data export feature coming soon!');
+}
+
+function editItem(itemId, itemName, unitLabel) {
+    document.getElementById('editItemId').value = itemId;
+    document.getElementById('editItemName').value = itemName;
+    document.getElementById('editItemUnit').value = unitLabel;
+    
+    new bootstrap.Modal(document.getElementById('editItemModal')).show();
+}
+
+function deleteItem() {
+    if (confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="delete_item" value="1">
+            <input type="hidden" name="item_id" value="${document.getElementById('editItemId').value}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
