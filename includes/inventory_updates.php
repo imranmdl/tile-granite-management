@@ -91,7 +91,7 @@ class InventoryUpdates {
                 purchase_dt as date,
                 boxes_in as quantity,
                 (boxes_in - COALESCE(damage_boxes, 0)) as net_quantity,
-                purchase_box_value as cost_per_box,
+                per_box_value as cost_per_box,
                 vendor,
                 notes
             FROM inventory_items 
