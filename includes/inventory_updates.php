@@ -398,8 +398,9 @@ class InventoryUpdates {
             // Rebuild from returns
             $pdo->exec("
                 INSERT INTO inventory_transactions (tile_id, quantity_change, transaction_type, reference_id, transaction_date, created_by)
-                SELECT tile_id, quantity, 'return', id, return_date, 1
+                SELECT item_id, quantity_returned, 'return', id, return_date, 1
                 FROM individual_returns
+                WHERE item_type = 'tile' AND return_date IS NOT NULL
             ");
         }
         
