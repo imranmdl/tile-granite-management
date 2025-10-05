@@ -206,13 +206,46 @@ if ($has_stock) {
   }
 </style>
 
-<div class="container-xxl my-3">
+<div class="container-xxl my-4">
+  <!-- Dashboard Header -->
+  <div class="dashboard-header text-center">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1 class="mb-2"><i class="bi bi-speedometer2 me-3"></i>Business Dashboard</h1>
+        <p class="mb-0 opacity-75">Welcome back, <?= h(auth_username()) ?>! Here's your business overview.</p>
+      </div>
+      <div class="col-md-4 text-end">
+        <div class="bg-white bg-opacity-10 rounded-3 p-3">
+          <h6 class="mb-1">Today's Date</h6>
+          <h4 class="mb-0"><?= date('M j, Y') ?></h4>
+          <small class="opacity-75"><?= date('l') ?></small>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <!-- range -->
-  <div class="d-flex align-items-center gap-2 mb-3">
-    <span class="text-muted">Range:</span>
-    <a class="chip <?= $range==='today'?'btn btn-sm btn-outline-primary':'' ?>" href="?range=today">Today</a>
-    <a class="chip <?= $range==='7'?'btn btn-sm btn-outline-primary':'' ?>" href="?range=7">Last 7 days</a>
-    <a class="chip <?= $range==='30'?'btn btn-sm btn-outline-primary':'' ?>" href="?range=30">Last 30 days</a>
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div class="d-flex align-items-center gap-2">
+      <span class="text-muted fw-semibold">Time Period:</span>
+      <a class="chip <?= $range==='today'?'btn btn-sm btn-outline-primary':'' ?>" href="?range=today">
+        <i class="bi bi-calendar-day me-1"></i>Today
+      </a>
+      <a class="chip <?= $range==='7'?'btn btn-sm btn-outline-primary':'' ?>" href="?range=7">
+        <i class="bi bi-calendar-week me-1"></i>Last 7 days
+      </a>
+      <a class="chip <?= $range==='30'?'btn btn-sm btn-outline-primary':'' ?>" href="?range=30">
+        <i class="bi bi-calendar-month me-1"></i>Last 30 days
+      </a>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/public/reports_dashboard_new.php" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-graph-up me-1"></i>View Reports
+      </a>
+      <button class="btn btn-primary btn-sm" onclick="refreshDashboard()">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+      </button>
+    </div>
   </div>
 
   <!-- KPIs -->
