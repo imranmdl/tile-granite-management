@@ -69,7 +69,7 @@ $sales_sql = "
         i.customer_name,
         i.firm_name,
         i.phone,
-        i.subtotal,
+        i.total as subtotal,
         i.discount_type,
         i.discount_value,
         i.discount_amount,
