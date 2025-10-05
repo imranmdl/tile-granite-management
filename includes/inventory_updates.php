@@ -391,9 +391,10 @@ class InventoryUpdates {
             // Rebuild from sales
             $pdo->exec("
                 INSERT INTO inventory_transactions (tile_id, quantity_change, transaction_type, reference_id, transaction_date, created_by)
-                SELECT ii.tile_id, -ii.boxes_decimal, 'sale', i.id, i.invoice_dt, 1
+                SELECT ii.tile_id, -ii.boxes_decimal, 'sale', i.id, COALESCE(i.invoice_dt, date('now')), 1
                 FROM invoice_items ii
                 JOIN invoices i ON ii.invoice_id = i.id
+                WHERE ii.tile_id IS NOT NULL AND i.invoice_dt IS NOT NULL
             ");
             
             // Rebuild from returns
