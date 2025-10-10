@@ -6,6 +6,21 @@ require_once __DIR__ . '/../includes/helpers.php';
 auth_require_login();
 
 $pdo = Database::pdo();
+
+// Ensure misc adjustments table exists (used in misc stock calculation)
+$pdo->exec("CREATE TABLE IF NOT EXISTS misc_inventory_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    misc_item_id INTEGER NOT NULL,
+    quantity_change REAL NOT NULL,
+    transaction_type TEXT NOT NULL,
+    reference_id INTEGER,
+    transaction_date TEXT NOT NULL,
+    notes TEXT,
+    created_by INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (misc_item_id) REFERENCES misc_items(id)
+)");
+
 $message = '';
 $error = '';
 $id = (int)($_GET['id'] ?? 0);
@@ -68,10 +83,19 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_tile_i
     
     // Get tile info and current stock
     $tile_stmt = $pdo->prepare("
-        SELECT t.name, ts.sqft_per_box, cts.total_stock_boxes
+        SELECT 
+            t.name, 
+            ts.sqft_per_box, 
+            -- Calculate current stock same as working inventory system
+            COALESCE(
+                (SELECT SUM(boxes_in - COALESCE(damage_boxes, 0)) FROM inventory_items WHERE tile_id = t.id), 0
+            ) - COALESCE(
+                (SELECT SUM(boxes_decimal) FROM invoice_items WHERE tile_id = t.id), 0
+            ) + COALESCE(
+                (SELECT SUM(quantity_returned) FROM individual_returns WHERE item_type = 'tile' AND item_id = t.id), 0
+            ) as total_stock_boxes
         FROM tiles t 
         JOIN tile_sizes ts ON t.size_id = ts.id
-        LEFT JOIN current_tiles_stock cts ON t.id = cts.id
         WHERE t.id = ?
     ");
     $tile_stmt->execute([$tile_id]);
@@ -400,11 +424,17 @@ if ($id > 0) {
         // Get tile items with stock info
         $items_stmt = $pdo->prepare("
             SELECT qi.*, t.name as tile_name, ts.label as size_label, ts.sqft_per_box, t.photo_path,
-                   cts.total_stock_boxes as current_stock
+                   -- Calculate current stock same as working inventory system
+                   COALESCE(
+                       (SELECT SUM(boxes_in - COALESCE(damage_boxes, 0)) FROM inventory_items WHERE tile_id = t.id), 0
+                   ) - COALESCE(
+                       (SELECT SUM(boxes_decimal) FROM invoice_items WHERE tile_id = t.id), 0
+                   ) + COALESCE(
+                       (SELECT SUM(quantity_returned) FROM individual_returns WHERE item_type = 'tile' AND item_id = t.id), 0
+                   ) as current_stock
             FROM quotation_items qi
             JOIN tiles t ON qi.tile_id = t.id
             JOIN tile_sizes ts ON t.size_id = ts.id
-            LEFT JOIN current_tiles_stock cts ON t.id = cts.id
             WHERE qi.quotation_id = ?
             ORDER BY qi.id
         ");
@@ -426,13 +456,24 @@ if ($id > 0) {
     }
 }
 
-// Get tiles list with stock info for dropdown
+// Get tiles list with stock info for dropdown (using same logic as working inventory)
 $tiles_stmt = $pdo->query("
-    SELECT t.id, t.name, ts.label as size_label, ts.sqft_per_box, t.photo_path,
-           cts.total_stock_boxes as current_stock
+    SELECT 
+        t.id, 
+        t.name, 
+        ts.label as size_label, 
+        ts.sqft_per_box, 
+        t.photo_path,
+        -- Calculate current stock same as working inventory system
+        COALESCE(
+            (SELECT SUM(boxes_in - COALESCE(damage_boxes, 0)) FROM inventory_items WHERE tile_id = t.id), 0
+        ) - COALESCE(
+            (SELECT SUM(boxes_decimal) FROM invoice_items WHERE tile_id = t.id), 0
+        ) + COALESCE(
+            (SELECT SUM(quantity_returned) FROM individual_returns WHERE item_type = 'tile' AND item_id = t.id), 0
+        ) as current_stock
     FROM tiles t
     JOIN tile_sizes ts ON t.size_id = ts.id
-    LEFT JOIN current_tiles_stock cts ON t.id = cts.id
     ORDER BY t.name, ts.label
 ");
 $tiles = $tiles_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1025,6 +1066,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </form>
     </div>
+    <?php endif; ?>
 
     <!-- Discount Section -->
     <?php if (!empty($quotation_items) || !empty($quotation_misc_items)): ?>
@@ -1335,39 +1377,21 @@ function convertToInvoice(quotationId) {
     }
 }
 
-function updateDiscountLabel() {
-    const discountType = document.querySelector('[name="discount_type"]').value;
-    const label = document.getElementById('discountLabel');
-    const input = document.querySelector('[name="discount_value"]');
-    
-    if (discountType === 'percentage') {
-        label.textContent = 'Discount Percentage';
-        input.placeholder = 'Enter percentage (e.g., 10 for 10%)';
-        input.max = '100';
-    } else {
-        label.textContent = 'Discount Amount';
-        input.placeholder = 'Enter fixed amount in ₹';
-        input.removeAttribute('max');
-    }
-}
-
 function calculateCommission() {
-    // Get subtotal from the page
-    const subtotalText = document.querySelector('.fs-5')?.textContent || '₹0';
-    const subtotal = parseFloat(subtotalText.replace(/[₹,]/g, '')) || 0;
+    const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
     const commissionPercentage = parseFloat(document.querySelector('[name="commission_percentage"]').value) || 0;
     
     const commissionAmount = (subtotal * commissionPercentage) / 100;
     
-    document.getElementById('commissionAmount').value = '₹' + commissionAmount.toFixed(2);
+    if (document.getElementById('commissionAmount')) {
+        document.getElementById('commissionAmount').value = '₹' + commissionAmount.toFixed(2);
+    }
 }
 
 function calculateDiscount() {
-    // Get subtotal from the page
-    const subtotalText = document.querySelector('.fs-5')?.textContent || '₹0';
-    const subtotal = parseFloat(subtotalText.replace(/[₹,]/g, '')) || 0;
-    const discountType = document.querySelector('[name="discount_type"]').value;
-    const discountValue = parseFloat(document.querySelector('[name="discount_value"]').value) || 0;
+    const subtotal = <?= isset($quotation) ? $quotation['total'] : 0 ?>;
+    const discountType = document.querySelector('[name="discount_type"]')?.value || 'percentage';
+    const discountValue = parseFloat(document.querySelector('[name="discount_value"]')?.value) || 0;
     
     let discountAmount = 0;
     if (discountType === 'percentage') {
@@ -1376,43 +1400,31 @@ function calculateDiscount() {
         discountAmount = discountValue;
     }
     
-    document.getElementById('discountAmount').value = '₹' + discountAmount.toFixed(2);
-}
-
-function updateDiscountLabel() {
-    const discountType = document.querySelector('[name="discount_type"]').value;
-    const label = document.getElementById('discountLabel');
-    
-    if (discountType === 'percentage') {
-        label.textContent = 'Discount Percentage';
-    } else {
-        label.textContent = 'Discount Amount';
-    }
-    
-    calculateDiscount();
-}
-
-function calculateDiscount() {
-    const discountType = document.querySelector('[name="discount_type"]').value;
-    const discountValue = parseFloat(document.querySelector('[name="discount_value"]').value) || 0;
-    const discountAmountField = document.getElementById('discountAmount');
-    
-    // Get subtotal from the page (you may need to adjust this selector)
-    const subtotalText = document.querySelector('.fs-5')?.textContent || '₹0';
-    const subtotal = parseFloat(subtotalText.replace(/[₹,]/g, '')) || 0;
-    
-    let discountAmount = 0;
-    if (discountType === 'percentage') {
-        discountAmount = (subtotal * discountValue) / 100;
-    } else {
-        discountAmount = discountValue;
-    }
-    
     // Ensure discount doesn't exceed subtotal
     discountAmount = Math.min(discountAmount, subtotal);
     
-    if (discountAmountField) {
-        discountAmountField.value = '₹' + discountAmount.toFixed(2);
+    if (document.getElementById('discountAmount')) {
+        document.getElementById('discountAmount').value = '₹' + discountAmount.toFixed(2);
+    }
+}
+
+function updateDiscountLabel() {
+    const discountType = document.querySelector('[name="discount_type"]')?.value || 'percentage';
+    const label = document.getElementById('discountLabel');
+    const input = document.querySelector('[name="discount_value"]');
+    
+    if (discountType === 'percentage') {
+        if (label) label.textContent = 'Discount Percentage';
+        if (input) {
+            input.placeholder = 'Enter percentage (e.g., 10 for 10%)';
+            input.max = '100';
+        }
+    } else {
+        if (label) label.textContent = 'Discount Amount';
+        if (input) {
+            input.placeholder = 'Enter fixed amount in ₹';
+            input.removeAttribute('max');
+        }
     }
 }
 </script>
