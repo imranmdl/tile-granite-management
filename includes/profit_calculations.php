@@ -47,12 +47,18 @@ class ProfitCalculations {
                 qi.boxes_decimal * qi.rate_per_box as item_revenue,
                 t.name as tile_name,
                 ts.label as size_label,
-                -- Get average cost from inventory (same as working inventory system)
+                -- Get average cost from inventory INCLUDING TRANSPORT COSTS
                 COALESCE(
                     (SELECT 
-                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * COALESCE(per_box_value, 0)) / 
+                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * (COALESCE(per_box_value, 0) + COALESCE(transport_cost_per_box, 0))) / 
                         NULLIF(SUM(boxes_in - COALESCE(damage_boxes, 0)), 0)
                      FROM inventory_items 
+                     WHERE tile_id = qi.tile_id), 
+                    -- Also check purchase_entries_tiles for transport-inclusive costs
+                    (SELECT 
+                        SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100 * (COALESCE(cost_per_box, 0) + COALESCE(transport_cost, 0) / NULLIF(total_boxes, 0))) / 
+                        NULLIF(SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100), 0)
+                     FROM purchase_entries_tiles 
                      WHERE tile_id = qi.tile_id), 0
                 ) as avg_cost_per_box
             FROM quotation_items qi
