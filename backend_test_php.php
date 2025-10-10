@@ -86,15 +86,16 @@ try {
 // Test 6: Test inventory_summary_unified.php for transport cost inclusion
 echo "\n6. Testing inventory_summary_unified.php for transport cost calculations...\n";
 $inventory_content = file_get_contents('/app/public/inventory_summary_unified.php');
+$inventory_updates_content = file_get_contents('/app/includes/inventory_updates.php');
 $transport_in_misc = strpos($inventory_content, 'transport_cost_per_unit') !== false;
-$transport_in_tiles = strpos($inventory_content, 'transport_cost_per_box') !== false;
+$transport_in_tiles = strpos($inventory_updates_content, 'transport_cost') !== false && strpos($inventory_updates_content, 'purchase_entries_tiles') !== false;
 
 if ($transport_in_misc && $transport_in_tiles) {
     echo "✅ inventory_summary_unified.php - Transport costs included in calculations\n";
 } else {
     echo "❌ inventory_summary_unified.php - Transport costs missing in calculations\n";
     if (!$transport_in_misc) echo "  - Missing transport_cost_per_unit for misc items\n";
-    if (!$transport_in_tiles) echo "  - Missing transport_cost_per_box for tiles\n";
+    if (!$transport_in_tiles) echo "  - Missing transport costs for tiles in inventory_updates.php\n";
 }
 
 // Test 7: Check if report_profit_loss.php includes transport and commission
