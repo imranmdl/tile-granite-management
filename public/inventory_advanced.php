@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_item'])) {
     $edesc = trim($_POST['description'] ?? '');
     if ($eid>0 && $ename !== '' && $eunit !== '') {
         try {
-            $st = $pdo->prepare("UPDATE misc_items SET name=?, unit=?, description=? WHERE id=?");
+            $st = $pdo->prepare("UPDATE misc_items SET name=?, unit_label=?, description=? WHERE id=?");
             $st->execute([$ename, $eunit, $edesc, $eid]);
             $message = "Item updated successfully.";
         } catch (Exception $e) {
