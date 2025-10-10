@@ -27,20 +27,20 @@ $search = trim($_GET['search'] ?? '');
 $sort_by = $_GET['sort_by'] ?? 'name';
 $sort_order = $_GET['sort_order'] ?? 'ASC';
 
-// Get tiles inventory with current stock (CORRECTED to use proper views)
+// Get tiles inventory with current stock (CORRECTED to use actual inventory tables)
 $tiles_sql = "
     SELECT 
         t.id,
         t.name,
         ts.label as size_label,
-        COALESCE(cts.avg_cost_per_box_with_transport, 0) as current_cost,
-        COALESCE(cts.avg_cost_per_box, 0) as last_cost,
-        COALESCE(cts.avg_cost_per_box_with_transport, 0) as average_cost,
+        COALESCE(inventory_summary.avg_cost_per_box, 0) as current_cost,
+        COALESCE(inventory_summary.avg_cost_per_box, 0) as last_cost,
+        COALESCE(inventory_summary.avg_cost_per_box, 0) as average_cost,
         t.photo_path,
-        COALESCE(cts.total_stock_boxes, 0) as current_stock,
-        COALESCE(cts.total_stock_boxes * cts.avg_cost_per_box_with_transport, 0) as stock_value,
-        v.name as vendor_name,
-        COALESCE(cts.purchase_count, 0) as recent_purchases,
+        COALESCE(inventory_summary.current_stock_boxes, 0) as current_stock,
+        COALESCE(inventory_summary.current_stock_boxes * inventory_summary.avg_cost_per_box, 0) as stock_value,
+        '' as vendor_name,
+        COALESCE(inventory_summary.total_purchases, 0) as recent_purchases,
         (
             SELECT SUM(ii.boxes_decimal) 
             FROM invoice_items ii 
@@ -51,9 +51,17 @@ $tiles_sql = "
         ) as recent_sales
     FROM tiles t
     JOIN tile_sizes ts ON t.size_id = ts.id
-    LEFT JOIN vendors v ON t.vendor_id = v.id
-    LEFT JOIN current_tiles_stock cts ON t.id = cts.id
-    WHERE t.active = 1
+    LEFT JOIN (
+        SELECT 
+            ii.tile_id,
+            SUM(ii.boxes_in - COALESCE(ii.damage_boxes, 0)) as current_stock_boxes,
+            COUNT(*) as total_purchases,
+            SUM((ii.boxes_in - COALESCE(ii.damage_boxes, 0)) * (ii.per_box_value + COALESCE(ii.transport_per_box, 0))) / 
+                NULLIF(SUM(ii.boxes_in - COALESCE(ii.damage_boxes, 0)), 0) as avg_cost_per_box
+        FROM inventory_items ii
+        GROUP BY ii.tile_id
+    ) inventory_summary ON t.id = inventory_summary.tile_id
+    WHERE COALESCE(t.active, 1) = 1
 ";
 
 $params = [];
