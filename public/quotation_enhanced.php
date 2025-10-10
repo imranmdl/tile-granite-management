@@ -406,7 +406,7 @@ if ($id > 0) {
     }
 }
 
-// Get tiles list with stock info for dropdown - FIXED to use current_tiles_stock view
+// Get tiles list with stock info for dropdown - FIXED to use actual inventory tables
 $tiles_stmt = $pdo->query("
     SELECT 
         t.id, 
@@ -414,10 +414,16 @@ $tiles_stmt = $pdo->query("
         ts.label as size_label, 
         ts.sqft_per_box, 
         t.photo_path,
-        COALESCE(cts.total_stock_boxes, 0) as current_stock
+        COALESCE(inventory_summary.current_stock, 0) as current_stock
     FROM tiles t
     JOIN tile_sizes ts ON t.size_id = ts.id
-    LEFT JOIN current_tiles_stock cts ON t.id = cts.id
+    LEFT JOIN (
+        SELECT 
+            tile_id,
+            SUM(boxes_in - COALESCE(damage_boxes, 0)) as current_stock
+        FROM inventory_items 
+        GROUP BY tile_id
+    ) inventory_summary ON t.id = inventory_summary.tile_id
     WHERE COALESCE(t.active, 1) = 1
     ORDER BY t.name, ts.label
 ");
