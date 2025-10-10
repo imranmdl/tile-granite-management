@@ -69,7 +69,7 @@ function getMiscInventoryLevels(PDO $pdo) {
                 misc_item_id,
                 SUM(qty_in) as total_quantity_received,
                 SUM(qty_in - COALESCE(damage_units, 0)) as total_net_quantity,
-                SUM((qty_in - COALESCE(damage_units, 0)) * COALESCE(cost_per_unit, 0) + COALESCE(transport_cost_per_unit, 0)) as total_cost
+                SUM((qty_in - COALESCE(damage_units, 0)) * (COALESCE(cost_per_unit, 0) + COALESCE(transport_cost, 0) / NULLIF(qty_in, 0))) as total_cost
             FROM misc_inventory_items 
             GROUP BY misc_item_id
         ) p ON m.id = p.misc_item_id
