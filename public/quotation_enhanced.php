@@ -423,12 +423,18 @@ $tiles_stmt = $pdo->query("
 ");
 $tiles = $tiles_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get misc items list with stock info for dropdown - FIXED to use current_misc_stock view
+// Get misc items list with stock info for dropdown - FIXED to use actual inventory tables
 $misc_items_stmt = $pdo->query("
     SELECT m.id, m.name, m.unit_label, m.photo_path,
-           cms.total_stock_quantity as current_stock
+           COALESCE(inventory_summary.current_stock, 0) as current_stock
     FROM misc_items m
-    LEFT JOIN current_misc_stock cms ON m.id = cms.id
+    LEFT JOIN (
+        SELECT 
+            misc_item_id,
+            SUM(qty_in - COALESCE(damage_units, 0)) as current_stock
+        FROM misc_inventory_items 
+        GROUP BY misc_item_id
+    ) inventory_summary ON m.id = inventory_summary.misc_item_id
     WHERE COALESCE(m.active, 1) = 1
     ORDER BY m.name
 ");
