@@ -47,7 +47,7 @@ function getMiscInventoryLevels(PDO $pdo) {
             (COALESCE(p.total_net_quantity, 0) - COALESCE(s.total_quantity_sold, 0) + COALESCE(r.total_quantity_returned, 0)) as current_stock,
             (COALESCE(p.total_net_quantity, 0) - COALESCE(s.total_quantity_sold, 0) + COALESCE(r.total_quantity_returned, 0)) as available_quantity,
             
-            -- Cost calculations
+            -- Cost calculations (UPDATED to include transport costs)
             CASE 
                 WHEN COALESCE(p.total_net_quantity, 0) > 0
                 THEN COALESCE(p.total_cost, 0) / COALESCE(p.total_net_quantity, 0)
