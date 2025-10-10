@@ -135,6 +135,8 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_tile_i
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 if ($stmt->execute([$id, $purpose, $tile_id, $calculation_mode, $direct_boxes, $length_ft, $width_ft, $extra_sqft, $total_sqft, $rate_per_sqft, $rate_per_box, $boxes_decimal, $line_total, $show_image])) {
+                    // Update quotation total
+                    updateQuotationTotal($pdo, $id);
                     $message = 'Tile item added successfully';
                     safe_redirect('quotation_enhanced.php?id=' . $id);
                 } else {
