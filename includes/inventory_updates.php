@@ -180,9 +180,10 @@ class InventoryUpdates {
      * Create inventory summary views
      */
     public static function createInventoryViews(PDO $pdo) {
-        // Create comprehensive current inventory view
+        // Recreate comprehensive current inventory view
+        $pdo->exec("DROP VIEW IF EXISTS current_inventory_summary");
         $pdo->exec("
-            CREATE VIEW IF NOT EXISTS current_inventory_summary AS
+            CREATE VIEW current_inventory_summary AS
             SELECT 
                 t.id as tile_id,
                 t.name as tile_name,
