@@ -97,10 +97,16 @@ class ProfitCalculations {
                 qmi.rate_per_unit as selling_price,
                 qmi.qty_units * qmi.rate_per_unit as item_revenue,
                 m.name as item_name,
-                -- Get average cost from misc inventory
+                -- Get average cost from misc inventory INCLUDING TRANSPORT COSTS
                 COALESCE(
-                    (SELECT AVG(cost_per_unit) 
+                    (SELECT AVG(COALESCE(cost_per_unit, 0) + COALESCE(transport_cost_per_unit, 0)) 
                      FROM misc_inventory_items 
+                     WHERE misc_item_id = qmi.misc_item_id), 
+                    -- Also check purchase_entries_misc for transport-inclusive costs
+                    (SELECT 
+                        SUM(usable_quantity * (COALESCE(cost_per_unit, 0) + COALESCE(transport_cost, 0) / NULLIF(total_quantity, 0))) / 
+                        NULLIF(SUM(usable_quantity), 0)
+                     FROM purchase_entries_misc 
                      WHERE misc_item_id = qmi.misc_item_id), 0
                 ) as avg_cost_per_unit
             FROM quotation_misc_items qmi
