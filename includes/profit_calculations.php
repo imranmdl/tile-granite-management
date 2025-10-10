@@ -50,7 +50,7 @@ class ProfitCalculations {
                 -- Get average cost from inventory INCLUDING TRANSPORT COSTS
                 COALESCE(
                     (SELECT 
-                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * (COALESCE(per_box_value, 0) + COALESCE(transport_cost_per_box, 0))) / 
+                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * (COALESCE(per_box_value, 0) + COALESCE(transport_per_box, 0))) / 
                         NULLIF(SUM(boxes_in - COALESCE(damage_boxes, 0)), 0)
                      FROM inventory_items 
                      WHERE tile_id = qi.tile_id), 
@@ -197,7 +197,7 @@ class ProfitCalculations {
                 -- Get weighted average cost INCLUDING TRANSPORT from inventory at time of sale
                 COALESCE(
                     (SELECT 
-                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * (COALESCE(per_box_value, 0) + COALESCE(transport_cost_per_box, 0))) / 
+                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * (COALESCE(per_box_value, 0) + COALESCE(transport_per_box, 0))) / 
                         NULLIF(SUM(boxes_in - COALESCE(damage_boxes, 0)), 0)
                      FROM inventory_items 
                      WHERE tile_id = ii.tile_id 
