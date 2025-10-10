@@ -68,22 +68,17 @@ if ($low_stock_only) {
     $tiles_sql .= " AND COALESCE(cts.total_stock_boxes, 0) < 10";
 }
 
-// Get misc items inventory
+// Get misc items inventory (CORRECTED to use proper views)
 $misc_sql = "
     SELECT 
         m.id,
         m.name,
         m.unit_label,
-        m.current_cost,
+        COALESCE(cms.avg_cost_per_unit_with_transport, 0) as current_cost,
         m.photo_path,
         COALESCE(cms.total_stock_quantity, 0) as current_stock,
-        COALESCE(cms.total_stock_quantity * m.current_cost, 0) as stock_value,
-        (
-            SELECT COUNT(*) 
-            FROM purchase_entries_misc pem 
-            WHERE pem.misc_item_id = m.id 
-            AND DATE(pem.purchase_date) >= DATE('now', '-30 days')
-        ) as recent_purchases,
+        COALESCE(cms.total_stock_quantity * cms.avg_cost_per_unit_with_transport, 0) as stock_value,
+        COALESCE(cms.purchase_count, 0) as recent_purchases,
         (
             SELECT SUM(imi.qty_units) 
             FROM invoice_misc_items imi 
@@ -94,7 +89,7 @@ $misc_sql = "
         ) as recent_sales
     FROM misc_items m
     LEFT JOIN current_misc_stock cms ON m.id = cms.id
-    WHERE 1=1
+    WHERE m.active = 1
 ";
 
 if ($search) {
