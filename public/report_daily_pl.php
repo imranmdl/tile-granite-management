@@ -74,14 +74,15 @@ $revenue_stmt = $pdo->prepare($revenue_sql);
 $revenue_stmt->execute([$date_from, $date_to]);
 $daily_revenue = $revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Cost calculation - tiles (using current_cost or fallback to rate)
+// Cost calculation - tiles (CORRECTED to use current_tiles_stock view)
 $tile_cost_sql = "
     SELECT 
         DATE(i.invoice_dt) as sale_date,
-        SUM(ii.boxes_decimal * COALESCE(t.current_cost, ii.rate_per_box * 0.8, 0)) as tile_cost
+        SUM(ii.boxes_decimal * COALESCE(cts.avg_cost_per_box_with_transport, ii.rate_per_box * 0.8, 0)) as tile_cost
     FROM invoices i
     JOIN invoice_items ii ON i.id = ii.invoice_id
     JOIN tiles t ON ii.tile_id = t.id
+    LEFT JOIN current_tiles_stock cts ON t.id = cts.id
     WHERE DATE(i.invoice_dt) BETWEEN ? AND ?
     AND i.status != 'CANCELLED'
     GROUP BY DATE(i.invoice_dt)
