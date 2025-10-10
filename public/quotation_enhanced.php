@@ -318,6 +318,8 @@ if ($id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_misc_i
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ");
                 if ($stmt->execute([$id, $purpose, $misc_item_id, $qty_units, $rate_per_unit, $line_total, $show_image])) {
+                    // Update quotation total
+                    updateQuotationTotal($pdo, $id);
                     $message = 'Misc item added successfully';
                     safe_redirect('quotation_enhanced.php?id=' . $id);
                 } else {
