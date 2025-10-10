@@ -564,7 +564,7 @@ async def get_inventory_report():
 async def get_sales_report(days: int = Query(30, description="Number of days to include")):
     """Get sales report (simplified - would need invoice system for complete implementation)"""
     # For now, return quotations as sales indicators
-    from_date = datetime.now(timezone.utc) - datetime.timedelta(days=days)
+    from_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     quotations = await db.quotations.find({
         "created_at": {"$gte": from_date.isoformat()}
