@@ -1,5 +1,5 @@
 <?php
-// public/other_purchase.php - Miscellaneous Items Purchase Entry
+// public/other_purchase.php - Enhanced Miscellaneous Items Purchase Entry with Active/Hide functionality
 require_once __DIR__ . '/../includes/simple_auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
@@ -20,52 +20,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_purchase'])) {
         $misc_item_id = (int)($_POST['misc_item_id'] ?? 0);
         $purchase_date = $_POST['purchase_date'] ?? date('Y-m-d');
-        $qty_in = (float)($_POST['qty_in'] ?? 0);
-        $damage_units = (float)($_POST['damage_units'] ?? 0);
+        $total_quantity = (float)($_POST['total_quantity'] ?? 0);
+        $damage_percentage = (float)($_POST['damage_percentage'] ?? 0);
         $cost_per_unit = (float)($_POST['cost_per_unit'] ?? 0);
         $transport_cost = (float)($_POST['transport_cost'] ?? 0);
-        $vendor = trim($_POST['vendor'] ?? '');
-        $invoice_no = trim($_POST['invoice_no'] ?? '');
+        $supplier_name = trim($_POST['supplier_name'] ?? '');
+        $invoice_number = trim($_POST['invoice_number'] ?? '');
         $notes = trim($_POST['notes'] ?? '');
         
-        if ($misc_item_id && $qty_in > 0 && $cost_per_unit > 0) {
-            if ($damage_units > $qty_in) {
-                $error = "Damage quantity cannot exceed total quantity";
+        if ($misc_item_id && $total_quantity > 0 && $cost_per_unit > 0) {
+            if ($damage_percentage > 100) {
+                $error = "Damage percentage cannot exceed 100%";
             } else {
                 try {
-                    // Ensure table exists
-                    $pdo->exec("
-                        CREATE TABLE IF NOT EXISTS misc_inventory_items (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            misc_item_id INTEGER NOT NULL,
-                            purchase_date TEXT NOT NULL,
-                            qty_in REAL NOT NULL,
-                            damage_units REAL DEFAULT 0,
-                            cost_per_unit REAL NOT NULL,
-                            transport_cost REAL DEFAULT 0,
-                            vendor TEXT DEFAULT '',
-                            invoice_no TEXT DEFAULT '',
-                            notes TEXT DEFAULT '',
-                            created_by INTEGER,
-                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                            FOREIGN KEY (misc_item_id) REFERENCES misc_items(id)
-                        )
-                    ");
-                    
+                    // Use the enhanced purchase_entries_misc table
                     $stmt = $pdo->prepare("
-                        INSERT INTO misc_inventory_items 
-                        (misc_item_id, purchase_date, qty_in, damage_units, cost_per_unit, 
-                         transport_cost, vendor, invoice_no, notes, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO purchase_entries_misc 
+                        (misc_item_id, purchase_date, total_quantity, damage_percentage, 
+                         cost_per_unit, transport_cost, supplier_name, invoice_number, notes)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ");
                     
                     if ($stmt->execute([
-                        $misc_item_id, $purchase_date, $qty_in, $damage_units, 
-                        $cost_per_unit, $transport_cost, $vendor, $invoice_no, $notes, $user_id
+                        $misc_item_id, $purchase_date, $total_quantity, $damage_percentage, 
+                        $cost_per_unit, $transport_cost, $supplier_name, $invoice_number, $notes
                     ])) {
-                        $net_qty = $qty_in - $damage_units;
-                        $total_cost = $net_qty * $cost_per_unit + $transport_cost;
-                        $message = "Purchase entry added successfully! Net quantity: {$net_qty}, Total cost: ₹" . number_format($total_cost, 2);
+                        $usable_qty = $total_quantity * (1 - $damage_percentage/100);
+                        $total_cost = $total_quantity * $cost_per_unit + $transport_cost;
+                        $message = "Purchase entry added successfully! Usable quantity: {$usable_qty}, Total cost: ₹" . number_format($total_cost, 2);
                         
                         // Clear form data
                         $_POST = [];
@@ -80,416 +62,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Item, quantity, and cost per unit are required";
         }
     }
-}
-
-// Get all misc items
-$misc_items = [];
-try {
-    // Ensure misc_items table exists
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS misc_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            unit_label TEXT NOT NULL DEFAULT 'units',
-            description TEXT DEFAULT '',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    ");
     
-    $misc_items = $pdo->query("
-        SELECT id, name, unit_label, COALESCE(description, '') as description 
-        FROM misc_items 
-        ORDER BY name
-    ")->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Get selected item details if specified
-    if ($item_id > 0) {
-        $stmt = $pdo->prepare("SELECT * FROM misc_items WHERE id = ?");
-        $stmt->execute([$item_id]);
-        $selected_item = $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-    
-} catch (Exception $e) {
-    $error = "Error loading items: " . $e->getMessage();
-}
-
-// Get recent purchases for display
-$recent_purchases = [];
-try {
-    $recent_sql = "
-        SELECT 
-            mi.purchase_date,
-            m.name as item_name,
-            m.unit_label,
-            mi.qty_in,
-            mi.damage_units,
-            mi.cost_per_unit,
-            mi.transport_cost,
-            mi.vendor,
-            mi.invoice_no,
-            (mi.qty_in - COALESCE(mi.damage_units, 0)) as net_qty,
-            ((mi.qty_in - COALESCE(mi.damage_units, 0)) * mi.cost_per_unit + COALESCE(mi.transport_cost, 0)) as total_cost
-        FROM misc_inventory_items mi
-        JOIN misc_items m ON mi.misc_item_id = m.id
-        ORDER BY mi.purchase_date DESC, mi.id DESC
-        LIMIT 10
-    ";
-    
-    $recent_purchases = $pdo->query($recent_sql)->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    // Ignore if tables don't exist yet
-}
-
-$page_title = "Other Items Purchase Entry";
-require_once __DIR__ . '/../includes/header.php';
-?>
-
-<style>
-.purchase-header {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    color: white;
-    border-radius: 15px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-}
-.form-section {
-    background: white;
-    border-radius: 15px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-.calculation-box {
-    background: #f8f9fa;
-    border: 2px solid #e9ecef;
-    border-radius: 10px;
-    padding: 1rem;
-    margin-top: 1rem;
-}
-.total-display {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #28a745;
-}
-.recent-purchases {
-    max-height: 400px;
-    overflow-y: auto;
-}
-</style>
-
-<?php if ($message): ?>
-    <div class="alert alert-success alert-dismissible fade show">
-        <i class="bi bi-check-circle me-2"></i><?= h($message) ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-<?php endif; ?>
-
-<?php if ($error): ?>
-    <div class="alert alert-danger alert-dismissible fade show">
-        <i class="bi bi-exclamation-triangle me-2"></i><?= h($error) ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-<?php endif; ?>
-
-<!-- Header -->
-<div class="purchase-header">
-    <div class="row align-items-center">
-        <div class="col-md-8">
-            <h2><i class="bi bi-plus-circle me-3"></i>Other Items Purchase Entry</h2>
-            <p class="mb-0 opacity-75">Add purchase entries for miscellaneous inventory items</p>
-        </div>
-        <div class="col-md-4 text-end">
-            <div class="bg-white bg-opacity-20 rounded p-3">
-                <div class="h6 mb-1">Available Items</div>
-                <div class="h4 mb-0"><?= count($misc_items) ?></div>
-                <small class="opacity-75">Item types</small>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Action Bar -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h5 class="mb-0">Purchase Entry Form</h5>
-        <small class="text-muted">Add new stock for miscellaneous items</small>
-    </div>
-    <div class="btn-group">
-        <a href="inventory_advanced.php" class="btn btn-outline-primary">
-            <i class="bi bi-arrow-left"></i> Back to Inventory
-        </a>
-        <a href="inventory_summary_unified.php" class="btn btn-info">
-            <i class="bi bi-speedometer"></i> View Summary
-        </a>
-        <?php if (empty($misc_items)): ?>
-            <a href="inventory_advanced.php" class="btn btn-warning">
-                <i class="bi bi-plus-circle"></i> Add Items First
-            </a>
-        <?php endif; ?>
-    </div>
-</div>
-
-<!-- Purchase Entry Form -->
-<?php if (!empty($misc_items)): ?>
-<div class="form-section">
-    <h5 class="mb-4"><i class="bi bi-box-arrow-in-down me-2"></i>New Purchase Entry</h5>
-    
-    <form method="post" id="purchaseForm">
-        <div class="row g-4">
-            <!-- Item Selection -->
-            <div class="col-md-4">
-                <label class="form-label fw-bold">Select Item *</label>
-                <select class="form-select form-select-lg" name="misc_item_id" required onchange="updateItemDetails()">
-                    <option value="">Choose miscellaneous item...</option>
-                    <?php foreach ($misc_items as $item): ?>
-                        <option value="<?= $item['id'] ?>" 
-                                data-unit="<?= h($item['unit_label']) ?>"
-                                data-description="<?= h($item['description']) ?>"
-                                <?= ($item_id == $item['id']) ? 'selected' : '' ?>>
-                            <?= h($item['name']) ?> (<?= h($item['unit_label']) ?>)
-                            <?php if ($item['description']): ?>
-                                - <?= h($item['description']) ?>
-                            <?php endif; ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <div id="itemDetails" class="mt-2 text-muted small"></div>
-            </div>
-            
-            <!-- Purchase Date -->
-            <div class="col-md-2">
-                <label class="form-label fw-bold">Purchase Date *</label>
-                <input type="date" class="form-control form-control-lg" name="purchase_date" 
-                       value="<?= h($_POST['purchase_date'] ?? date('Y-m-d')) ?>" required>
-            </div>
-            
-            <!-- Quantity -->
-            <div class="col-md-2">
-                <label class="form-label fw-bold">Quantity *</label>
-                <input type="number" step="0.01" class="form-control form-control-lg" name="qty_in" 
-                       value="<?= h($_POST['qty_in'] ?? '') ?>" required min="0" placeholder="0.00"
-                       onchange="calculateTotals()">
-                <small id="quantityUnit" class="text-muted">units</small>
-            </div>
-            
-            <!-- Damage Quantity -->
-            <div class="col-md-2">
-                <label class="form-label fw-bold">Damage Quantity</label>
-                <input type="number" step="0.01" class="form-control form-control-lg" name="damage_units" 
-                       value="<?= h($_POST['damage_units'] ?? '0') ?>" min="0" placeholder="0.00"
-                       onchange="calculateTotals()">
-                <small class="text-muted">Damaged/unusable</small>
-            </div>
-            
-            <!-- Cost per Unit -->
-            <div class="col-md-2">
-                <label class="form-label fw-bold">Cost per Unit *</label>
-                <div class="input-group input-group-lg">
-                    <span class="input-group-text">₹</span>
-                    <input type="number" step="0.01" class="form-control" name="cost_per_unit" 
-                           value="<?= h($_POST['cost_per_unit'] ?? '') ?>" required min="0" placeholder="0.00"
-                           onchange="calculateTotals()">
-                </div>
-            </div>
-        </div>
+    // Handle item status toggle
+    if (isset($_POST['toggle_status'])) {
+        $toggle_item_id = (int)($_POST['toggle_item_id'] ?? 0);
+        $current_status = (int)($_POST['current_status'] ?? 1);
+        $new_status = $current_status ? 0 : 1;
         
-        <div class="row g-4 mt-2">
-            <!-- Transport Cost -->
-            <div class="col-md-3">
-                <label class="form-label fw-bold">Transport Cost</label>
-                <div class="input-group">
-                    <span class="input-group-text">₹</span>
-                    <input type="number" step="0.01" class="form-control" name="transport_cost" 
-                           value="<?= h($_POST['transport_cost'] ?? '0') ?>" min="0" placeholder="0.00"
-                           onchange="calculateTotals()">
-                </div>
-            </div>
-            
-            <!-- Vendor -->
-            <div class="col-md-3">
-                <label class="form-label fw-bold">Vendor/Supplier</label>
-                <input type="text" class="form-control" name="vendor" 
-                       value="<?= h($_POST['vendor'] ?? '') ?>" placeholder="Supplier name">
-            </div>
-            
-            <!-- Invoice Number -->
-            <div class="col-md-3">
-                <label class="form-label fw-bold">Invoice Number</label>
-                <input type="text" class="form-control" name="invoice_no" 
-                       value="<?= h($_POST['invoice_no'] ?? '') ?>" placeholder="Invoice #">
-            </div>
-            
-            <!-- Notes -->
-            <div class="col-md-3">
-                <label class="form-label fw-bold">Notes</label>
-                <input type="text" class="form-control" name="notes" 
-                       value="<?= h($_POST['notes'] ?? '') ?>" placeholder="Additional notes">
-            </div>
-        </div>
-        
-        <!-- Calculations Box -->
-        <div class="calculation-box" id="calculationBox" style="display: none;">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <div class="text-center">
-                        <div class="h6 text-muted">Total Quantity</div>
-                        <div class="h5" id="totalQuantity">0</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="text-center">
-                        <div class="h6 text-muted">Net Quantity</div>
-                        <div class="h5 text-success" id="netQuantity">0</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="text-center">
-                        <div class="h6 text-muted">Material Cost</div>
-                        <div class="h5" id="materialCost">₹0</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="text-center">
-                        <div class="h6 text-muted">Total Cost</div>
-                        <div class="total-display" id="totalCost">₹0</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="text-center mt-4">
-            <button type="submit" name="add_purchase" class="btn btn-success btn-lg px-5">
-                <i class="bi bi-plus-circle me-2"></i>Add Purchase Entry
-            </button>
-        </div>
-    </form>
-</div>
-<?php else: ?>
-<div class="form-section text-center">
-    <i class="bi bi-exclamation-triangle display-1 text-warning mb-3"></i>
-    <h4>No Miscellaneous Items Found</h4>
-    <p class="text-muted">You need to add miscellaneous items before you can make purchase entries.</p>
-    <a href="inventory_advanced.php" class="btn btn-warning btn-lg">
-        <i class="bi bi-plus-circle me-2"></i>Add Misc Items
-    </a>
-</div>
-<?php endif; ?>
-
-<!-- Recent Purchases -->
-<?php if (!empty($recent_purchases)): ?>
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Purchase Entries</h5>
-    </div>
-    <div class="card-body recent-purchases">
-        <div class="table-responsive">
-            <table class="table table-hover table-sm">
-                <thead class="table-light">
-                    <tr>
-                        <th>Date</th>
-                        <th>Item</th>
-                        <th>Quantity</th>
-                        <th>Damage</th>
-                        <th>Net Qty</th>
-                        <th>Cost/Unit</th>
-                        <th>Total Cost</th>
-                        <th>Vendor</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($recent_purchases as $purchase): ?>
-                        <tr>
-                            <td><?= h(date('M j', strtotime($purchase['purchase_date']))) ?></td>
-                            <td>
-                                <strong><?= h($purchase['item_name']) ?></strong>
-                                <small class="text-muted d-block"><?= h($purchase['unit_label']) ?></small>
-                            </td>
-                            <td><?= number_format($purchase['qty_in'], 2) ?></td>
-                            <td class="text-danger"><?= number_format($purchase['damage_units'], 2) ?></td>
-                            <td class="text-success fw-bold"><?= number_format($purchase['net_qty'], 2) ?></td>
-                            <td>₹<?= number_format($purchase['cost_per_unit'], 2) ?></td>
-                            <td class="fw-bold">₹<?= number_format($purchase['total_cost'], 2) ?></td>
-                            <td><?= h($purchase['vendor']) ?: '-' ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-<?php endif; ?>
-
-<script>
-function updateItemDetails() {
-    const select = document.querySelector('select[name="misc_item_id"]');
-    const option = select.selectedOptions[0];
-    const detailsDiv = document.getElementById('itemDetails');
-    const quantityUnit = document.getElementById('quantityUnit');
-    
-    if (option && option.value) {
-        const unit = option.getAttribute('data-unit');
-        const description = option.getAttribute('data-description');
-        
-        detailsDiv.innerHTML = `
-            <strong>Unit:</strong> ${unit}
-            ${description ? `<br><strong>Description:</strong> ${description}` : ''}
-        `;
-        quantityUnit.textContent = unit;
-        
-        calculateTotals();
-    } else {
-        detailsDiv.innerHTML = '';
-        quantityUnit.textContent = 'units';
-        document.getElementById('calculationBox').style.display = 'none';
+        try {
+            $stmt = $pdo->prepare("UPDATE misc_items SET active = ? WHERE id = ?");
+            if ($stmt->execute([$new_status, $toggle_item_id])) {
+                $status_text = $new_status ? 'activated' : 'deactivated';
+                $message = "Item {$status_text} successfully";
+            } else {
+                $error = "Failed to update item status";
+            }
+        } catch (Exception $e) {
+            $error = "Database error: " . $e->getMessage();
+        }
     }
-}
-
-function calculateTotals() {
-    const qty = parseFloat(document.querySelector('input[name="qty_in"]').value) || 0;
-    const damage = parseFloat(document.querySelector('input[name="damage_units"]').value) || 0;
-    const costPerUnit = parseFloat(document.querySelector('input[name="cost_per_unit"]').value) || 0;
-    const transport = parseFloat(document.querySelector('input[name="transport_cost"]').value) || 0;
-    
-    const netQty = qty - damage;
-    const materialCost = netQty * costPerUnit;
-    const totalCost = materialCost + transport;
-    
-    document.getElementById('totalQuantity').textContent = qty.toFixed(2);
-    document.getElementById('netQuantity').textContent = netQty.toFixed(2);
-    document.getElementById('materialCost').textContent = '₹' + materialCost.toFixed(2);
-    document.getElementById('totalCost').textContent = '₹' + totalCost.toFixed(2);
-    
-    // Show calculation box if we have values
-    if (qty > 0 && costPerUnit > 0) {
-        document.getElementById('calculationBox').style.display = 'block';
-    } else {
-        document.getElementById('calculationBox').style.display = 'none';
-    }
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    updateItemDetails();
-    calculateTotals();
-});
-
-// Form validation
-document.getElementById('purchaseForm').addEventListener('submit', function(e) {
-    const qty = parseFloat(document.querySelector('input[name="qty_in"]').value) || 0;
-    const damage = parseFloat(document.querySelector('input[name="damage_units"]').value) || 0;
-    
-    if (damage > qty) {
-        e.preventDefault();
-        alert('Damage quantity cannot exceed total quantity!');
-        return false;
-    }
-    
-    if (qty <= 0) {
-        e.preventDefault();
-        alert('Quantity must be greater than 0!');
-        return false;
-    }
-});
-</script>
-
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+}\n\n// Get all misc items with active status\n$misc_items = [];\ntry {\n    // Show all items (both active and inactive) for management\n    $misc_items = $pdo->query("\n        SELECT id, name, unit_label, COALESCE(description, '') as description, \n               COALESCE(active, 1) as active,\n               CASE WHEN active = 0 THEN ' (HIDDEN)' ELSE '' END as status_suffix\n        FROM misc_items \n        ORDER BY active DESC, name\n    ")->fetchAll(PDO::FETCH_ASSOC);\n    \n    // Get selected item details if specified\n    if ($item_id > 0) {\n        $stmt = $pdo->prepare("SELECT * FROM misc_items WHERE id = ?");\n        $stmt->execute([$item_id]);\n        $selected_item = $stmt->fetch(PDO::FETCH_ASSOC);\n    }\n    \n} catch (Exception $e) {\n    $error = "Error loading items: " . $e->getMessage();\n}\n\n// Get recent purchases for display - using enhanced table\n$recent_purchases = [];\ntry {\n    $recent_sql = "\n        SELECT \n            pem.purchase_date,\n            m.name as item_name,\n            m.unit_label,\n            m.active,\n            pem.total_quantity,\n            pem.damage_percentage,\n            pem.usable_quantity,\n            pem.cost_per_unit,\n            pem.transport_cost,\n            pem.final_cost,\n            pem.supplier_name,\n            pem.invoice_number\n        FROM purchase_entries_misc pem\n        JOIN misc_items m ON pem.misc_item_id = m.id\n        ORDER BY pem.purchase_date DESC, pem.id DESC\n        LIMIT 10\n    ";\n    \n    $recent_purchases = $pdo->query($recent_sql)->fetchAll(PDO::FETCH_ASSOC);\n} catch (Exception $e) {\n    // Ignore if tables don't exist yet\n}\n\n$page_title = "Enhanced Other Items Purchase Entry";\nrequire_once __DIR__ . '/../includes/header.php';\n?>\n\n<style>\n.purchase-header {\n    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);\n    color: white;\n    border-radius: 15px;\n    padding: 2rem;\n    margin-bottom: 2rem;\n}\n.form-section {\n    background: white;\n    border-radius: 15px;\n    padding: 2rem;\n    margin-bottom: 2rem;\n    box-shadow: 0 10px 30px rgba(0,0,0,0.1);\n}\n.calculation-box {\n    background: #f8f9fa;\n    border: 2px solid #e9ecef;\n    border-radius: 10px;\n    padding: 1rem;\n    margin-top: 1rem;\n}\n.total-display {\n    font-size: 1.25rem;\n    font-weight: 700;\n    color: #28a745;\n}\n.recent-purchases {\n    max-height: 400px;\n    overflow-y: auto;\n}\n.item-inactive {\n    background-color: #f8f9fa;\n    opacity: 0.7;\n}\n.status-toggle {\n    border: none;\n    background: none;\n    padding: 2px 8px;\n    border-radius: 4px;\n    font-size: 0.8em;\n}\n</style>\n\n<?php if ($message): ?>\n    <div class="alert alert-success alert-dismissible fade show">\n        <i class="bi bi-check-circle me-2"></i><?= h($message) ?>\n        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>\n    </div>\n<?php endif; ?>\n\n<?php if ($error): ?>\n    <div class="alert alert-danger alert-dismissible fade show">\n        <i class="bi bi-exclamation-triangle me-2"></i><?= h($error) ?>\n        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>\n    </div>\n<?php endif; ?>\n\n<!-- Header -->\n<div class="purchase-header">\n    <div class="row align-items-center">\n        <div class="col-md-8">\n            <h2><i class="bi bi-plus-circle me-3"></i>Enhanced Other Items Purchase Entry</h2>\n            <p class="mb-0 opacity-75">Add purchase entries for miscellaneous inventory items with active/inactive management</p>\n        </div>\n        <div class="col-md-4 text-end">\n            <div class="bg-white bg-opacity-20 rounded p-3">\n                <div class="h6 mb-1">Available Items</div>\n                <div class="h4 mb-0"><?= count(array_filter($misc_items, fn($item) => $item['active'] == 1)) ?></div>\n                <small class="opacity-75">Active items (<?= count($misc_items) ?> total)</small>\n            </div>\n        </div>\n    </div>\n</div>\n\n<!-- Action Bar -->\n<div class="d-flex justify-content-between align-items-center mb-4">\n    <div>\n        <h5 class="mb-0">Purchase Entry Form</h5>\n        <small class="text-muted">Add new stock for miscellaneous items</small>\n    </div>\n    <div class="btn-group">\n        <a href="inventory_enhanced.php" class="btn btn-outline-primary">\n            <i class="bi bi-arrow-left"></i> Back to Inventory\n        </a>\n        <a href="inventory_summary_unified.php" class="btn btn-info">\n            <i class="bi bi-speedometer"></i> View Summary\n        </a>\n        <?php if (empty(array_filter($misc_items, fn($item) => $item['active'] == 1))): ?>\n            <a href="misc_items.php" class="btn btn-warning">\n                <i class="bi bi-plus-circle"></i> Add Items First\n            </a>\n        <?php endif; ?>\n    </div>\n</div>\n\n<!-- Items Management Section -->\n<div class="card mb-4">\n    <div class="card-header">\n        <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Items Management</h5>\n    </div>\n    <div class="card-body">\n        <div class="table-responsive">\n            <table class="table table-sm">\n                <thead>\n                    <tr>\n                        <th>Item Name</th>\n                        <th>Unit</th>\n                        <th>Description</th>\n                        <th>Status</th>\n                        <th>Actions</th>\n                    </tr>\n                </thead>\n                <tbody>\n                    <?php foreach ($misc_items as $item): ?>\n                        <tr class="<?= $item['active'] ? '' : 'item-inactive' ?>">\n                            <td>\n                                <strong><?= h($item['name']) ?><?= h($item['status_suffix']) ?></strong>\n                            </td>\n                            <td><?= h($item['unit_label']) ?></td>\n                            <td><?= h($item['description']) ?></td>\n                            <td>\n                                <span class="badge bg-<?= $item['active'] ? 'success' : 'secondary' ?>">\n                                    <?= $item['active'] ? 'Active' : 'Hidden' ?>\n                                </span>\n                            </td>\n                            <td>\n                                <form method="post" class="d-inline">\n                                    <input type="hidden" name="toggle_status" value="1">\n                                    <input type="hidden" name="toggle_item_id" value="<?= $item['id'] ?>">\n                                    <input type="hidden" name="current_status" value="<?= $item['active'] ?>">\n                                    <button type="submit" class="status-toggle <?= $item['active'] ? 'text-warning' : 'text-success' ?>" \n                                            onclick="return confirm('<?= $item['active'] ? 'Hide' : 'Show' ?> this item?')">\n                                        <i class="bi bi-<?= $item['active'] ? 'eye-slash' : 'eye' ?>"></i>\n                                        <?= $item['active'] ? 'Hide' : 'Show' ?>\n                                    </button>\n                                </form>\n                            </td>\n                        </tr>\n                    <?php endforeach; ?>\n                </tbody>\n            </table>\n        </div>\n    </div>\n</div>\n\n<!-- Purchase Entry Form -->\n<?php if (!empty(array_filter($misc_items, fn($item) => $item['active'] == 1))): ?>\n<div class="form-section">\n    <h5 class="mb-4"><i class="bi bi-box-arrow-in-down me-2"></i>New Purchase Entry</h5>\n    \n    <form method="post" id="purchaseForm">\n        <div class="row g-4">\n            <!-- Item Selection -->\n            <div class="col-md-4">\n                <label class="form-label fw-bold">Select Active Item *</label>\n                <select class="form-select form-select-lg" name="misc_item_id" required onchange="updateItemDetails()">\n                    <option value="">Choose miscellaneous item...</option>\n                    <?php foreach (array_filter($misc_items, fn($item) => $item['active'] == 1) as $item): ?>\n                        <option value="<?= $item['id'] ?>" \n                                data-unit="<?= h($item['unit_label']) ?>"\n                                data-description="<?= h($item['description']) ?>"\n                                <?= ($item_id == $item['id']) ? 'selected' : '' ?>>\n                            <?= h($item['name']) ?> (<?= h($item['unit_label']) ?>)\n                            <?php if ($item['description']): ?>\n                                - <?= h($item['description']) ?>\n                            <?php endif; ?>\n                        </option>\n                    <?php endforeach; ?>\n                </select>\n                <div id="itemDetails" class="mt-2 text-muted small"></div>\n            </div>\n            \n            <!-- Purchase Date -->\n            <div class="col-md-2">\n                <label class="form-label fw-bold">Purchase Date *</label>\n                <input type="date" class="form-control form-control-lg" name="purchase_date" \n                       value="<?= h($_POST['purchase_date'] ?? date('Y-m-d')) ?>" required>\n            </div>\n            \n            <!-- Total Quantity -->\n            <div class="col-md-2">\n                <label class="form-label fw-bold">Total Quantity *</label>\n                <input type="number" step="0.01" class="form-control form-control-lg" name="total_quantity" \n                       value="<?= h($_POST['total_quantity'] ?? '') ?>" required min="0" placeholder="0.00"\n                       onchange="calculateTotals()">\n                <small id="quantityUnit" class="text-muted">units</small>\n            </div>\n            \n            <!-- Damage Percentage -->\n            <div class="col-md-2">\n                <label class="form-label fw-bold">Damage %</label>\n                <input type="number" step="0.1" class="form-control form-control-lg" name="damage_percentage" \n                       value="<?= h($_POST['damage_percentage'] ?? '0') ?>" min="0" max="100" placeholder="0.0"\n                       onchange="calculateTotals()">\n                <small class="text-muted">Percentage damaged</small>\n            </div>\n            \n            <!-- Cost per Unit -->\n            <div class="col-md-2">\n                <label class="form-label fw-bold">Cost per Unit *</label>\n                <div class="input-group input-group-lg">\n                    <span class="input-group-text">₹</span>\n                    <input type="number" step="0.01" class="form-control" name="cost_per_unit" \n                           value="<?= h($_POST['cost_per_unit'] ?? '') ?>" required min="0" placeholder="0.00"\n                           onchange="calculateTotals()">\n                </div>\n            </div>\n        </div>\n        \n        <div class="row g-4 mt-2">\n            <!-- Transport Cost -->\n            <div class="col-md-3">\n                <label class="form-label fw-bold">Transport Cost</label>\n                <div class="input-group">\n                    <span class="input-group-text">₹</span>\n                    <input type="number" step="0.01" class="form-control" name="transport_cost" \n                           value="<?= h($_POST['transport_cost'] ?? '0') ?>" min="0" placeholder="0.00"\n                           onchange="calculateTotals()">\n                </div>\n            </div>\n            \n            <!-- Supplier -->\n            <div class="col-md-3">\n                <label class="form-label fw-bold">Supplier Name</label>\n                <input type="text" class="form-control" name="supplier_name" \n                       value="<?= h($_POST['supplier_name'] ?? '') ?>" placeholder="Supplier name">\n            </div>\n            \n            <!-- Invoice Number -->\n            <div class="col-md-3">\n                <label class="form-label fw-bold">Invoice Number</label>\n                <input type="text" class="form-control" name="invoice_number" \n                       value="<?= h($_POST['invoice_number'] ?? '') ?>" placeholder="Invoice #">\n            </div>\n            \n            <!-- Notes -->\n            <div class="col-md-3">\n                <label class="form-label fw-bold">Notes</label>\n                <input type="text" class="form-control" name="notes" \n                       value="<?= h($_POST['notes'] ?? '') ?>" placeholder="Additional notes">\n            </div>\n        </div>\n        \n        <!-- Enhanced Calculations Box -->\n        <div class="calculation-box" id="calculationBox" style="display: none;">\n            <div class="row g-3">\n                <div class="col-md-2">\n                    <div class="text-center">\n                        <div class="h6 text-muted">Total Quantity</div>\n                        <div class="h5" id="totalQuantity">0</div>\n                    </div>\n                </div>\n                <div class="col-md-2">\n                    <div class="text-center">\n                        <div class="h6 text-muted">Damage %</div>\n                        <div class="h5 text-warning" id="damagePercent">0%</div>\n                    </div>\n                </div>\n                <div class="col-md-2">\n                    <div class="text-center">\n                        <div class="h6 text-muted">Usable Quantity</div>\n                        <div class="h5 text-success" id="usableQuantity">0</div>\n                    </div>\n                </div>\n                <div class="col-md-2">\n                    <div class="text-center">\n                        <div class="h6 text-muted">Material Cost</div>\n                        <div class="h5" id="materialCost">₹0</div>\n                    </div>\n                </div>\n                <div class="col-md-2">\n                    <div class="text-center">\n                        <div class="h6 text-muted">Transport Cost</div>\n                        <div class="h5" id="transportCostDisplay">₹0</div>\n                    </div>\n                </div>\n                <div class="col-md-2">\n                    <div class="text-center">\n                        <div class="h6 text-muted">Total Cost</div>\n                        <div class="total-display" id="totalCost">₹0</div>\n                    </div>\n                </div>\n            </div>\n        </div>\n        \n        <div class="text-center mt-4">\n            <button type="submit" name="add_purchase" class="btn btn-success btn-lg px-5">\n                <i class="bi bi-plus-circle me-2"></i>Add Purchase Entry\n            </button>\n        </div>\n    </form>\n</div>\n<?php else: ?>\n<div class="form-section text-center">\n    <i class="bi bi-exclamation-triangle display-1 text-warning mb-3"></i>\n    <h4>No Active Miscellaneous Items Found</h4>\n    <p class="text-muted">You need to add and activate miscellaneous items before you can make purchase entries.</p>\n    <a href="misc_items.php" class="btn btn-warning btn-lg">\n        <i class="bi bi-plus-circle me-2"></i>Add Misc Items\n    </a>\n</div>\n<?php endif; ?>\n\n<!-- Recent Purchases -->\n<?php if (!empty($recent_purchases)): ?>\n<div class="card">\n    <div class="card-header">\n        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Purchase Entries</h5>\n    </div>\n    <div class="card-body recent-purchases">\n        <div class="table-responsive">\n            <table class="table table-hover table-sm">\n                <thead class="table-light">\n                    <tr>\n                        <th>Date</th>\n                        <th>Item</th>\n                        <th>Total Qty</th>\n                        <th>Damage %</th>\n                        <th>Usable Qty</th>\n                        <th>Cost/Unit</th>\n                        <th>Total Cost</th>\n                        <th>Supplier</th>\n                        <th>Status</th>\n                    </tr>\n                </thead>\n                <tbody>\n                    <?php foreach ($recent_purchases as $purchase): ?>\n                        <tr class="<?= $purchase['active'] ? '' : 'item-inactive' ?>">\n                            <td><?= h(date('M j', strtotime($purchase['purchase_date']))) ?></td>\n                            <td>\n                                <strong><?= h($purchase['item_name']) ?></strong>\n                                <small class="text-muted d-block"><?= h($purchase['unit_label']) ?></small>\n                                <?php if (!$purchase['active']): ?>\n                                    <small class="text-danger">(Hidden)</small>\n                                <?php endif; ?>\n                            </td>\n                            <td><?= number_format($purchase['total_quantity'], 2) ?></td>\n                            <td class="text-warning"><?= number_format($purchase['damage_percentage'], 1) ?>%</td>\n                            <td class="text-success fw-bold"><?= number_format($purchase['usable_quantity'], 2) ?></td>\n                            <td>₹<?= number_format($purchase['cost_per_unit'], 2) ?></td>\n                            <td class="fw-bold">₹<?= number_format($purchase['final_cost'], 2) ?></td>\n                            <td><?= h($purchase['supplier_name']) ?: '-' ?></td>\n                            <td>\n                                <span class="badge bg-<?= $purchase['active'] ? 'success' : 'secondary' ?>">\n                                    <?= $purchase['active'] ? 'Active' : 'Hidden' ?>\n                                </span>\n                            </td>\n                        </tr>\n                    <?php endforeach; ?>\n                </tbody>\n            </table>\n        </div>\n    </div>\n</div>\n<?php endif; ?>\n\n<script>\nfunction updateItemDetails() {\n    const select = document.querySelector('select[name="misc_item_id"]');\n    const option = select.selectedOptions[0];\n    const detailsDiv = document.getElementById('itemDetails');\n    const quantityUnit = document.getElementById('quantityUnit');\n    \n    if (option && option.value) {\n        const unit = option.getAttribute('data-unit');\n        const description = option.getAttribute('data-description');\n        \n        detailsDiv.innerHTML = `\n            <strong>Unit:</strong> ${unit}\n            ${description ? `<br><strong>Description:</strong> ${description}` : ''}\n        `;\n        quantityUnit.textContent = unit;\n        \n        calculateTotals();\n    } else {\n        detailsDiv.innerHTML = '';\n        quantityUnit.textContent = 'units';\n        document.getElementById('calculationBox').style.display = 'none';\n    }\n}\n\nfunction calculateTotals() {\n    const totalQty = parseFloat(document.querySelector('input[name="total_quantity"]').value) || 0;\n    const damagePercent = parseFloat(document.querySelector('input[name="damage_percentage"]').value) || 0;\n    const costPerUnit = parseFloat(document.querySelector('input[name="cost_per_unit"]').value) || 0;\n    const transport = parseFloat(document.querySelector('input[name="transport_cost"]').value) || 0;\n    \n    const usableQty = totalQty * (1 - damagePercent/100);\n    const materialCost = totalQty * costPerUnit;\n    const totalCost = materialCost + transport;\n    \n    document.getElementById('totalQuantity').textContent = totalQty.toFixed(2);\n    document.getElementById('damagePercent').textContent = damagePercent.toFixed(1) + '%';\n    document.getElementById('usableQuantity').textContent = usableQty.toFixed(2);\n    document.getElementById('materialCost').textContent = '₹' + materialCost.toFixed(2);\n    document.getElementById('transportCostDisplay').textContent = '₹' + transport.toFixed(2);\n    document.getElementById('totalCost').textContent = '₹' + totalCost.toFixed(2);\n    \n    // Show calculation box if we have values\n    if (totalQty > 0 && costPerUnit > 0) {\n        document.getElementById('calculationBox').style.display = 'block';\n    } else {\n        document.getElementById('calculationBox').style.display = 'none';\n    }\n}\n\n// Initialize on page load\ndocument.addEventListener('DOMContentLoaded', function() {\n    updateItemDetails();\n    calculateTotals();\n});\n\n// Form validation\ndocument.getElementById('purchaseForm').addEventListener('submit', function(e) {\n    const totalQty = parseFloat(document.querySelector('input[name="total_quantity"]').value) || 0;\n    const damagePercent = parseFloat(document.querySelector('input[name="damage_percentage"]').value) || 0;\n    \n    if (damagePercent > 100) {\n        e.preventDefault();\n        alert('Damage percentage cannot exceed 100%!');\n        return false;\n    }\n    \n    if (totalQty <= 0) {\n        e.preventDefault();\n        alert('Total quantity must be greater than 0!');\n        return false;\n    }\n});\n</script>\n\n<?php require_once __DIR__ . '/../includes/footer.php'; ?>
