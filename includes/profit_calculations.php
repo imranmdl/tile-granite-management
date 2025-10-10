@@ -194,14 +194,22 @@ class ProfitCalculations {
                 ii.boxes_decimal * ii.rate_per_box as item_revenue,
                 t.name as tile_name,
                 ts.label as size_label,
-                -- Get weighted average cost from inventory at time of sale
+                -- Get weighted average cost INCLUDING TRANSPORT from inventory at time of sale
                 COALESCE(
                     (SELECT 
-                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * COALESCE(per_box_value, 0)) / 
+                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * (COALESCE(per_box_value, 0) + COALESCE(transport_cost_per_box, 0))) / 
                         NULLIF(SUM(boxes_in - COALESCE(damage_boxes, 0)), 0)
                      FROM inventory_items 
                      WHERE tile_id = ii.tile_id 
                      AND DATE(COALESCE(purchase_dt, '2020-01-01')) <= DATE(i.invoice_dt)
+                    ), 
+                    -- Also check purchase_entries_tiles for transport-inclusive costs
+                    (SELECT 
+                        SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100 * (COALESCE(cost_per_box, 0) + COALESCE(transport_cost, 0) / NULLIF(total_boxes, 0))) / 
+                        NULLIF(SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100), 0)
+                     FROM purchase_entries_tiles 
+                     WHERE tile_id = ii.tile_id 
+                     AND DATE(purchase_date) <= DATE(i.invoice_dt)
                     ), 0
                 ) as avg_cost_per_box
             FROM invoice_items ii
