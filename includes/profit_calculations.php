@@ -99,7 +99,7 @@ class ProfitCalculations {
                 m.name as item_name,
                 -- Get average cost from misc inventory INCLUDING TRANSPORT COSTS
                 COALESCE(
-                    (SELECT AVG(COALESCE(cost_per_unit, 0) + COALESCE(transport_cost_per_unit, 0)) 
+                    (SELECT AVG(COALESCE(cost_per_unit, 0) + COALESCE(transport_per_unit, 0)) 
                      FROM misc_inventory_items 
                      WHERE misc_item_id = qmi.misc_item_id), 
                     -- Also check purchase_entries_misc for transport-inclusive costs
@@ -252,7 +252,7 @@ class ProfitCalculations {
                 -- Get weighted average cost INCLUDING TRANSPORT from misc inventory
                 COALESCE(
                     (SELECT 
-                        SUM((qty_in - COALESCE(damage_units, 0)) * (cost_per_unit + COALESCE(transport_cost_per_unit, 0))) / 
+                        SUM((qty_in - COALESCE(damage_units, 0)) * (cost_per_unit + COALESCE(transport_per_unit, 0))) / 
                         NULLIF(SUM(qty_in - COALESCE(damage_units, 0)), 0)
                      FROM misc_inventory_items 
                      WHERE misc_item_id = imi.misc_item_id
