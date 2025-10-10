@@ -95,14 +95,15 @@ while ($row = $tile_cost_stmt->fetch(PDO::FETCH_ASSOC)) {
     $daily_tile_costs[$row['sale_date']] = $row['tile_cost'];
 }
 
-// Cost calculation - misc items
+// Cost calculation - misc items (CORRECTED to use current_misc_stock view)
 $misc_cost_sql = "
     SELECT 
         DATE(i.invoice_dt) as sale_date,
-        SUM(imi.qty_units * COALESCE(m.current_cost, imi.rate_per_unit * 0.8, 0)) as misc_cost
+        SUM(imi.qty_units * COALESCE(cms.avg_cost_per_unit_with_transport, imi.rate_per_unit * 0.8, 0)) as misc_cost
     FROM invoices i
     JOIN invoice_misc_items imi ON i.id = imi.invoice_id
     JOIN misc_items m ON imi.misc_item_id = m.id
+    LEFT JOIN current_misc_stock cms ON m.id = cms.id
     WHERE DATE(i.invoice_dt) BETWEEN ? AND ?
     AND i.status != 'CANCELLED'
     GROUP BY DATE(i.invoice_dt)
