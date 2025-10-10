@@ -254,7 +254,7 @@ class ProfitCalculations {
                 -- Get weighted average cost INCLUDING TRANSPORT from misc inventory
                 COALESCE(
                     (SELECT 
-                        SUM((qty_in - COALESCE(damage_units, 0)) * (cost_per_unit + COALESCE(transport_per_unit, 0))) / 
+                        SUM((qty_in - COALESCE(damage_units, 0)) * (cost_per_unit + COALESCE(transport_cost, 0) / NULLIF(qty_in, 0))) / 
                         NULLIF(SUM(qty_in - COALESCE(damage_units, 0)), 0)
                      FROM misc_inventory_items 
                      WHERE misc_item_id = imi.misc_item_id
@@ -262,8 +262,8 @@ class ProfitCalculations {
                     ), 
                     -- Also check purchase_entries_misc for transport-inclusive costs
                     (SELECT 
-                        SUM(usable_quantity * (COALESCE(cost_per_unit, 0) + COALESCE(transport_cost, 0) / NULLIF(total_quantity, 0))) / 
-                        NULLIF(SUM(usable_quantity), 0)
+                        SUM(total_quantity * (100 - COALESCE(damage_percentage, 0)) / 100 * (COALESCE(cost_per_unit, 0) + COALESCE(transport_cost, 0) / NULLIF(total_quantity, 0))) / 
+                        NULLIF(SUM(total_quantity * (100 - COALESCE(damage_percentage, 0)) / 100), 0)
                      FROM purchase_entries_misc 
                      WHERE misc_item_id = imi.misc_item_id 
                      AND DATE(purchase_date) <= DATE(i.invoice_dt)
