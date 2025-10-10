@@ -69,259 +69,297 @@ class TileInventoryAPITester:
         success, data, status = self.make_request('GET', '')
         self.log_test("API Health Check", success, f"Status: {status}, Response: {data.get('message', 'No message')}")
         return success
-            
-        except Exception as e:
-            return self.log_test("Database Connection", False, f"Error: {str(e)}")
 
-    def test_active_column_migration(self):
-        """Test if active column was added to tiles and misc_items tables"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+    def test_tile_sizes_crud(self):
+        """Test tile sizes CRUD operations"""
+        print("\n🔍 Testing Tile Sizes Management...")
+        
+        # Create tile size
+        size_data = {
+            "name": "Test Size 6x6",
+            "length_inches": 6.0,
+            "width_inches": 6.0,
+            "sqft_per_box": 3.0
+        }
+        
+        success, data, status = self.make_request('POST', 'tile-sizes', size_data)
+        self.log_test("Create Tile Size", success, f"Status: {status}")
+        
+        if success and 'id' in data:
+            self.created_items['tile_sizes'].append(data['id'])
             
-            # Check tiles table for active column
-            cursor.execute("PRAGMA table_info(tiles)")
-            tiles_columns = [col[1] for col in cursor.fetchall()]
-            tiles_has_active = 'active' in tiles_columns
+            # Get all tile sizes
+            success, data, status = self.make_request('GET', 'tile-sizes')
+            self.log_test("Get Tile Sizes", success, f"Found {len(data) if isinstance(data, list) else 0} sizes")
             
-            # Check misc_items table for active column
-            cursor.execute("PRAGMA table_info(misc_items)")
-            misc_columns = [col[1] for col in cursor.fetchall()]
-            misc_has_active = 'active' in misc_columns
+            return True
+        return False
+
+    def test_tiles_crud(self):
+        """Test tiles CRUD operations"""
+        print("\n🔍 Testing Tiles Management...")
+        
+        # First ensure we have a tile size
+        if not self.created_items['tile_sizes']:
+            self.test_tile_sizes_crud()
+        
+        if not self.created_items['tile_sizes']:
+            self.log_test("Create Tile", False, "No tile size available")
+            return False
+        
+        # Create tile
+        tile_data = {
+            "name": "Test Marble Tile",
+            "size_id": self.created_items['tile_sizes'][0],
+            "vendor_name": "Test Vendor",
+            "current_cost": 100.0
+        }
+        
+        success, data, status = self.make_request('POST', 'tiles', tile_data)
+        self.log_test("Create Tile", success, f"Status: {status}")
+        
+        if success and 'id' in data:
+            tile_id = data['id']
+            self.created_items['tiles'].append(tile_id)
             
-            conn.close()
+            # Get all tiles
+            success, data, status = self.make_request('GET', 'tiles')
+            self.log_test("Get Tiles", success, f"Found {len(data) if isinstance(data, list) else 0} tiles")
             
-            if tiles_has_active and misc_has_active:
-                return self.log_test("Active Column Migration", True, "Both tables have active column")
-            else:
-                missing = []
-                if not tiles_has_active:
-                    missing.append("tiles")
-                if not misc_has_active:
-                    missing.append("misc_items")
-                return self.log_test("Active Column Migration", False, f"Missing active column in: {missing}")
+            # Test status toggle
+            success, data, status = self.make_request('PUT', f'tiles/{tile_id}/status')
+            self.log_test("Toggle Tile Status", success, f"Status: {status}")
+            
+            return True
+        return False
+
+    def test_misc_items_crud(self):
+        """Test misc items CRUD operations"""
+        print("\n🔍 Testing Misc Items Management...")
+        
+        # Create misc item
+        item_data = {
+            "name": "Test Adhesive",
+            "unit_label": "kg",
+            "current_cost": 25.0,
+            "description": "Test adhesive for tiles"
+        }
+        
+        success, data, status = self.make_request('POST', 'misc-items', item_data)
+        self.log_test("Create Misc Item", success, f"Status: {status}")
+        
+        if success and 'id' in data:
+            item_id = data['id']
+            self.created_items['misc_items'].append(item_id)
+            
+            # Get all misc items
+            success, data, status = self.make_request('GET', 'misc-items')
+            self.log_test("Get Misc Items", success, f"Found {len(data) if isinstance(data, list) else 0} items")
+            
+            # Test status toggle
+            success, data, status = self.make_request('PUT', f'misc-items/{item_id}/status')
+            self.log_test("Toggle Misc Item Status", success, f"Status: {status}")
+            
+            return True
+        return False
+
+    def test_purchase_entries(self):
+        """Test purchase entries"""
+        print("\n🔍 Testing Purchase Entries...")
+        
+        # Ensure we have items to purchase
+        if not self.created_items['tiles']:
+            self.test_tiles_crud()
+        if not self.created_items['misc_items']:
+            self.test_misc_items_crud()
+        
+        if not self.created_items['tiles'] and not self.created_items['misc_items']:
+            self.log_test("Create Purchase Entry", False, "No items available")
+            return False
+        
+        # Create purchase entry for tile
+        if self.created_items['tiles']:
+            purchase_data = {
+                "item_id": self.created_items['tiles'][0],
+                "item_type": "tile",
+                "purchase_date": datetime.now(timezone.utc).isoformat(),
+                "total_quantity": 10.0,
+                "damage_percentage": 2.0,
+                "cost_per_unit": 95.0,
+                "transport_cost": 100.0,
+                "supplier_name": "Test Supplier",
+                "invoice_number": "TEST-001",
+                "notes": "Test purchase entry"
+            }
+            
+            success, data, status = self.make_request('POST', 'purchase-entries', purchase_data)
+            self.log_test("Create Purchase Entry (Tile)", success, f"Status: {status}")
+            
+            if success and 'id' in data:
+                self.created_items['purchase_entries'].append(data['id'])
+        
+        # Create purchase entry for misc item
+        if self.created_items['misc_items']:
+            purchase_data = {
+                "item_id": self.created_items['misc_items'][0],
+                "item_type": "misc",
+                "purchase_date": datetime.now(timezone.utc).isoformat(),
+                "total_quantity": 50.0,
+                "damage_percentage": 0.0,
+                "cost_per_unit": 24.0,
+                "transport_cost": 50.0,
+                "supplier_name": "Test Supplier",
+                "invoice_number": "TEST-002",
+                "notes": "Test misc purchase"
+            }
+            
+            success, data, status = self.make_request('POST', 'purchase-entries', purchase_data)
+            self.log_test("Create Purchase Entry (Misc)", success, f"Status: {status}")
+        
+        # Get purchase entries
+        success, data, status = self.make_request('GET', 'purchase-entries')
+        self.log_test("Get Purchase Entries", success, f"Found {len(data) if isinstance(data, list) else 0} entries")
+        
+        return True
+
+    def test_quotations(self):
+        """Test quotation management"""
+        print("\n🔍 Testing Quotation Management...")
+        
+        # Create quotation
+        quotation_data = {
+            "customer_name": "Test Customer",
+            "firm_name": "Test Firm Ltd",
+            "phone": "9876543210",
+            "customer_gst": "27ABCDE1234F1Z5",
+            "notes": "Test quotation"
+        }
+        
+        success, data, status = self.make_request('POST', 'quotations', quotation_data)
+        self.log_test("Create Quotation", success, f"Status: {status}")
+        
+        if success and 'id' in data:
+            quotation_id = data['id']
+            self.created_items['quotations'].append(quotation_id)
+            
+            # Get quotation details
+            success, data, status = self.make_request('GET', f'quotations/{quotation_id}')
+            self.log_test("Get Quotation Details", success, f"Status: {status}")
+            
+            # Add item to quotation (if we have items with stock)
+            if self.created_items['tiles']:
+                item_data = {
+                    "item_id": self.created_items['tiles'][0],
+                    "item_type": "tile",
+                    "purpose": "Test purpose",
+                    "quantity": 2.0,
+                    "rate_per_unit": 110.0
+                }
                 
-        except Exception as e:
-            return self.log_test("Active Column Migration", False, f"Error: {str(e)}")
-
-    def test_database_views(self):
-        """Test if current_tiles_stock and current_misc_stock views exist"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # Check for views
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='view'")
-            views = [row[0] for row in cursor.fetchall()]
-            
-            required_views = ['current_tiles_stock', 'current_misc_stock']
-            missing_views = [view for view in required_views if view not in views]
-            
-            if missing_views:
-                conn.close()
-                return self.log_test("Database Views", False, f"Missing views: {missing_views}")
-            
-            # Test if views return data
-            cursor.execute("SELECT COUNT(*) FROM current_tiles_stock")
-            tiles_count = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(*) FROM current_misc_stock")
-            misc_count = cursor.fetchone()[0]
-            
-            conn.close()
-            return self.log_test("Database Views", True, f"Views exist - Tiles: {tiles_count}, Misc: {misc_count}")
-            
-        except Exception as e:
-            return self.log_test("Database Views", False, f"Error: {str(e)}")
-
-    def test_web_server_response(self):
-        """Test if web server is responding"""
-        try:
-            response = self.session.get(f"{self.base_url}/login.php", timeout=10)
-            if response.status_code == 200:
-                return self.log_test("Web Server Response", True, f"Status: {response.status_code}")
-            else:
-                return self.log_test("Web Server Response", False, f"Status: {response.status_code}")
-        except Exception as e:
-            return self.log_test("Web Server Response", False, f"Error: {str(e)}")
-
-    def test_quotation_enhanced_page(self):
-        """Test if quotation_enhanced.php loads without errors"""
-        try:
-            # First try to access login page to get session
-            login_response = self.session.get(f"{self.base_url}/login.php")
-            
-            # Try to access quotation page (might redirect to login)
-            response = self.session.get(f"{self.base_url}/quotation_enhanced.php", timeout=10)
-            
-            if response.status_code == 200:
-                # Check if page contains expected content
-                content = response.text.lower()
-                if "quotation" in content and "create" in content:
-                    return self.log_test("Quotation Enhanced Page", True, "Page loads with expected content")
-                else:
-                    return self.log_test("Quotation Enhanced Page", False, "Page loads but missing expected content")
-            else:
-                return self.log_test("Quotation Enhanced Page", False, f"Status: {response.status_code}")
+                success, data, status = self.make_request('POST', f'quotations/{quotation_id}/items', item_data)
+                self.log_test("Add Item to Quotation", success, f"Status: {status}")
                 
-        except Exception as e:
-            return self.log_test("Quotation Enhanced Page", False, f"Error: {str(e)}")
+                if success and 'id' in data:
+                    item_id = data['id']
+                    
+                    # Delete quotation item
+                    success, data, status = self.make_request('DELETE', f'quotations/{quotation_id}/items/{item_id}')
+                    self.log_test("Delete Quotation Item", success, f"Status: {status}")
+        
+        # Get all quotations
+        success, data, status = self.make_request('GET', 'quotations')
+        self.log_test("Get All Quotations", success, f"Found {len(data) if isinstance(data, list) else 0} quotations")
+        
+        return True
 
-    def test_quotation_view_page(self):
-        """Test if quotation_view.php exists and loads"""
-        try:
-            # Test with a dummy ID - should either show quotation or redirect/error gracefully
-            response = self.session.get(f"{self.base_url}/quotation_view.php?id=1", timeout=10)
-            
-            if response.status_code == 200:
-                return self.log_test("Quotation View Page", True, "Page exists and loads")
-            elif response.status_code == 302:
-                return self.log_test("Quotation View Page", True, "Page exists (redirected)")
-            else:
-                return self.log_test("Quotation View Page", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            return self.log_test("Quotation View Page", False, f"Error: {str(e)}")
+    def test_reports(self):
+        """Test reporting endpoints"""
+        print("\n🔍 Testing Reports...")
+        
+        # Inventory report
+        success, data, status = self.make_request('GET', 'reports/inventory')
+        self.log_test("Inventory Report", success, f"Status: {status}")
+        
+        if success and isinstance(data, dict):
+            summary = data.get('summary', {})
+            tiles_count = len(data.get('tiles', []))
+            misc_count = len(data.get('misc_items', []))
+            self.log_test("Inventory Report Content", True, 
+                         f"Tiles: {tiles_count}, Misc: {misc_count}, Total Value: ₹{summary.get('total_inventory_value', 0)}")
+        
+        # Sales report
+        success, data, status = self.make_request('GET', 'reports/sales', params={'days': 30})
+        self.log_test("Sales Report", success, f"Status: {status}")
+        
+        if success and isinstance(data, dict):
+            quotations_count = data.get('total_quotations', 0)
+            total_value = data.get('total_quotation_value', 0)
+            self.log_test("Sales Report Content", True, 
+                         f"Quotations: {quotations_count}, Total Value: ₹{total_value}")
+        
+        return True
 
-    def test_other_purchase_page(self):
-        """Test if other_purchase.php loads with enhanced functionality"""
-        try:
-            response = self.session.get(f"{self.base_url}/other_purchase.php", timeout=10)
-            
-            if response.status_code == 200:
-                content = response.text.lower()
-                # Check for hide/show functionality indicators
-                if "active" in content and "hide" in content:
-                    return self.log_test("Other Purchase Page", True, "Page loads with hide/show functionality")
-                else:
-                    return self.log_test("Other Purchase Page", True, "Page loads but hide/show functionality unclear")
-            else:
-                return self.log_test("Other Purchase Page", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            return self.log_test("Other Purchase Page", False, f"Error: {str(e)}")
-
-    def test_inventory_report_page(self):
-        """Test if report_inventory_enhanced.php loads"""
-        try:
-            response = self.session.get(f"{self.base_url}/report_inventory_enhanced.php", timeout=10)
-            
-            if response.status_code == 200:
-                return self.log_test("Inventory Report Page", True, "Page loads successfully")
-            elif response.status_code == 302:
-                return self.log_test("Inventory Report Page", True, "Page exists (redirected - likely auth)")
-            else:
-                return self.log_test("Inventory Report Page", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            return self.log_test("Inventory Report Page", False, f"Error: {str(e)}")
-
-    def test_daily_pl_report_page(self):
-        """Test if report_daily_pl.php loads"""
-        try:
-            response = self.session.get(f"{self.base_url}/report_daily_pl.php", timeout=10)
-            
-            if response.status_code == 200:
-                return self.log_test("Daily P&L Report Page", True, "Page loads successfully")
-            elif response.status_code == 302:
-                return self.log_test("Daily P&L Report Page", True, "Page exists (redirected - likely auth)")
-            else:
-                return self.log_test("Daily P&L Report Page", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            return self.log_test("Daily P&L Report Page", False, f"Error: {str(e)}")
-
-    def test_stock_calculation_consistency(self):
-        """Test if stock calculations are consistent across views"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # Test tiles stock calculation
-            cursor.execute("""
-                SELECT t.id, t.name, 
-                       COALESCE(cts.total_stock_boxes, 0) as view_stock,
-                       COALESCE(SUM(pe.usable_boxes), 0) as direct_stock
-                FROM tiles t
-                LEFT JOIN current_tiles_stock cts ON t.id = cts.id
-                LEFT JOIN purchase_entries_tiles pe ON t.id = pe.tile_id
-                WHERE t.active = 1
-                GROUP BY t.id, t.name, cts.total_stock_boxes
-                LIMIT 5
-            """)
-            
-            tiles_results = cursor.fetchall()
-            tiles_consistent = True
-            
-            for tile in tiles_results:
-                if abs(tile[2] - tile[3]) > 0.01:  # Allow small floating point differences
-                    tiles_consistent = False
-                    break
-            
-            # Test misc items stock calculation
-            cursor.execute("""
-                SELECT m.id, m.name,
-                       COALESCE(cms.total_stock_quantity, 0) as view_stock,
-                       COALESCE(SUM(pe.usable_quantity), 0) as direct_stock
-                FROM misc_items m
-                LEFT JOIN current_misc_stock cms ON m.id = cms.id
-                LEFT JOIN purchase_entries_misc pe ON m.id = pe.misc_item_id
-                WHERE m.active = 1
-                GROUP BY m.id, m.name, cms.total_stock_quantity
-                LIMIT 5
-            """)
-            
-            misc_results = cursor.fetchall()
-            misc_consistent = True
-            
-            for item in misc_results:
-                if abs(item[2] - item[3]) > 0.01:  # Allow small floating point differences
-                    misc_consistent = False
-                    break
-            
-            conn.close()
-            
-            if tiles_consistent and misc_consistent:
-                return self.log_test("Stock Calculation Consistency", True, 
-                                   f"Tested {len(tiles_results)} tiles, {len(misc_results)} misc items")
-            else:
-                return self.log_test("Stock Calculation Consistency", False, 
-                                   f"Inconsistencies found in stock calculations")
-                
-        except Exception as e:
-            return self.log_test("Stock Calculation Consistency", False, f"Error: {str(e)}")
+    def test_stock_calculations(self):
+        """Test stock calculation accuracy"""
+        print("\n🔍 Testing Stock Calculations...")
+        
+        # Get tiles with stock info
+        success, data, status = self.make_request('GET', 'tiles')
+        if success and isinstance(data, list):
+            for tile in data:
+                if tile.get('current_stock', 0) > 0:
+                    stock = tile.get('current_stock', 0)
+                    value = tile.get('stock_value', 0)
+                    avg_cost = tile.get('average_cost', 0)
+                    
+                    # Verify stock value calculation
+                    expected_value = stock * avg_cost
+                    if abs(value - expected_value) < 0.01:  # Allow small floating point differences
+                        self.log_test(f"Stock Calculation for {tile['name']}", True, 
+                                     f"Stock: {stock:.2f}, Value: ₹{value:.2f}")
+                    else:
+                        self.log_test(f"Stock Calculation for {tile['name']}", False, 
+                                     f"Expected: ₹{expected_value:.2f}, Got: ₹{value:.2f}")
+        
+        return True
 
     def run_all_tests(self):
-        """Run all backend tests"""
-        print("🔍 Starting Backend Tests for PHP/SQLite Tile Inventory System")
+        """Run comprehensive test suite"""
+        print("🚀 Starting Tile Inventory API Test Suite")
         print("=" * 60)
         
-        # Database tests
-        self.test_database_connection()
-        self.test_active_column_migration()
-        self.test_database_views()
-        self.test_stock_calculation_consistency()
+        # Test sequence
+        tests = [
+            self.test_api_health,
+            self.test_tile_sizes_crud,
+            self.test_tiles_crud,
+            self.test_misc_items_crud,
+            self.test_purchase_entries,
+            self.test_quotations,
+            self.test_reports,
+            self.test_stock_calculations
+        ]
         
-        # Web server tests
-        self.test_web_server_response()
-        self.test_quotation_enhanced_page()
-        self.test_quotation_view_page()
-        self.test_other_purchase_page()
-        self.test_inventory_report_page()
-        self.test_daily_pl_report_page()
+        for test in tests:
+            try:
+                test()
+            except Exception as e:
+                print(f"❌ Test {test.__name__} failed with exception: {str(e)}")
         
-        print("=" * 60)
-        print(f"📊 Backend Tests Summary: {self.tests_passed}/{self.tests_run} passed")
+        # Print summary
+        print("\n" + "=" * 60)
+        print(f"📊 Test Results: {self.tests_passed}/{self.tests_run} tests passed")
+        print(f"✅ Success Rate: {(self.tests_passed/self.tests_run*100):.1f}%")
         
         if self.tests_passed == self.tests_run:
-            print("🎉 All backend tests passed!")
+            print("🎉 All tests passed! Backend API is fully functional.")
             return 0
         else:
-            print(f"⚠️  {self.tests_run - self.tests_passed} tests failed")
+            print("⚠️  Some tests failed. Check the details above.")
             return 1
 
 def main():
-    tester = TileInventoryTester()
+    tester = TileInventoryAPITester()
     return tester.run_all_tests()
 
 if __name__ == "__main__":
