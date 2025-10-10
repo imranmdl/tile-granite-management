@@ -1,53 +1,74 @@
 #!/usr/bin/env python3
 """
-Backend Test for PHP/SQLite Tile Inventory System
-Tests database schema, stock calculations, and API endpoints
+Comprehensive backend API testing for Tile Inventory Management System
+Tests all FastAPI endpoints for functionality and integration
 """
-
 import requests
-import sqlite3
 import sys
-import os
-from datetime import datetime
+import json
+from datetime import datetime, timezone
+from typing import Dict, Any, List
 
-class TileInventoryTester:
+class TileInventoryAPITester:
     def __init__(self, base_url="https://inventory-tracker-159.preview.emergentagent.com"):
         self.base_url = base_url
-        self.db_path = "/app/data/app.sqlite"
+        self.api_url = f"{base_url}/api"
         self.tests_run = 0
         self.tests_passed = 0
-        self.session = requests.Session()
-        
-    def log_test(self, name, success, message=""):
+        self.created_items = {
+            'tile_sizes': [],
+            'tiles': [],
+            'misc_items': [],
+            'purchase_entries': [],
+            'quotations': [],
+            'quotation_items': []
+        }
+
+    def log_test(self, name: str, success: bool, details: str = ""):
         """Log test result"""
         self.tests_run += 1
         if success:
             self.tests_passed += 1
-            print(f"✅ {name}: PASSED {message}")
+            print(f"✅ {name}")
         else:
-            print(f"❌ {name}: FAILED {message}")
-        return success
+            print(f"❌ {name} - {details}")
+        
+        if details and success:
+            print(f"   ℹ️  {details}")
 
-    def test_database_connection(self):
-        """Test SQLite database connection and basic structure"""
+    def make_request(self, method: str, endpoint: str, data: Dict = None, params: Dict = None) -> tuple:
+        """Make HTTP request and return (success, response_data, status_code)"""
+        url = f"{self.api_url}/{endpoint}"
+        headers = {'Content-Type': 'application/json'}
+        
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            if method == 'GET':
+                response = requests.get(url, headers=headers, params=params)
+            elif method == 'POST':
+                response = requests.post(url, json=data, headers=headers)
+            elif method == 'PUT':
+                response = requests.put(url, json=data, headers=headers)
+            elif method == 'DELETE':
+                response = requests.delete(url, headers=headers)
+            else:
+                return False, {}, 0
             
-            # Check if database file exists and is accessible
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tables = [row[0] for row in cursor.fetchall()]
+            try:
+                response_data = response.json()
+            except:
+                response_data = {"raw_response": response.text}
             
-            required_tables = ['tiles', 'misc_items', 'quotations', 'quotation_items', 
-                             'quotation_misc_items', 'purchase_entries_tiles', 'purchase_entries_misc']
+            return response.status_code < 400, response_data, response.status_code
             
-            missing_tables = [table for table in required_tables if table not in tables]
-            
-            if missing_tables:
-                return self.log_test("Database Connection", False, f"Missing tables: {missing_tables}")
-            
-            conn.close()
-            return self.log_test("Database Connection", True, f"Found {len(tables)} tables")
+        except Exception as e:
+            return False, {"error": str(e)}, 0
+
+    def test_api_health(self):
+        """Test basic API connectivity"""
+        print("\n🔍 Testing API Health...")
+        success, data, status = self.make_request('GET', '')
+        self.log_test("API Health Check", success, f"Status: {status}, Response: {data.get('message', 'No message')}")
+        return success
             
         except Exception as e:
             return self.log_test("Database Connection", False, f"Error: {str(e)}")
