@@ -237,7 +237,7 @@ class InventoryUpdates {
                     SUM(total_boxes * COALESCE(damage_percentage, 0) / 100) as total_damage_boxes,
                     CASE 
                         WHEN SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100) > 0
-                        THEN SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100 * COALESCE(cost_per_box, 0)) / SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100)
+                        THEN SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100 * (COALESCE(cost_per_box, 0) + COALESCE(transport_cost, 0) / NULLIF(total_boxes, 0))) / SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100)
                         ELSE 0
                     END as weighted_avg_cost
                 FROM purchase_entries_tiles 
