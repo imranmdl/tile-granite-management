@@ -471,38 +471,70 @@ function managePermissions(userId, username, role) {
 
 function loadUserPermissions(userId) {
     const permissions = [
-        {group: 'Users', items: [
+        {group: 'Users & Access', items: [
             {key: 'users.view', label: 'View Users'},
             {key: 'users.create', label: 'Create Users'},
             {key: 'users.edit', label: 'Edit Users'},
-            {key: 'users.delete', label: 'Delete Users'}
+            {key: 'users.delete', label: 'Delete Users'},
+            {key: 'users.manage_permissions', label: 'Manage User Permissions'}
         ]},
-        {group: 'Inventory', items: [
+        {group: 'Inventory Management', items: [
             {key: 'inventory.view', label: 'View Inventory'},
-            {key: 'inventory.create', label: 'Add Inventory'},
-            {key: 'inventory.edit', label: 'Edit Inventory'},
-            {key: 'inventory.delete', label: 'Delete Inventory'},
-            {key: 'inventory.view_costs', label: 'View Costs'}
+            {key: 'inventory.create', label: 'Add Inventory Items'},
+            {key: 'inventory.edit', label: 'Edit Inventory Items'},
+            {key: 'inventory.delete', label: 'Delete Inventory Items'},
+            {key: 'inventory.view_costs', label: 'View Item Costs'},
+            {key: 'inventory.manage_status', label: 'Hide/Show Items'},
+            {key: 'inventory.summary', label: 'View Inventory Summary'},
+            {key: 'inventory.enhanced', label: 'Enhanced Inventory Features'}
         ]},
-        {group: 'Sales', items: [
+        {group: 'Purchase Management', items: [
+            {key: 'purchase.view', label: 'View Purchases'},
+            {key: 'purchase.create', label: 'Add Purchase Entries'},
+            {key: 'purchase.tiles', label: 'Tile Purchase Entry'},
+            {key: 'purchase.misc', label: 'Other Items Purchase'},
+            {key: 'purchase.edit', label: 'Edit Purchase Entries'},
+            {key: 'purchase.enhanced', label: 'Enhanced Purchase Features'}
+        ]},
+        {group: 'Sales & Quotations', items: [
             {key: 'quotes.view', label: 'View Quotations'},
             {key: 'quotes.create', label: 'Create Quotations'},
             {key: 'quotes.edit', label: 'Edit Quotations'},
             {key: 'quotes.delete', label: 'Delete Quotations'},
+            {key: 'quotes.enhanced', label: 'Enhanced Quotation Features'},
+            {key: 'quotes.list', label: 'Quotation List Management'},
             {key: 'invoices.view', label: 'View Invoices'},
             {key: 'invoices.create', label: 'Create Invoices'},
             {key: 'invoices.edit', label: 'Edit Invoices'},
-            {key: 'invoices.delete', label: 'Delete Invoices'}
+            {key: 'invoices.delete', label: 'Delete Invoices'},
+            {key: 'invoices.enhanced', label: 'Enhanced Invoice Features'}
         ]},
-        {group: 'Reports', items: [
-            {key: 'reports.view', label: 'View Reports'},
-            {key: 'reports.profit_loss', label: 'View P&L Reports'}
+        {group: 'Reports & Analytics', items: [
+            {key: 'reports.view', label: 'View Basic Reports'},
+            {key: 'reports.profit_loss', label: 'View P&L Reports'},
+            {key: 'reports.daily_pl', label: 'Daily P&L Reports'},
+            {key: 'reports.sales', label: 'Sales Reports'},
+            {key: 'reports.inventory', label: 'Inventory Reports'},
+            {key: 'reports.commission', label: 'Commission Reports'},
+            {key: 'reports.damage', label: 'Damage Reports'},
+            {key: 'reports.enhanced', label: 'Enhanced Reporting Features'},
+            {key: 'reports.dashboard', label: 'Reports Dashboard'}
         ]},
-        {group: 'System', items: [
+        {group: 'Commission & Finance', items: [
             {key: 'commission.view', label: 'View Commission'},
             {key: 'commission.manage', label: 'Manage Commission'},
+            {key: 'commission.reports', label: 'Commission Reports'},
+            {key: 'finance.view_costs', label: 'View All Costs'},
+            {key: 'finance.transport_costs', label: 'Manage Transport Costs'},
+            {key: 'finance.profit_analysis', label: 'Profit Analysis'}
+        ]},
+        {group: 'System Settings', items: [
             {key: 'settings.view', label: 'View Settings'},
-            {key: 'settings.edit', label: 'Edit Settings'}
+            {key: 'settings.edit', label: 'Edit Settings'},
+            {key: 'settings.backup', label: 'System Backup'},
+            {key: 'settings.maintenance', label: 'System Maintenance'},
+            {key: 'tiles.manage', label: 'Manage Tile Types & Sizes'},
+            {key: 'misc_items.manage', label: 'Manage Misc Items'}
         ]}
     ];
     
