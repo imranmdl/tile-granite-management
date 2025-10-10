@@ -27,25 +27,20 @@ $search = trim($_GET['search'] ?? '');
 $sort_by = $_GET['sort_by'] ?? 'name';
 $sort_order = $_GET['sort_order'] ?? 'ASC';
 
-// Get tiles inventory with current stock (Fixed schema)
+// Get tiles inventory with current stock (CORRECTED to use proper views)
 $tiles_sql = "
     SELECT 
         t.id,
         t.name,
         ts.label as size_label,
-        t.current_cost,
-        t.last_cost,
-        t.average_cost,
+        COALESCE(cts.avg_cost_per_box_with_transport, 0) as current_cost,
+        COALESCE(cts.avg_cost_per_box, 0) as last_cost,
+        COALESCE(cts.avg_cost_per_box_with_transport, 0) as average_cost,
         t.photo_path,
         COALESCE(cts.total_stock_boxes, 0) as current_stock,
-        COALESCE(cts.total_stock_boxes * t.current_cost, 0) as stock_value,
+        COALESCE(cts.total_stock_boxes * cts.avg_cost_per_box_with_transport, 0) as stock_value,
         v.name as vendor_name,
-        (
-            SELECT COUNT(*) 
-            FROM purchase_entries_tiles pet 
-            WHERE pet.tile_id = t.id 
-            AND DATE(pet.purchase_date) >= DATE('now', '-30 days')
-        ) as recent_purchases,
+        COALESCE(cts.purchase_count, 0) as recent_purchases,
         (
             SELECT SUM(ii.boxes_decimal) 
             FROM invoice_items ii 
@@ -58,7 +53,7 @@ $tiles_sql = "
     JOIN tile_sizes ts ON t.size_id = ts.id
     LEFT JOIN vendors v ON t.vendor_id = v.id
     LEFT JOIN current_tiles_stock cts ON t.id = cts.id
-    WHERE 1=1
+    WHERE t.active = 1
 ";
 
 $params = [];
