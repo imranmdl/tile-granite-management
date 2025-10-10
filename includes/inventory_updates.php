@@ -213,34 +213,39 @@ class InventoryUpdates {
             FROM tiles t
             JOIN tile_sizes ts ON t.size_id = ts.id
             
-            -- Aggregate purchase data
+            -- Aggregate purchase data (FIXED to properly combine both tables)
             LEFT JOIN (
                 SELECT 
                     tile_id,
-                    SUM(boxes_in) as total_boxes_received,
-                    SUM(boxes_in - COALESCE(damage_boxes, 0)) as total_net_boxes,
-                    SUM(COALESCE(damage_boxes, 0)) as total_damage_boxes,
+                    SUM(total_boxes_received) as total_boxes_received,
+                    SUM(total_net_boxes) as total_net_boxes,
+                    SUM(total_damage_boxes) as total_damage_boxes,
                     CASE 
-                        WHEN SUM(boxes_in - COALESCE(damage_boxes, 0)) > 0 
-                        THEN SUM((boxes_in - COALESCE(damage_boxes, 0)) * COALESCE(per_box_value, 0)) / SUM(boxes_in - COALESCE(damage_boxes, 0))
+                        WHEN SUM(total_net_boxes) > 0 
+                        THEN SUM(total_cost) / SUM(total_net_boxes)
                         ELSE 0 
                     END as weighted_avg_cost
-                FROM inventory_items 
-                GROUP BY tile_id
-                
-                UNION ALL
-                
-                SELECT 
-                    tile_id,
-                    SUM(total_boxes) as total_boxes_received,
-                    SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100) as total_net_boxes,
-                    SUM(total_boxes * COALESCE(damage_percentage, 0) / 100) as total_damage_boxes,
-                    CASE 
-                        WHEN SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100) > 0
-                        THEN SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100 * (COALESCE(cost_per_box, 0) + COALESCE(transport_cost, 0) / NULLIF(total_boxes, 0))) / SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100)
-                        ELSE 0
-                    END as weighted_avg_cost
-                FROM purchase_entries_tiles 
+                FROM (
+                    SELECT 
+                        tile_id,
+                        SUM(boxes_in) as total_boxes_received,
+                        SUM(boxes_in - COALESCE(damage_boxes, 0)) as total_net_boxes,
+                        SUM(COALESCE(damage_boxes, 0)) as total_damage_boxes,
+                        SUM((boxes_in - COALESCE(damage_boxes, 0)) * (COALESCE(per_box_value, 0) + COALESCE(transport_per_box, 0))) as total_cost
+                    FROM inventory_items 
+                    GROUP BY tile_id
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        tile_id,
+                        SUM(total_boxes) as total_boxes_received,
+                        SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100) as total_net_boxes,
+                        SUM(total_boxes * COALESCE(damage_percentage, 0) / 100) as total_damage_boxes,
+                        SUM(total_boxes * (100 - COALESCE(damage_percentage, 0)) / 100 * (COALESCE(cost_per_box, 0) + COALESCE(transport_cost, 0) / NULLIF(total_boxes, 0))) as total_cost
+                    FROM purchase_entries_tiles 
+                    GROUP BY tile_id
+                ) combined_purchases
                 GROUP BY tile_id
             ) purchases ON t.id = purchases.tile_id
             
