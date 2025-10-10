@@ -76,17 +76,17 @@ if ($low_stock_only) {
     $tiles_sql .= " AND COALESCE(cts.total_stock_boxes, 0) < 10";
 }
 
-// Get misc items inventory (CORRECTED to use proper views)
+// Get misc items inventory (CORRECTED to use actual inventory tables)
 $misc_sql = "
     SELECT 
         m.id,
         m.name,
         m.unit_label,
-        COALESCE(cms.avg_cost_per_unit_with_transport, 0) as current_cost,
+        COALESCE(misc_summary.avg_cost_per_unit, 0) as current_cost,
         m.photo_path,
-        COALESCE(cms.total_stock_quantity, 0) as current_stock,
-        COALESCE(cms.total_stock_quantity * cms.avg_cost_per_unit_with_transport, 0) as stock_value,
-        COALESCE(cms.purchase_count, 0) as recent_purchases,
+        COALESCE(misc_summary.current_stock_quantity, 0) as current_stock,
+        COALESCE(misc_summary.current_stock_quantity * misc_summary.avg_cost_per_unit, 0) as stock_value,
+        COALESCE(misc_summary.total_purchases, 0) as recent_purchases,
         (
             SELECT SUM(imi.qty_units) 
             FROM invoice_misc_items imi 
@@ -96,8 +96,17 @@ $misc_sql = "
             AND i.status != 'CANCELLED'
         ) as recent_sales
     FROM misc_items m
-    LEFT JOIN current_misc_stock cms ON m.id = cms.id
-    WHERE m.active = 1
+    LEFT JOIN (
+        SELECT 
+            mii.misc_item_id,
+            SUM(mii.qty_in - COALESCE(mii.damage_units, 0)) as current_stock_quantity,
+            COUNT(*) as total_purchases,
+            SUM((mii.qty_in - COALESCE(mii.damage_units, 0)) * (mii.cost_per_unit + COALESCE(mii.transport_cost, 0) / NULLIF(mii.qty_in, 0))) / 
+                NULLIF(SUM(mii.qty_in - COALESCE(mii.damage_units, 0)), 0) as avg_cost_per_unit
+        FROM misc_inventory_items mii
+        GROUP BY mii.misc_item_id
+    ) misc_summary ON m.id = misc_summary.misc_item_id
+    WHERE COALESCE(m.active, 1) = 1
 ";
 
 if ($search) {
